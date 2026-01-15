@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signInWithEmail, signInWithGoogle } from '@/app/actions/auth'
+import { signInWithGoogle } from '@/app/actions/auth'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 
@@ -18,13 +18,29 @@ export default function LoginForm() {
     setError('')
     setLoading(true)
 
-    const result = await signInWithEmail(email, password)
-    
-    if (result?.error) {
-      setError(result.error)
+    try {
+      // Use route handler instead of server action for proper cookie handling
+      const res = await fetch('/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Login failed')
+        setLoading(false)
+        return
+      }
+
+      // Redirect to the appropriate page
+      router.push(data.redirectTo)
+      router.refresh()
+    } catch (err) {
+      setError('An error occurred. Please try again.')
       setLoading(false)
     }
-    // If successful, the action will redirect
   }
 
   const handleGoogleLogin = async () => {
