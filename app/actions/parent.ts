@@ -82,6 +82,7 @@ export async function getMyChildren(parentId: string) {
     .eq('parent_id', parentId)
 
   if (linksError) {
+    console.error('getMyChildren - linksError:', linksError)
     throw new Error('Failed to fetch children')
   }
 
