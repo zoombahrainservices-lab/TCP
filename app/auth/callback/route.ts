@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -19,9 +19,6 @@ export async function GET(request: Request) {
     try {
       const cookieStore = await cookies()
       
-      // Track cookies to set on response
-      const cookiesToSet: { name: string; value: string; options: CookieOptions }[] = []
-      
       const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -30,9 +27,9 @@ export async function GET(request: Request) {
             getAll() {
               return cookieStore.getAll()
             },
-            setAll(cookies) {
-              cookies.forEach((cookie) => {
-                cookiesToSet.push(cookie)
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                cookieStore.set(name, value, options)
               })
             },
           },
@@ -89,15 +86,8 @@ export async function GET(request: Request) {
         redirectPath = redirectMap[profile.role] || '/parent'
       }
       
-      // Create redirect response with cookies
-      const response = NextResponse.redirect(`${origin}${redirectPath}`)
-      
-      // Set all the auth cookies on the response
-      cookiesToSet.forEach(({ name, value, options }) => {
-        response.cookies.set(name, value, options)
-      })
-      
-      return response
+      // Redirect - cookies are already set on the cookie store
+      return NextResponse.redirect(`${origin}${redirectPath}`)
       
     } catch (err) {
       console.error('Callback error:', err)

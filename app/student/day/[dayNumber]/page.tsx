@@ -47,7 +47,7 @@ export default function DayPage() {
       try {
         const session = await getSession()
         if (!session) {
-          router.push('/auth/login')
+          // Auth is handled by layout, this shouldn't happen
           return
         }
         

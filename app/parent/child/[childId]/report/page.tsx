@@ -1,67 +1,25 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { getSession } from '@/app/actions/auth'
+import { requireAuth } from '@/lib/auth/guards'
 import { getChildReport } from '@/app/actions/parent'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import Button from '@/components/ui/Button'
-import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
-export default function ChildReportPage() {
-  const params = useParams()
-  const router = useRouter()
-  const childId = params.childId as string
-
-  const [loading, setLoading] = useState(true)
-  const [report, setReport] = useState<any>(null)
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const session = await getSession()
-        if (!session) {
-          router.push('/auth/login')
-          return
-        }
-        
-        const reportData = await getChildReport(session.id, childId)
-        setReport(reportData)
-      } catch (error) {
-        console.error('Failed to load report:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadData()
-  }, [childId, router])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <LoadingSpinner size="lg" />
-      </div>
-    )
-  }
+export default async function ChildReportPage({ params }: { params: { childId: string } }) {
+  const user = await requireAuth('parent')
+  const report = await getChildReport(user.id, params.childId)
 
   if (!report) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <p className="text-red-600 text-lg mb-4">Failed to load report</p>
-        <Button onClick={() => router.push('/parent')}>Back to Dashboard</Button>
-      </div>
-    )
+    redirect('/parent')
   }
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Screen Actions (not printed) */}
       <div className="mb-6 flex justify-between items-center print:hidden">
-        <Link href={`/parent/child/${childId}`} className="text-blue-600 hover:text-blue-700">
+        <Link href={`/parent/child/${params.childId}`} className="text-blue-600 hover:text-blue-700">
           ← Back to Progress
         </Link>
-        <Button onClick={() => window.print()}>Print Report</Button>
+        <Button onClick={() => typeof window !== 'undefined' && window.print()}>Print Report</Button>
       </div>
 
       {/* Report Content (print-friendly) */}
