@@ -1,13 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  const error_param = searchParams.get('error')
-  const error_description = searchParams.get('error_description')
+export async function GET(request: NextRequest) {
+  const requestUrl = new URL(request.url)
+  const code = requestUrl.searchParams.get('code')
+  const error_param = requestUrl.searchParams.get('error')
+  const error_description = requestUrl.searchParams.get('error_description')
+  const origin = requestUrl.origin
 
   // If there's an error from the OAuth provider
   if (error_param) {
@@ -16,26 +16,30 @@ export async function GET(request: Request) {
   }
 
   if (code) {
-    try {
-      const cookieStore = await cookies()
-      
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            getAll() {
-              return cookieStore.getAll()
-            },
-            setAll(cookiesToSet) {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options)
-              })
-            },
+    // Create response that we'll add cookies to
+    let redirectPath = '/parent'
+    
+    // Collect cookies from the exchange
+    const cookiesToSet: { name: string; value: string; options: any }[] = []
+    
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
           },
-        }
-      )
-      
+          setAll(cookies) {
+            cookies.forEach((cookie) => {
+              cookiesToSet.push(cookie)
+            })
+          },
+        },
+      }
+    )
+
+    try {
       const { error } = await supabase.auth.exchangeCodeForSession(code)
       
       if (error) {
@@ -43,7 +47,7 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}/auth/login?error=exchange_failed`)
       }
 
-      // Get user and check if profile exists
+      // Get user
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       
       if (userError || !user) {
@@ -58,8 +62,6 @@ export async function GET(request: Request) {
         .select('role')
         .eq('id', user.id)
         .single()
-      
-      let redirectPath = '/parent'
       
       // If no profile, create one with parent role (default for OAuth)
       if (!profile) {
@@ -86,13 +88,25 @@ export async function GET(request: Request) {
         redirectPath = redirectMap[profile.role] || '/parent'
       }
       
-      // Redirect - cookies are already set on the cookie store
-      return NextResponse.redirect(`${origin}${redirectPath}`)
-      
     } catch (err) {
       console.error('Callback error:', err)
       return NextResponse.redirect(`${origin}/auth/login?error=callback_error`)
     }
+
+    // Create redirect response and attach cookies
+    const response = NextResponse.redirect(`${origin}${redirectPath}`)
+    
+    // Set all auth cookies on the response
+    cookiesToSet.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, {
+        ...options,
+        // Ensure cookies work in production
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      })
+    })
+    
+    return response
   }
 
   // No code provided
