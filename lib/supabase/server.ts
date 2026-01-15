@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
+  // cookies() is synchronous in Next.js 15+ but async in 14
+  // We'll use await for compatibility
   const cookieStore = await cookies()
 
   return createServerClient(
@@ -17,10 +19,8 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options)
             })
-          } catch (error) {
-            // The `set` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+          } catch (_error) {
+            // Ignored in read-only contexts (server components where cookies are read-only)
           }
         },
       },
