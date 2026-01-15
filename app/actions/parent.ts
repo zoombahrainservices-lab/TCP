@@ -41,9 +41,8 @@ export async function createStudentAccount(parentId: string, email: string, full
     return { error: 'Failed to create student profile' }
   }
 
-  // Link parent and child
-  const supabase = await createClient()
-  const { error: linkError } = await supabase
+  // Link parent and child (use adminClient to bypass RLS)
+  const { error: linkError } = await adminClient
     .from('parent_child_links')
     .insert({
       parent_id: parentId,
@@ -51,6 +50,7 @@ export async function createStudentAccount(parentId: string, email: string, full
     })
 
   if (linkError) {
+    console.error('Failed to link parent and child:', linkError)
     return { error: 'Failed to link parent and child' }
   }
 
