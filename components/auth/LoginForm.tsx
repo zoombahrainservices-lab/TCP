@@ -36,6 +36,9 @@ export default function LoginForm() {
     if (result?.error) {
       setError(result.error)
       setLoading(false)
+    } else if (result?.url) {
+      // Redirect to Google OAuth page
+      window.location.href = result.url
     }
   }
 

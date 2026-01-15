@@ -114,14 +114,14 @@ export async function signInWithGoogle() {
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: error.message, url: null }
   }
 
   if (data.url) {
-    redirect(data.url)
+    return { error: null, url: data.url }
   }
 
-  return { error: 'Failed to initiate Google sign-in' }
+  return { error: 'Failed to initiate Google sign-in', url: null }
 }
 
 export async function signOut() {
