@@ -36,7 +36,6 @@ export default function LoginForm() {
 
       // Redirect to the appropriate page
       router.push(data.redirectTo)
-      router.refresh()
     } catch (err) {
       setError('An error occurred. Please try again.')
       setLoading(false)
