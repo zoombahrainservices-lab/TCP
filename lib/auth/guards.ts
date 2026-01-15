@@ -35,7 +35,14 @@ export async function requireAuth(requiredRole?: UserRole): Promise<AuthUser> {
     .eq('id', user.id)
     .single()
 
+  console.log('requireAuth - profile query:', { 
+    hasProfile: !!profile, 
+    role: profile?.role,
+    profileError: profileError?.message 
+  })
+
   if (profileError || !profile) {
+    console.log('requireAuth - No profile found, redirecting to login')
     redirect('/auth/login')
   }
 
