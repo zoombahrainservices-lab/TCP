@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -18,6 +18,10 @@ export async function GET(request: Request) {
   if (code) {
     try {
       const cookieStore = await cookies()
+      
+      // Track cookies to set on response
+      const cookiesToSet: { name: string; value: string; options: CookieOptions }[] = []
+      
       const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,14 +30,15 @@ export async function GET(request: Request) {
             getAll() {
               return cookieStore.getAll()
             },
-            setAll(cookiesToSet) {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options)
+            setAll(cookies) {
+              cookies.forEach((cookie) => {
+                cookiesToSet.push(cookie)
               })
             },
           },
         }
       )
+      
       const { error } = await supabase.auth.exchangeCodeForSession(code)
       
       if (error) {
@@ -49,19 +54,20 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}/auth/login?error=user_not_found`)
       }
 
-      // Check if profile exists
-      const { data: profile, error: profileError } = await supabase
+      // Check if profile exists using admin client
+      const adminClient = createAdminClient()
+      const { data: profile } = await adminClient
         .from('profiles')
-        .select('*')
+        .select('role')
         .eq('id', user.id)
         .single()
+      
+      let redirectPath = '/parent'
       
       // If no profile, create one with parent role (default for OAuth)
       if (!profile) {
         const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
         
-        // Use admin client to bypass RLS for profile creation
-        const adminClient = createAdminClient()
         const { error: insertError } = await adminClient.from('profiles').insert({
           id: user.id,
           full_name: fullName,
@@ -70,32 +76,28 @@ export async function GET(request: Request) {
 
         if (insertError) {
           console.error('Insert profile error:', insertError.message)
-          // Profile might already exist due to race condition, try to fetch again
-          const { data: existingProfile } = await adminClient
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single()
-          
-          if (existingProfile) {
-            return NextResponse.redirect(`${origin}/${existingProfile.role}`)
-          }
           return NextResponse.redirect(`${origin}/auth/login?error=profile_create_failed`)
         }
-        
-        return NextResponse.redirect(`${origin}/parent`)
+      } else {
+        // Redirect based on role
+        const redirectMap: Record<string, string> = {
+          student: '/student',
+          parent: '/parent',
+          mentor: '/mentor',
+          admin: '/admin',
+        }
+        redirectPath = redirectMap[profile.role] || '/parent'
       }
       
-      // Redirect based on role
-      const redirectMap: Record<string, string> = {
-        student: '/student',
-        parent: '/parent',
-        mentor: '/mentor',
-        admin: '/admin',
-      }
+      // Create redirect response with cookies
+      const response = NextResponse.redirect(`${origin}${redirectPath}`)
       
-      const redirectPath = redirectMap[profile.role] || '/parent'
-      return NextResponse.redirect(`${origin}${redirectPath}`)
+      // Set all the auth cookies on the response
+      cookiesToSet.forEach(({ name, value, options }) => {
+        response.cookies.set(name, value, options)
+      })
+      
+      return response
       
     } catch (err) {
       console.error('Callback error:', err)
