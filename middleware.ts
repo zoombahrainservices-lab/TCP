@@ -22,7 +22,16 @@ export async function middleware(request: NextRequest) {
   )
 
   // This validates / refreshes the session if needed
-  await supabase.auth.getUser()
+  const { data: { user }, error } = await supabase.auth.getUser()
+  
+  // DEBUG: Log middleware session state
+  console.log('Middleware - Session check:', {
+    path: request.nextUrl.pathname,
+    hasUser: !!user,
+    userId: user?.id,
+    hasCookies: request.cookies.getAll().length > 0,
+    error: error?.message
+  })
 
   return response
 }

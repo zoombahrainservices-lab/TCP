@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {
+      console.log('Callback - exchangeCodeForSession error:', error.message)
       return NextResponse.redirect(
         new URL('/auth/login?error=exchange_failed', requestUrl.origin),
       )
@@ -52,7 +53,16 @@ export async function GET(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
+    // DEBUG: Log OAuth callback success
+    console.log('Callback - User from OAuth:', { 
+      userId: user?.id, 
+      email: user?.email,
+      hasUser: !!user,
+      provider: user?.app_metadata?.provider
+    })
+
     if (!user) {
+      console.log('Callback - No user returned after exchangeCodeForSession')
       return NextResponse.redirect(
         new URL('/auth/login?error=user_not_found', requestUrl.origin),
       )

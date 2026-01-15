@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
+    console.log('Signin - signInWithPassword error:', error.message)
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
@@ -35,7 +36,15 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // DEBUG: Log signin success
+  console.log('Signin - User logged in:', { 
+    userId: user?.id, 
+    email: user?.email,
+    hasUser: !!user 
+  })
+
   if (!user) {
+    console.log('Signin - No user returned after signInWithPassword')
     return NextResponse.json({ error: 'Login failed' }, { status: 400 })
   }
 

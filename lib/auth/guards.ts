@@ -15,7 +15,16 @@ export async function requireAuth(requiredRole?: UserRole): Promise<AuthUser> {
   
   const { data: { user }, error } = await supabase.auth.getUser()
   
+  // DEBUG: Log user state
+  console.log('requireAuth - getUser result:', { 
+    hasUser: !!user, 
+    userId: user?.id, 
+    email: user?.email,
+    error: error?.message 
+  })
+  
   if (error || !user) {
+    console.log('requireAuth - No user found, redirecting to login')
     redirect('/auth/login')
   }
 
