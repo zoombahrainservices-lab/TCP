@@ -70,15 +70,10 @@ export async function createStudentAccount(parentId: string, email: string, full
 export async function getMyChildren(parentId: string) {
   const supabase = await createClient()
 
+  // Get child IDs first
   const { data: links, error: linksError } = await supabase
     .from('parent_child_links')
-    .select(`
-      child_id,
-      profiles!parent_child_links_child_id_fkey (
-        id,
-        full_name
-      )
-    `)
+    .select('child_id')
     .eq('parent_id', parentId)
 
   if (linksError) {
@@ -86,11 +81,27 @@ export async function getMyChildren(parentId: string) {
     throw new Error('Failed to fetch children')
   }
 
+  if (!links || links.length === 0) {
+    return []
+  }
+
+  // Get profiles separately
+  const childIds = links.map(l => l.child_id)
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', childIds)
+
+  if (profilesError) {
+    console.error('getMyChildren - profilesError:', profilesError)
+    throw new Error('Failed to fetch children profiles')
+  }
+
   // Get progress for each child
   const childrenWithProgress = await Promise.all(
-    (links || []).map(async (link: any) => {
-      const childId = link.profiles.id
-      const fullName = link.profiles.full_name
+    (profiles || []).map(async (profile: any) => {
+      const childId = profile.id
+      const fullName = profile.full_name
 
       // Get completed days
       const { data: records } = await supabase
