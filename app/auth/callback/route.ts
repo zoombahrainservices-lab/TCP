@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -42,7 +43,9 @@ export async function GET(request: Request) {
       if (!profile) {
         const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
         
-        const { error: insertError } = await supabase.from('profiles').insert({
+        // Use admin client to bypass RLS for profile creation
+        const adminClient = createAdminClient()
+        const { error: insertError } = await adminClient.from('profiles').insert({
           id: user.id,
           full_name: fullName,
           role: 'parent',
@@ -51,7 +54,7 @@ export async function GET(request: Request) {
         if (insertError) {
           console.error('Insert profile error:', insertError.message)
           // Profile might already exist due to race condition, try to fetch again
-          const { data: existingProfile } = await supabase
+          const { data: existingProfile } = await adminClient
             .from('profiles')
             .select('role')
             .eq('id', user.id)
