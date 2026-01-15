@@ -15,13 +15,13 @@ export default function ProgressBar30({ completedDays, currentDay }: ProgressBar
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-500 border-green-500'
+        return 'bg-green-500 border-green-500 text-white'
       case 'current':
-        return 'bg-blue-500 border-blue-600 ring-2 ring-blue-300'
+        return 'bg-blue-500 border-blue-600 ring-2 ring-blue-300 text-white'
       case 'locked':
-        return 'bg-gray-300 border-gray-400'
+        return 'bg-gray-300 border-gray-400 text-gray-600'
       default:
-        return 'bg-gray-300 border-gray-400'
+        return 'bg-gray-300 border-gray-400 text-gray-600'
     }
   }
 
@@ -32,13 +32,13 @@ export default function ProgressBar30({ completedDays, currentDay }: ProgressBar
         return (
           <div
             key={day}
-            className={`w-7 h-7 md:w-9 md:h-9 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all ${getStatusColor(
+            className={`w-8 h-8 md:w-10 md:h-10 rounded-full border-2 flex items-center justify-center text-xs md:text-sm font-bold transition-all ${getStatusColor(
               status
             )}`}
             title={`Day ${day} - ${status}`}
             aria-label={`Day ${day} - ${status}`}
           >
-            {/* Empty circle - status shown by color */}
+            {day}
           </div>
         )
       })}
