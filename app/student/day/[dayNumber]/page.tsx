@@ -255,6 +255,8 @@ export default function DayPage() {
       {step === 'reader' && (
         <ChapterReader
           content={chapter.content}
+          dayNumber={dayNumber}
+          title={chapter.title}
           onNext={() => setStep('before')}
           onBack={() => setStep('overview')}
         />

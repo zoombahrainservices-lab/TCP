@@ -4,12 +4,22 @@ interface ChapterReaderProps {
   content: string
   onNext: () => void
   onBack: () => void
+  dayNumber: number
+  title: string
 }
 
-export default function ChapterReader({ content, onNext, onBack }: ChapterReaderProps) {
+export default function ChapterReader({ content, onNext, onBack, dayNumber, title }: ChapterReaderProps) {
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-8 mb-4 min-h-[400px]">
+    <div className="max-w-4xl mx-auto">
+      {/* Reading Header Bar */}
+      <div className="bg-blue-800 text-white px-4 py-3 md:px-6 md:py-4 mb-0 flex items-center gap-3 shadow-lg">
+        <div className="text-2xl">📖</div>
+        <span className="font-semibold text-base md:text-lg">Reading</span>
+      </div>
+
+      {/* Chapter Content */}
+      <div className="bg-white p-6 md:p-8 min-h-[400px] shadow-lg">
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">{title}</h2>
         <div className="prose prose-lg max-w-none">
           {content.split('\n').map((paragraph, idx) => {
             if (paragraph.startsWith('# ')) {
@@ -29,18 +39,25 @@ export default function ChapterReader({ content, onNext, onBack }: ChapterReader
         </div>
       </div>
       
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-between">
+      {/* Navigation Footer */}
+      <div className="bg-white border-t border-gray-200 p-4 md:p-6 flex justify-between shadow-lg">
         <button
           onClick={onBack}
-          className="px-6 py-2 text-gray-700 hover:text-gray-900 font-medium"
+          className="px-4 md:px-6 py-2 md:py-3 bg-blue-800 text-white rounded-lg hover:bg-blue-900 font-medium transition-colors flex items-center gap-2"
         >
-          ← Back
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
         </button>
         <button
           onClick={onNext}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+          className="px-4 md:px-6 py-2 md:py-3 bg-blue-800 text-white rounded-lg hover:bg-blue-900 font-medium transition-colors flex items-center gap-2"
         >
-          Continue →
+          Next
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </button>
       </div>
     </div>

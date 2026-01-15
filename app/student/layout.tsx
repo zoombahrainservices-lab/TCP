@@ -1,6 +1,5 @@
 import { requireAuth } from '@/lib/auth/guards'
 import { signOut } from '@/app/actions/auth'
-import Button from '@/components/ui/Button'
 
 export default async function StudentLayout({
   children,

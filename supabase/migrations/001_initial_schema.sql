@@ -228,7 +228,7 @@ CREATE POLICY "Parents can view their children's files"
   ON storage.objects FOR SELECT
   USING (
     bucket_id = 'student-uploads' AND
-    (storage.foldername(name))[1]::uuid IN (
+    (storage.foldername(name))[1] IN (
       SELECT child_id::text FROM parent_child_links WHERE parent_id = auth.uid()
     )
   );

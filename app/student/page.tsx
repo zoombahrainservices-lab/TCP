@@ -99,7 +99,7 @@ export default async function StudentDashboard() {
                   Day {progress.currentDay} / 30
                 </h2>
                 <h3 className="text-lg md:text-xl font-semibold text-gray-700 mt-2">
-                  {currentChapter.title}
+                  Chapter {progress.currentDay}: {currentChapter.title}
                 </h3>
               </div>
               
