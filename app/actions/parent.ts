@@ -1,6 +1,5 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { validateEmail } from '@/lib/utils/validation'
 
@@ -68,10 +67,10 @@ export async function createStudentAccount(parentId: string, email: string, full
 }
 
 export async function getMyChildren(parentId: string) {
-  const supabase = await createClient()
+  const adminClient = createAdminClient()
 
   // Get child IDs first
-  const { data: links, error: linksError } = await supabase
+  const { data: links, error: linksError } = await adminClient
     .from('parent_child_links')
     .select('child_id')
     .eq('parent_id', parentId)
@@ -87,7 +86,7 @@ export async function getMyChildren(parentId: string) {
 
   // Get profiles separately
   const childIds = links.map(l => l.child_id)
-  const { data: profiles, error: profilesError } = await supabase
+  const { data: profiles, error: profilesError } = await adminClient
     .from('profiles')
     .select('id, full_name')
     .in('id', childIds)
@@ -104,7 +103,7 @@ export async function getMyChildren(parentId: string) {
       const fullName = profile.full_name
 
       // Get completed days
-      const { data: records } = await supabase
+      const { data: records } = await adminClient
         .from('daily_records')
         .select('day_number, completed, updated_at')
         .eq('student_id', childId)
@@ -129,29 +128,34 @@ export async function getMyChildren(parentId: string) {
 }
 
 export async function getChildProgress(parentId: string, childId: string) {
-  const supabase = await createClient()
+  const adminClient = createAdminClient()
 
   // Verify parent-child relationship
-  const { data: link } = await supabase
+  const { data: link, error: linkError } = await adminClient
     .from('parent_child_links')
     .select('id')
     .eq('parent_id', parentId)
     .eq('child_id', childId)
-    .single()
+    .maybeSingle()
+
+  if (linkError) {
+    console.error('getChildProgress - linkError:', linkError)
+  }
 
   if (!link) {
+    console.error('getChildProgress - No link found for parentId:', parentId, 'childId:', childId)
     throw new Error('Access denied')
   }
 
   // Get child profile
-  const { data: profile } = await supabase
+  const { data: profile } = await adminClient
     .from('profiles')
     .select('full_name')
     .eq('id', childId)
     .single()
 
   // Get all records
-  const { data: records } = await supabase
+  const { data: records } = await adminClient
     .from('daily_records')
     .select('day_number, completed, updated_at')
     .eq('student_id', childId)
@@ -160,7 +164,7 @@ export async function getChildProgress(parentId: string, childId: string) {
   const completedDays = records?.filter(r => r.completed).map(r => r.day_number) || []
 
   // Get chapter info for all 30 days
-  const { data: chapters } = await supabase
+  const { data: chapters } = await adminClient
     .from('chapters')
     .select('day_number, title')
     .order('day_number', { ascending: true })
@@ -188,29 +192,29 @@ export async function getChildProgress(parentId: string, childId: string) {
 }
 
 export async function getChildDaySubmission(parentId: string, childId: string, dayNumber: number) {
-  const supabase = await createClient()
+  const adminClient = createAdminClient()
 
   // Verify parent-child relationship
-  const { data: link } = await supabase
+  const { data: link } = await adminClient
     .from('parent_child_links')
     .select('id')
     .eq('parent_id', parentId)
     .eq('child_id', childId)
-    .single()
+    .maybeSingle()
 
   if (!link) {
     throw new Error('Access denied')
   }
 
   // Get chapter info
-  const { data: chapter } = await supabase
+  const { data: chapter } = await adminClient
     .from('chapters')
     .select('title, subtitle, before_questions, after_questions')
     .eq('day_number', dayNumber)
     .single()
 
   // Get daily record with uploads
-  const { data: record } = await supabase
+  const { data: record } = await adminClient
     .from('daily_records')
     .select(`
       *,
@@ -240,29 +244,29 @@ export async function getChildDaySubmission(parentId: string, childId: string, d
 }
 
 export async function getChildReport(parentId: string, childId: string) {
-  const supabase = await createClient()
+  const adminClient = createAdminClient()
 
   // Verify parent-child relationship
-  const { data: link } = await supabase
+  const { data: link } = await adminClient
     .from('parent_child_links')
     .select('id')
     .eq('parent_id', parentId)
     .eq('child_id', childId)
-    .single()
+    .maybeSingle()
 
   if (!link) {
     throw new Error('Access denied')
   }
 
   // Get child profile
-  const { data: profile } = await supabase
+  const { data: profile } = await adminClient
     .from('profiles')
     .select('full_name')
     .eq('id', childId)
     .single()
 
   // Get all completed records
-  const { data: records } = await supabase
+  const { data: records } = await adminClient
     .from('daily_records')
     .select(`
       day_number,
@@ -277,7 +281,7 @@ export async function getChildReport(parentId: string, childId: string) {
     .order('day_number', { ascending: true })
 
   // Get chapters
-  const { data: chapters } = await supabase
+  const { data: chapters } = await adminClient
     .from('chapters')
     .select('day_number, title')
     .order('day_number', { ascending: true })
