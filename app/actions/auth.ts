@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { validateEmail, validatePassword } from '@/lib/utils/validation'
 
 export async function signInWithEmail(email: string, password: string) {
@@ -85,7 +85,8 @@ export async function signUpParent(email: string, password: string, fullName: st
 
   if (data.user) {
     // Create profile with parent role using admin client to bypass RLS
-    const { error: profileError } = await supabaseAdmin
+    const adminClient = createAdminClient()
+    const { error: profileError } = await adminClient
       .from('profiles')
       .insert({
         id: data.user.id,
