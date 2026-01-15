@@ -26,31 +26,41 @@ export async function signInWithEmail(email: string, password: string) {
   const { data: { user } } = await supabase.auth.getUser()
   
   if (user) {
-    const { data: profile } = await supabase
+    const adminClient = createAdminClient()
+    let { data: profile } = await adminClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    if (profile) {
-      revalidatePath('/', 'layout')
-      
-      switch (profile.role) {
-        case 'student':
-          redirect('/student')
-        case 'parent':
-          redirect('/parent')
-        case 'mentor':
-          redirect('/mentor')
-        case 'admin':
-          redirect('/admin')
-        default:
-          redirect('/')
-      }
+    // If no profile exists, create one (for users who signed up before fix)
+    if (!profile) {
+      const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+      await adminClient.from('profiles').insert({
+        id: user.id,
+        full_name: fullName,
+        role: 'parent',
+      })
+      profile = { role: 'parent' }
+    }
+
+    revalidatePath('/', 'layout')
+    
+    switch (profile.role) {
+      case 'student':
+        redirect('/student')
+      case 'parent':
+        redirect('/parent')
+      case 'mentor':
+        redirect('/mentor')
+      case 'admin':
+        redirect('/admin')
+      default:
+        redirect('/parent')
     }
   }
 
-  return { error: 'Unable to determine user role' }
+  return { error: 'Login failed - please try again' }
 }
 
 export async function signUpParent(email: string, password: string, fullName: string) {
