@@ -109,6 +109,70 @@ export async function saveBeforeAnswers(recordId: number, answers: any[]) {
   return { success: true }
 }
 
+export async function markContentFinished(recordId: number) {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('daily_records')
+    .update({ content_finished_at: new Date().toISOString() })
+    .eq('id', recordId)
+
+  if (error) {
+    throw new Error('Failed to mark content as finished')
+  }
+
+  revalidatePath('/student')
+  return { success: true }
+}
+
+export async function acknowledgeTask(recordId: number, chapterId: number) {
+  const supabase = await createClient()
+
+  // Get chapter's task_deadline_hours
+  const { data: chapter } = await supabase
+    .from('chapters')
+    .select('task_deadline_hours')
+    .eq('id', chapterId)
+    .single()
+
+  const deadlineHours = chapter?.task_deadline_hours || 24
+
+  // Calculate due date
+  const now = new Date()
+  const dueDate = new Date(now.getTime() + deadlineHours * 60 * 60 * 1000)
+
+  const { error } = await supabase
+    .from('daily_records')
+    .update({
+      task_acknowledged_at: now.toISOString(),
+      task_due_at: dueDate.toISOString(),
+    })
+    .eq('id', recordId)
+
+  if (error) {
+    throw new Error('Failed to acknowledge task')
+  }
+
+  revalidatePath('/student')
+  return { success: true }
+}
+
+export async function getRecordWithTimestamps(recordId: number) {
+  const supabase = await createClient()
+
+  const { data: record, error } = await supabase
+    .from('daily_records')
+    .select('*')
+    .eq('id', recordId)
+    .single()
+
+  if (error) {
+    throw new Error('Failed to fetch record')
+  }
+
+  return record
+}
+
 export async function uploadProof(
   recordId: number,
   studentId: string,
@@ -142,6 +206,16 @@ export async function uploadProof(
 
   if (error) {
     throw new Error('Failed to upload proof')
+  }
+
+  // Also mark proof_uploaded_at
+  const { error: updateError } = await supabase
+    .from('daily_records')
+    .update({ proof_uploaded_at: new Date().toISOString() })
+    .eq('id', recordId)
+
+  if (updateError) {
+    console.error('Failed to update proof_uploaded_at:', updateError)
   }
 
   revalidatePath('/student')

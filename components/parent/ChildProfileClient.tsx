@@ -119,7 +119,11 @@ export default function ChildProfileClient({ childId, parentId, progress }: Chil
                   <LoadingSpinner />
                 </Card>
               ) : (
-                <DaySubmissionDetail submission={submission} />
+                <DaySubmissionDetail 
+                  submission={submission} 
+                  parentId={parentId}
+                  onReviewSubmitted={() => handleViewDay(selectedDay)}
+                />
               )}
             </>
           )}

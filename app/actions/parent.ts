@@ -258,60 +258,29 @@ export async function getChildReport(parentId: string, childId: string) {
     throw new Error('Access denied')
   }
 
-  // Get child profile
-  const { data: profile } = await adminClient
-    .from('profiles')
-    .select('full_name')
-    .eq('id', childId)
-    .single()
+  // Use unified report builder
+  const { buildChildProgramReport } = await import('@/lib/reports')
+  const fullReport = await buildChildProgramReport(childId)
 
-  // Get all completed records
-  const { data: records } = await adminClient
-    .from('daily_records')
-    .select(`
-      day_number,
-      before_answers,
-      after_answers,
-      reflection_text,
-      completed,
-      updated_at
-    `)
-    .eq('student_id', childId)
-    .eq('completed', true)
-    .order('day_number', { ascending: true })
-
-  // Get chapters
-  const { data: chapters } = await adminClient
-    .from('chapters')
-    .select('day_number, title')
-    .order('day_number', { ascending: true })
-
-  const reportData = (records || []).map(record => {
-    const chapter = chapters?.find(c => c.day_number === record.day_number)
-    
-    // Calculate average scores
-    const beforeAvg = record.before_answers?.length > 0
-      ? (record.before_answers.reduce((sum: number, a: any) => sum + (a.answer || 0), 0) / record.before_answers.length).toFixed(1)
-      : 'N/A'
-    
-    const afterAvg = record.after_answers?.length > 0
-      ? (record.after_answers.reduce((sum: number, a: any) => sum + (a.answer || 0), 0) / record.after_answers.length).toFixed(1)
-      : 'N/A'
-
-    return {
-      dayNumber: record.day_number,
-      title: chapter?.title || `Day ${record.day_number}`,
-      beforeScore: beforeAvg,
-      afterScore: afterAvg,
-      reflection: record.reflection_text,
-      completedAt: record.updated_at,
-    }
-  })
+  // Transform to match existing report format for backwards compatibility
+  const reportData = fullReport.dailyProgress
+    .filter(day => day.completed)
+    .map(day => ({
+      dayNumber: day.dayNumber,
+      title: day.title,
+      beforeScore: day.beforeScore !== null ? day.beforeScore.toFixed(1) : 'N/A',
+      afterScore: day.afterScore !== null ? day.afterScore.toFixed(1) : 'N/A',
+      reflection: day.reflection,
+      completedAt: day.completedAt,
+    }))
 
   return {
-    childName: profile?.full_name || 'Student',
-    completionPercentage: Math.round(((records?.length || 0) / 30) * 100),
-    completedDays: records?.length || 0,
+    childName: fullReport.childName,
+    completionPercentage: fullReport.summary.completionPercentage,
+    completedDays: fullReport.summary.completedDays,
     reportData,
+    // Include new metrics
+    summary: fullReport.summary,
+    baseline: fullReport.baseline,
   }
 }

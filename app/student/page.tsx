@@ -1,5 +1,7 @@
 import { requireAuth } from '@/lib/auth/guards'
 import { getStudentProgress, getChapterContent } from '@/app/actions/student'
+import { hasProgramBaseline } from '@/app/actions/baseline'
+import { redirect } from 'next/navigation'
 import ProgressBar30 from '@/components/student/ProgressBar30'
 import DayCard from '@/components/student/DayCard'
 import Link from 'next/link'
@@ -8,6 +10,13 @@ import Card from '@/components/ui/Card'
 
 export default async function StudentDashboard() {
   const user = await requireAuth('student')
+  
+  // Check if baseline is completed
+  const hasBaseline = await hasProgramBaseline(user.id)
+  if (!hasBaseline) {
+    redirect('/student/baseline')
+  }
+  
   const progress = await getStudentProgress(user.id)
 
   // Get current chapter info

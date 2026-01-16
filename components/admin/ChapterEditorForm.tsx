@@ -26,6 +26,7 @@ export default function ChapterEditorForm({
   const [subtitle, setSubtitle] = useState(initialData?.subtitle || '')
   const [content, setContent] = useState(initialData?.content || '')
   const [taskDescription, setTaskDescription] = useState(initialData?.task_description || '')
+  const [taskDeadlineHours, setTaskDeadlineHours] = useState(initialData?.task_deadline_hours || 24)
   
   const [beforeQuestions, setBeforeQuestions] = useState<Question[]>(
     initialData?.before_questions || [{ id: '1', question: '' }]
@@ -104,6 +105,7 @@ export default function ChapterEditorForm({
       subtitle: subtitle.trim(),
       content: content.trim(),
       task_description: taskDescription.trim(),
+      task_deadline_hours: parseInt(taskDeadlineHours),
       before_questions: beforeQuestions.filter(q => q.question.trim()),
       after_questions: afterQuestions.filter(q => q.question.trim()),
     })
@@ -171,15 +173,29 @@ export default function ChapterEditorForm({
 
       <Card>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Task Description</h3>
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">
-            What task should students complete?
-          </label>
-          <textarea
-            value={taskDescription}
-            onChange={(e) => setTaskDescription(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            rows={4}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              What task should students complete?
+            </label>
+            <textarea
+              value={taskDescription}
+              onChange={(e) => setTaskDescription(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows={4}
+              required
+              disabled={loading}
+            />
+          </div>
+          
+          <Input
+            label="Task Deadline (hours)"
+            type="number"
+            min="1"
+            max="168"
+            value={taskDeadlineHours}
+            onChange={(e) => setTaskDeadlineHours(e.target.value)}
+            helperText="How many hours students have to complete the task after acknowledging it (default: 24)"
             required
             disabled={loading}
           />

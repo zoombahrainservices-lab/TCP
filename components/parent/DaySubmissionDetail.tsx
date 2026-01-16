@@ -1,14 +1,22 @@
 'use client'
 
+import { useState } from 'react'
+import { submitReview } from '@/app/actions/review'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 
 interface DaySubmissionDetailProps {
   submission: any
+  parentId?: string
+  onReviewSubmitted?: () => void
 }
 
-export default function DaySubmissionDetail({ submission }: DaySubmissionDetailProps) {
+export default function DaySubmissionDetail({ submission, parentId, onReviewSubmitted }: DaySubmissionDetailProps) {
+  const [reviewFeedback, setReviewFeedback] = useState('')
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const [reviewError, setReviewError] = useState('')
+
   const handleDownloadPDF = () => {
     // Create printable content and trigger print dialog for PDF
     const printContent = document.getElementById('submission-content')
@@ -78,6 +86,34 @@ export default function DaySubmissionDetail({ submission }: DaySubmissionDetailP
     printWindow.document.close()
     printWindow.print()
   }
+
+  const handleSubmitReview = async () => {
+    if (!parentId || !reviewFeedback.trim()) {
+      setReviewError('Please enter feedback before submitting')
+      return
+    }
+
+    setSubmittingReview(true)
+    setReviewError('')
+
+    try {
+      const result = await submitReview(submission.id, parentId, reviewFeedback)
+      
+      if (result.success) {
+        setReviewFeedback('')
+        if (onReviewSubmitted) {
+          onReviewSubmitted()
+        }
+      } else {
+        setReviewError(result.error || 'Failed to submit review')
+      }
+    } catch (error: any) {
+      setReviewError(error.message || 'An error occurred')
+    } finally {
+      setSubmittingReview(false)
+    }
+  }
+
   if (!submission) {
     return (
       <Card>
@@ -197,6 +233,52 @@ export default function DaySubmissionDetail({ submission }: DaySubmissionDetailP
         <Card>
           <h4 className="text-lg font-semibold text-gray-900 mb-4">Reflection</h4>
           <p className="text-gray-700 whitespace-pre-wrap leading-relaxed break-words overflow-hidden">{submission.reflection}</p>
+        </Card>
+      )}
+
+      {/* Review Section */}
+      {submission.completed && parentId && (
+        <Card>
+          <h4 className="text-lg font-semibold text-gray-900 mb-4">Parent/Mentor Review</h4>
+          
+          {submission.reviewed_at ? (
+            <div className="space-y-3">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-green-800 font-medium">✓ Reviewed</span>
+                  <span className="text-sm text-green-600">
+                    {new Date(submission.reviewed_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <p className="text-gray-700 whitespace-pre-wrap">{submission.review_feedback}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-gray-600 text-sm">
+                Provide feedback on your child's work. This will be visible to them.
+              </p>
+              
+              <textarea
+                value={reviewFeedback}
+                onChange={(e) => setReviewFeedback(e.target.value)}
+                placeholder="Write your feedback here..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px]"
+                disabled={submittingReview}
+              />
+
+              {reviewError && (
+                <div className="text-red-600 text-sm">{reviewError}</div>
+              )}
+
+              <Button 
+                onClick={handleSubmitReview}
+                disabled={submittingReview || !reviewFeedback.trim()}
+              >
+                {submittingReview ? 'Submitting...' : 'Submit Review'}
+              </Button>
+            </div>
+          )}
         </Card>
       )}
     </div>

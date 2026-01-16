@@ -12,6 +12,7 @@ import {
   completeDay,
   getDailyRecord
 } from '@/app/actions/student'
+import { hasProgramBaseline } from '@/app/actions/baseline'
 import { getSession } from '@/app/actions/auth'
 import ChapterReader from '@/components/student/ChapterReader'
 import SelfCheckScale from '@/components/student/SelfCheckScale'
@@ -52,6 +53,13 @@ export default function DayPage() {
         }
         
         setUserId(session.id)
+        
+        // Check if baseline is completed
+        const hasBaseline = await hasProgramBaseline(session.id)
+        if (!hasBaseline) {
+          router.push('/student/baseline')
+          return
+        }
         
         // Get progress to check if day is accessible
         const prog = await getStudentProgress(session.id)

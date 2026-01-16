@@ -2,6 +2,7 @@ import { requireAuth } from '@/lib/auth/guards'
 import { signOut } from '@/app/actions/auth'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
+import NotificationBell from '@/components/ui/NotificationBell'
 
 export default async function MentorLayout({
   children,
@@ -22,9 +23,12 @@ export default async function MentorLayout({
             </Link>
             <p className="text-sm text-gray-600">Welcome, {user.fullName}</p>
           </div>
-          <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm">Sign Out</Button>
-          </form>
+          <div className="flex items-center gap-4">
+            <NotificationBell userId={user.id} />
+            <form action={signOut}>
+              <Button type="submit" variant="ghost" size="sm">Sign Out</Button>
+            </form>
+          </div>
         </div>
       </header>
       <main>{children}</main>
