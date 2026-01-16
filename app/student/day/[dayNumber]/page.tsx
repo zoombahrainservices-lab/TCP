@@ -12,12 +12,13 @@ import {
   completeDay,
   getDailyRecord
 } from '@/app/actions/student'
-import { hasProgramBaseline } from '@/app/actions/baseline'
+import { hasProgramBaseline, getMyFoundation, type FoundationData } from '@/app/actions/baseline'
 import { getSession } from '@/app/actions/auth'
 import ChapterReader from '@/components/student/ChapterReader'
 import SelfCheckScale from '@/components/student/SelfCheckScale'
 import ReflectionInput from '@/components/student/ReflectionInput'
 import UploadForm from '@/components/student/UploadForm'
+import FoundationIntroBanner from '@/components/student/FoundationIntroBanner'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -42,6 +43,7 @@ export default function DayPage() {
   const [afterAnswers, setAfterAnswers] = useState<Record<string, number>>({})
   const [reflection, setReflection] = useState('')
   const [uploaded, setUploaded] = useState(false)
+  const [foundation, setFoundation] = useState<FoundationData | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -54,22 +56,17 @@ export default function DayPage() {
         
         setUserId(session.id)
         
-        // Check if baseline is completed
-        const hasBaseline = await hasProgramBaseline(session.id)
-        if (!hasBaseline) {
-          router.push('/student/baseline')
-          return
-        }
+        // Note: No Foundation requirement - students can access any day
         
-        // Get progress to check if day is accessible
+        // Get Foundation status (for banner display, not blocking)
+        const found = await getMyFoundation()
+        setFoundation(found)
+        
+        // Get progress (no longer blocking access)
         const prog = await getStudentProgress(session.id)
         setProgress(prog)
         
-        if (dayNumber > prog.currentDay) {
-          setError(`Day ${dayNumber} is locked. Complete Day ${prog.currentDay} first.`)
-          setTimeout(() => router.push('/student'), 3000)
-          return
-        }
+        // Allow access to any day - no blocking
         
         // Load chapter
         const chap = await getChapterContent(dayNumber)
@@ -235,6 +232,17 @@ export default function DayPage() {
         </div>
       </div>
 
+      {/* Foundation Intro Banner - Only show on early days if Foundation not completed */}
+      {(() => {
+        const shouldShowFoundationIntro = !foundation && dayNumber <= 3
+        return shouldShowFoundationIntro ? (
+          <FoundationIntroBanner 
+            dayNumber={dayNumber} 
+            hasFoundation={false} 
+          />
+        ) : null
+      })()}
+
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
           {error}
@@ -354,6 +362,16 @@ export default function DayPage() {
             <p className="text-xl text-gray-600 mb-8">
               Great work! You've completed another day of your communication journey.
             </p>
+            {recordId && (
+              <div className="mb-6">
+                <Button 
+                  variant="secondary" 
+                  onClick={() => window.open(`/api/daily-records/${recordId}/pdf`, '_blank')}
+                >
+                  Download Results PDF
+                </Button>
+              </div>
+            )}
             {progress && dayNumber < 30 && dayNumber === progress.currentDay && (
               <div className="mb-4">
                 <p className="text-gray-600 mb-4">Ready for the next challenge?</p>

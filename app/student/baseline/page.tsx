@@ -1,30 +1,27 @@
 import { requireAuth } from '@/lib/auth/guards'
-import { hasProgramBaseline } from '@/app/actions/baseline'
-import { redirect } from 'next/navigation'
-import BaselineForm from '@/components/student/BaselineForm'
+import { getMyFoundation } from '@/app/actions/baseline'
+import FoundationScreen from '@/components/student/FoundationScreen'
 
-export default async function BaselinePage() {
+export default async function FoundationPage() {
   const user = await requireAuth('student')
 
-  // Check if baseline already completed
-  const hasBaseline = await hasProgramBaseline(user.id)
-  if (hasBaseline) {
-    redirect('/student')
-  }
+  // Get existing Foundation data if available
+  const foundation = await getMyFoundation()
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Welcome to The Communication Protocol!
+          {foundation ? 'Your Foundation' : 'Start with Your Foundation'}
         </h1>
         <p className="text-gray-600">
-          Before you begin your 30-day journey, please complete this brief baseline assessment. 
-          This helps us understand your starting point and track your progress.
+          {foundation 
+            ? 'Review or update your Foundation assessment, identity statement, and commitment.'
+            : 'Begin your communication journey by building your Foundation—awareness, self-assessment, and commitment.'}
         </p>
       </div>
 
-      <BaselineForm studentId={user.id} />
+      <FoundationScreen initialFoundation={foundation} studentId={user.id} />
     </div>
   )
 }

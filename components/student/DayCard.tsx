@@ -3,23 +3,20 @@ import Link from 'next/link'
 interface DayCardProps {
   dayNumber: number
   title: string
-  status: 'completed' | 'current' | 'locked'
+  status: 'completed' | 'in-progress' | 'not-started'
   onClick?: () => void
 }
 
 export default function DayCard({ dayNumber, title, status }: DayCardProps) {
-  const isLocked = status === 'locked'
   const isCompleted = status === 'completed'
-  const isCurrent = status === 'current'
+  const isInProgress = status === 'in-progress'
 
   const content = (
-    <div className={`bg-white border border-gray-200 rounded-lg p-3 md:p-4 transition-all ${
-      isLocked ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-md hover:border-blue-300 cursor-pointer'
-    }`}>
+    <div className="bg-white border border-gray-200 rounded-lg p-3 md:p-4 transition-all hover:shadow-md hover:border-blue-300 cursor-pointer">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-            isCompleted ? 'bg-green-500' : 'bg-gray-200'
+            isCompleted ? 'bg-green-500' : isInProgress ? 'bg-yellow-500' : 'bg-gray-200'
           }`}>
             {isCompleted ? (
               <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -28,7 +25,9 @@ export default function DayCard({ dayNumber, title, status }: DayCardProps) {
             ) : null}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs md:text-sm font-semibold text-gray-500">Day {dayNumber} {isCompleted ? 'Completed' : ''}</div>
+            <div className="text-xs md:text-sm font-semibold text-gray-500">
+              Day {dayNumber} {isCompleted ? 'Completed' : isInProgress ? 'In Progress' : ''}
+            </div>
             <div className="text-sm md:text-base text-gray-900 truncate">{title}</div>
           </div>
         </div>
@@ -38,10 +37,6 @@ export default function DayCard({ dayNumber, title, status }: DayCardProps) {
       </div>
     </div>
   )
-
-  if (isLocked) {
-    return <div>{content}</div>
-  }
 
   return (
     <Link href={`/student/day/${dayNumber}`}>

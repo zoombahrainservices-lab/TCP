@@ -68,6 +68,46 @@ export default function ChildProfileClient({ childId, parentId, progress }: Chil
         <ProgressBar30 completedDays={progress.completedDays} currentDay={progress.currentDay} />
       </Card>
 
+      {/* Program Downloads Section */}
+      <Card className="mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Program Downloads</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Foundation Card */}
+          <div className="border border-blue-200 bg-blue-50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-2">Foundation</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Self-assessment, identity statement, and commitment
+            </p>
+            <a
+              href="/tcp-foundation-chapter1.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="secondary" size="sm" fullWidth>
+                📄 Download Foundation PDF
+              </Button>
+            </a>
+          </div>
+
+          {/* 90-Day Challenge Card */}
+          <div className="border border-purple-200 bg-purple-50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-2">90-Day Challenge</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Continue the journey beyond the 30-day program
+            </p>
+            <a
+              href="/tcp-90day-challenge.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="secondary" size="sm" fullWidth>
+                📄 Download 90-Day Challenge PDF
+              </Button>
+            </a>
+          </div>
+        </div>
+      </Card>
+
       {/* Days List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
@@ -77,31 +117,65 @@ export default function ChildProfileClient({ childId, parentId, progress }: Chil
               <Card
                 key={day.dayNumber}
                 padding="sm"
-                className={`cursor-pointer transition-all ${
+                className={`transition-all ${
                   selectedDay === day.dayNumber ? 'ring-2 ring-blue-500' : 'hover:shadow-md'
                 } ${!day.completed ? 'opacity-50' : ''}`}
               >
-                <button
-                  onClick={() => day.completed && handleViewDay(day.dayNumber)}
-                  disabled={!day.completed}
-                  className="w-full text-left"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <span className="text-sm font-medium text-gray-500 min-w-[60px]">
-                        Day {day.dayNumber}
+                <div className="space-y-2">
+                  <button
+                    onClick={() => day.completed && handleViewDay(day.dayNumber)}
+                    disabled={!day.completed}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <span className="text-sm font-medium text-gray-500 min-w-[60px]">
+                          Day {day.dayNumber}
+                        </span>
+                        <span className="text-sm text-gray-900 flex-1">{day.title}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {day.completed ? (
+                          <Badge variant="success" size="sm">✓</Badge>
+                        ) : day.inProgress ? (
+                          <Badge variant="warning" size="sm">In Progress</Badge>
+                        ) : (
+                          <Badge variant="default" size="sm">Pending</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {/* Download buttons */}
+                  <div className="flex gap-2 pt-1">
+                    <a
+                      href={`/api/chapters/${day.dayNumber}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button variant="secondary" size="sm">
+                        📖 Chapter
+                      </Button>
+                    </a>
+                    {day.recordId ? (
+                      <a
+                        href={`/api/daily-records/${day.recordId}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button variant="secondary" size="sm">
+                          📊 Results
+                        </Button>
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-400 flex items-center px-2">
+                        No results yet
                       </span>
-                      <span className="text-sm text-gray-900 flex-1">{day.title}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {day.completed ? (
-                        <Badge variant="success" size="sm">✓</Badge>
-                      ) : (
-                        <Badge variant="default" size="sm">Pending</Badge>
-                      )}
-                    </div>
+                    )}
                   </div>
-                </button>
+                </div>
               </Card>
             ))}
           </div>

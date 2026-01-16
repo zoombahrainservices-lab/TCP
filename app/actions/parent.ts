@@ -3,7 +3,12 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { validateEmail } from '@/lib/utils/validation'
 
-export async function createStudentAccount(parentId: string, email: string, fullName: string) {
+export async function createStudentAccount(
+  parentId: string, 
+  email: string, 
+  fullName: string,
+  password?: string // Optional password for testing (if not provided, sends invitation email)
+) {
   if (!validateEmail(email)) {
     return { error: 'Invalid email format' }
   }
@@ -15,13 +20,20 @@ export async function createStudentAccount(parentId: string, email: string, full
   const adminClient = createAdminClient()
 
   // Create user with admin client
-  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+  const createUserOptions: any = {
     email,
     email_confirm: true,
     user_metadata: {
       full_name: fullName,
     },
-  })
+  }
+
+  // If password provided, set it directly (for testing)
+  if (password) {
+    createUserOptions.password = password
+  }
+
+  const { data: authData, error: authError } = await adminClient.auth.admin.createUser(createUserOptions)
 
   if (authError || !authData.user) {
     return { error: authError?.message || 'Failed to create student account' }
@@ -53,14 +65,17 @@ export async function createStudentAccount(parentId: string, email: string, full
     return { error: 'Failed to link parent and child' }
   }
 
-  // Send password reset email (invitation)
-  const { error: resetError } = await adminClient.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/login`,
-  })
+  // If password was provided, skip email invitation
+  if (!password) {
+    // Send password reset email (invitation)
+    const { error: resetError } = await adminClient.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/login`,
+    })
 
-  if (resetError) {
-    console.error('Failed to send invitation email:', resetError)
-    // Don't fail the whole operation if email fails
+    if (resetError) {
+      console.error('Failed to send invitation email:', resetError)
+      // Don't fail the whole operation if email fails
+    }
   }
 
   return { success: true, studentId: authData.user.id }
@@ -114,10 +129,27 @@ export async function getMyChildren(parentId: string) {
       const completionPercentage = Math.round((completedDays / 30) * 100)
       const lastActivity = records?.[0]?.updated_at || null
 
+      // Get all records to calculate in-progress days
+      const { data: allRecords } = await adminClient
+        .from('daily_records')
+        .select('day_number, completed')
+        .eq('student_id', childId)
+      
+      const inProgressDays = allRecords?.filter(r => !r.completed).map(r => r.day_number) || []
+      const completedDayNumbers = allRecords?.filter(r => r.completed).map(r => r.day_number) || []
+      
+      // Calculate suggested day
+      let suggestedDay = 1
+      if (inProgressDays.length > 0) {
+        suggestedDay = Math.min(...inProgressDays)
+      } else if (completedDayNumbers.length > 0) {
+        suggestedDay = Math.min(Math.max(...completedDayNumbers) + 1, 30)
+      }
+
       return {
         id: childId,
         fullName,
-        currentDay: Math.min(completedDays + 1, 30),
+        currentDay: suggestedDay, // Keep field name for compatibility but use suggested day logic
         completionPercentage,
         lastActivity,
       }
@@ -154,14 +186,23 @@ export async function getChildProgress(parentId: string, childId: string) {
     .eq('id', childId)
     .single()
 
-  // Get all records
+  // Get all records (include id for PDF downloads)
   const { data: records } = await adminClient
     .from('daily_records')
-    .select('day_number, completed, updated_at')
+    .select('id, day_number, completed, updated_at')
     .eq('student_id', childId)
     .order('day_number', { ascending: true })
 
   const completedDays = records?.filter(r => r.completed).map(r => r.day_number) || []
+  const inProgressDays = records?.filter(r => !r.completed).map(r => r.day_number) || []
+  
+  // Calculate suggested day
+  let suggestedDay = 1
+  if (inProgressDays.length > 0) {
+    suggestedDay = Math.min(...inProgressDays)
+  } else if (completedDays.length > 0) {
+    suggestedDay = Math.min(Math.max(...completedDays) + 1, 30)
+  }
 
   // Get chapter info for all 30 days
   const { data: chapters } = await adminClient
@@ -178,14 +219,18 @@ export async function getChildProgress(parentId: string, childId: string) {
       dayNumber,
       title: chapter?.title || `Day ${dayNumber}`,
       completed: completedDays.includes(dayNumber),
+      inProgress: inProgressDays.includes(dayNumber),
       updatedAt: record?.updated_at || null,
+      recordId: record?.id || null, // Add record ID for PDF downloads
     }
   })
 
   return {
     childName: profile?.full_name || 'Student',
     completedDays,
-    currentDay: Math.min(completedDays.length + 1, 30),
+    inProgressDays,
+    currentDay: suggestedDay, // Keep field name for compatibility but use suggested day logic
+    suggestedDay,
     completionPercentage: Math.round((completedDays.length / 30) * 100),
     days: daysInfo,
   }
@@ -229,6 +274,7 @@ export async function getChildDaySubmission(parentId: string, childId: string, d
   }
 
   return {
+    id: record.id,
     dayNumber,
     chapterTitle: chapter?.title || `Day ${dayNumber}`,
     chapterSubtitle: chapter?.subtitle || '',
@@ -240,6 +286,8 @@ export async function getChildDaySubmission(parentId: string, childId: string, d
     uploads: record.uploads || [],
     completed: record.completed,
     completedAt: record.updated_at,
+    reviewed_at: record.reviewed_at,
+    review_feedback: record.review_feedback,
   }
 }
 
@@ -272,6 +320,7 @@ export async function getChildReport(parentId: string, childId: string) {
       afterScore: day.afterScore !== null ? day.afterScore.toFixed(1) : 'N/A',
       reflection: day.reflection,
       completedAt: day.completedAt,
+      recordId: day.recordId, // Add record ID for PDF downloads
     }))
 
   return {

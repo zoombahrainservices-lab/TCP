@@ -54,6 +54,66 @@ export default function ChildReportPage() {
       </div>
 
       <div className="bg-white p-8 rounded-lg shadow-md print:shadow-none">
+        {/* Foundation Section */}
+        {report.foundation && (
+          <div className="border-2 border-blue-200 bg-blue-50 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Foundation</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <span className="text-sm text-gray-600">Assessment Score:</span>
+                <div className="text-2xl font-bold text-gray-900">{report.foundation.self_check_score} / 49</div>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Status:</span>
+                <div className="text-lg font-semibold text-gray-900">
+                  {report.foundation.score_band === 'good' ? 'Good Standing' :
+                   report.foundation.score_band === 'danger_zone' ? 'Danger Zone' :
+                   report.foundation.score_band === 'tom_start' ? 'Tom Start' :
+                   'Counselor Recommended'}
+                </div>
+              </div>
+            </div>
+            {report.foundation.identity_statement && (
+              <div className="mt-4">
+                <span className="text-sm text-gray-600">Identity Statement:</span>
+                <p className="text-gray-900 italic mt-1">"{report.foundation.identity_statement}"</p>
+              </div>
+            )}
+            <div className="mt-4 flex gap-4">
+              <a 
+                href="/tcp-foundation-chapter1.pdf" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-700 underline text-sm"
+              >
+                📄 Download Foundation PDF
+              </a>
+              <a 
+                href="/tcp-90day-challenge.pdf" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-purple-600 hover:text-purple-700 underline text-sm"
+              >
+                📄 Download 90-Day Challenge PDF
+              </a>
+            </div>
+          </div>
+        )}
+        
+        {!report.foundation && (
+          <div className="border-2 border-gray-200 bg-gray-50 rounded-lg p-6 mb-6">
+            <p className="text-gray-600 text-sm mb-3">Foundation assessment not yet completed.</p>
+            <a 
+              href="/tcp-90day-challenge.pdf" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-purple-600 hover:text-purple-700 underline text-sm"
+            >
+              📄 Download 90-Day Challenge PDF
+            </a>
+          </div>
+        )}
+        
         <div className="border-b-2 border-gray-200 pb-6 mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Progress Report</h1>
           <h2 className="text-2xl text-gray-700 mb-4">{report.childName}</h2>
@@ -84,6 +144,7 @@ export default function ChildReportPage() {
                   <th className="border border-gray-300 px-4 py-2 text-center">Before Score</th>
                   <th className="border border-gray-300 px-4 py-2 text-center">After Score</th>
                   <th className="border border-gray-300 px-4 py-2 text-center">Improvement</th>
+                  <th className="border border-gray-300 px-4 py-2 text-center print:hidden">Downloads</th>
                 </tr>
               </thead>
               <tbody>
@@ -111,6 +172,30 @@ export default function ChildReportPage() {
                           {improvement !== 'N/A' && parseFloat(improvement) > 0 && '+'}
                           {improvement}
                         </span>
+                      </td>
+                      <td className="border border-gray-300 px-2 py-2 text-center print:hidden">
+                        <div className="flex flex-col gap-1">
+                          <a
+                            href={`/api/chapters/${day.dayNumber}/pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:text-blue-700 underline"
+                          >
+                            📖 Chapter
+                          </a>
+                          {day.recordId ? (
+                            <a
+                              href={`/api/daily-records/${day.recordId}/pdf`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-700 underline"
+                            >
+                              📊 Results
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">No results</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )

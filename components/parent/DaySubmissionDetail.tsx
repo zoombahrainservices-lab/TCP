@@ -18,73 +18,10 @@ export default function DaySubmissionDetail({ submission, parentId, onReviewSubm
   const [reviewError, setReviewError] = useState('')
 
   const handleDownloadPDF = () => {
-    // Create printable content and trigger print dialog for PDF
-    const printContent = document.getElementById('submission-content')
-    if (!printContent) return
-    
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
-    
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Day ${submission.dayNumber} - ${submission.chapterTitle}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-            h1 { color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
-            h2 { color: #374151; margin-top: 30px; }
-            .section { margin: 20px 0; padding: 15px; background: #f9fafb; border-radius: 8px; }
-            .question { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
-            .score { font-weight: bold; color: #059669; }
-            .reflection { white-space: pre-wrap; line-height: 1.6; word-wrap: break-word; overflow-wrap: break-word; }
-            .average { margin-top: 15px; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <h1>Day ${submission.dayNumber}: ${submission.chapterTitle}</h1>
-          ${submission.chapterSubtitle ? `<p>${submission.chapterSubtitle}</p>` : ''}
-          
-          <h2>Before Self-Check</h2>
-          <div class="section">
-            ${submission.beforeAnswers?.map((a: any) => `
-              <div class="question">
-                <span>${a.question}</span>
-                <span class="score">${a.answer}/5</span>
-              </div>
-            `).join('') || 'No answers'}
-            <div class="average">Average: ${submission.beforeAnswers?.length > 0 
-              ? (submission.beforeAnswers.reduce((sum: number, a: any) => sum + (a.answer || 0), 0) / submission.beforeAnswers.length).toFixed(1) 
-              : 'N/A'}/5</div>
-          </div>
-          
-          <h2>After Self-Check</h2>
-          <div class="section">
-            ${submission.afterAnswers?.map((a: any) => `
-              <div class="question">
-                <span>${a.question}</span>
-                <span class="score">${a.answer}/5</span>
-              </div>
-            `).join('') || 'No answers'}
-            <div class="average">Average: ${submission.afterAnswers?.length > 0 
-              ? (submission.afterAnswers.reduce((sum: number, a: any) => sum + (a.answer || 0), 0) / submission.afterAnswers.length).toFixed(1) 
-              : 'N/A'}/5</div>
-          </div>
-          
-          ${submission.reflection ? `
-            <h2>Reflection</h2>
-            <div class="section">
-              <p class="reflection">${submission.reflection}</p>
-            </div>
-          ` : ''}
-          
-          <p style="margin-top: 40px; color: #6b7280; font-size: 12px;">
-            Generated on ${new Date().toLocaleDateString()}
-          </p>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
-    printWindow.print()
+    // Use the new PDF API endpoint if record ID is available
+    if (submission.id) {
+      window.open(`/api/daily-records/${submission.id}/pdf`, '_blank')
+    }
   }
 
   const handleSubmitReview = async () => {

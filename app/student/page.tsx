@@ -1,29 +1,26 @@
 import { requireAuth } from '@/lib/auth/guards'
 import { getStudentProgress, getChapterContent } from '@/app/actions/student'
-import { hasProgramBaseline } from '@/app/actions/baseline'
-import { redirect } from 'next/navigation'
+import { getMyFoundation } from '@/app/actions/baseline'
 import ProgressBar30 from '@/components/student/ProgressBar30'
 import DayCard from '@/components/student/DayCard'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
+import Badge from '@/components/ui/Badge'
 
 export default async function StudentDashboard() {
   const user = await requireAuth('student')
   
-  // Check if baseline is completed
-  const hasBaseline = await hasProgramBaseline(user.id)
-  if (!hasBaseline) {
-    redirect('/student/baseline')
-  }
+  // Get Foundation status (optional, not blocking)
+  const foundation = await getMyFoundation()
   
   const progress = await getStudentProgress(user.id)
 
-  // Get current chapter info
-  let currentChapter = null
-  if (progress.currentDay <= 30) {
+  // Get suggested chapter info
+  let suggestedChapter = null
+  if (progress.suggestedDay <= 30) {
     try {
-      currentChapter = await getChapterContent(progress.currentDay)
+      suggestedChapter = await getChapterContent(progress.suggestedDay)
     } catch (error) {
       // Chapter not found
     }
@@ -44,11 +41,80 @@ export default async function StudentDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container max-w-6xl mx-auto px-4 py-6 md:py-8">
+        {/* Foundation Status Card */}
+        {!foundation ? (
+          <Card className="mb-6 md:mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">🎯 Start with Your Foundation</h3>
+                <p className="text-gray-700 text-sm">
+                  Build your communication foundation with self-assessment, identity, and commitment.
+                </p>
+              </div>
+              <Link href="/student/baseline">
+                <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+                  Begin Foundation
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        ) : (
+          <Card className="mb-6 md:mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-lg font-bold text-gray-900">Your Foundation</h3>
+                  <Badge variant={
+                    foundation.score_band === 'good' ? 'success' :
+                    foundation.score_band === 'danger_zone' ? 'warning' :
+                    'default'
+                  }>
+                    {foundation.score_band === 'good' ? 'Good Standing' :
+                     foundation.score_band === 'danger_zone' ? 'Danger Zone' :
+                     foundation.score_band === 'tom_start' ? 'Tom Start' :
+                     'Counselor'}
+                  </Badge>
+                </div>
+                {foundation.identity_statement && (
+                  <p className="text-gray-700 text-sm italic truncate">
+                    "{foundation.identity_statement}"
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <Link href="/student/baseline">
+                  <Button variant="secondary" size="sm">
+                    View / Update
+                  </Button>
+                </Link>
+                <a
+                  href="/tcp-foundation-chapter1.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-700 text-center"
+                >
+                  📄 Download PDF
+                </a>
+              </div>
+            </div>
+          </Card>
+        )}
+        
         {/* Progress Bar Section - Full Width on Mobile */}
         <Card className="mb-6 md:mb-8">
           <div className="text-center mb-4">
-            <div className="text-sm md:text-base text-gray-600 mb-3">Day {progress.currentDay} / 30</div>
-            <ProgressBar30 completedDays={progress.completedDays} currentDay={progress.currentDay} />
+            <div className="text-sm md:text-base text-gray-600 mb-3">
+              {progress.completedDays.length} / 30 Days Completed
+              {progress.inProgressDays.length > 0 && (
+                <span className="ml-2 text-yellow-600">({progress.inProgressDays.length} in progress)</span>
+              )}
+            </div>
+            <ProgressBar30 
+              completedDays={progress.completedDays} 
+              inProgressDays={progress.inProgressDays}
+              suggestedDay={progress.suggestedDay}
+              dayStatuses={progress.dayStatuses}
+            />
           </div>
         </Card>
 
@@ -62,13 +128,16 @@ export default async function StudentDashboard() {
                 Welcome, {user.fullName.split(' ')[0]}!
               </h1>
               
-              {/* Current Day CTA */}
-              {progress.currentDay <= 30 && currentChapter ? (
-                <Link href={`/student/day/${progress.currentDay}`}>
-                  <Button size="lg" fullWidth className="text-base md:text-lg py-3 md:py-4">
-                    Start Day {progress.currentDay}
-                  </Button>
-                </Link>
+              {/* Suggested Day CTA */}
+              {progress.suggestedDay <= 30 && suggestedChapter ? (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Suggested Next:</p>
+                  <Link href={`/student/day/${progress.suggestedDay}`}>
+                    <Button size="lg" fullWidth className="text-base md:text-lg py-3 md:py-4">
+                      {progress.dayStatuses[progress.suggestedDay] === 'in-progress' ? 'Continue' : 'Start'} Day {progress.suggestedDay}
+                    </Button>
+                  </Link>
+                </div>
               ) : progress.completedDays.length === 30 ? (
                 <div className="text-center py-4">
                   <div className="text-4xl mb-3">🎉</div>
@@ -99,26 +168,26 @@ export default async function StudentDashboard() {
             </Card>
           </div>
 
-          {/* Right Column - Active Chapter */}
-          {progress.currentDay <= 30 && currentChapter && (
+          {/* Right Column - Suggested Chapter */}
+          {progress.suggestedDay <= 30 && suggestedChapter && (
             <Card className="lg:sticky lg:top-6 h-fit">
               <div className="mb-4">
-                <span className="text-sm text-gray-600">Active Chapter</span>
+                <span className="text-sm text-gray-600">Suggested Next</span>
                 <h2 className="text-xl md:text-2xl font-bold text-gray-900 mt-1">
-                  Day {progress.currentDay} / 30
+                  Day {progress.suggestedDay} / 30
                 </h2>
                 <h3 className="text-lg md:text-xl font-semibold text-gray-700 mt-2">
-                  Chapter {progress.currentDay}: {currentChapter.title}
+                  Chapter {progress.suggestedDay}: {suggestedChapter.title}
                 </h3>
               </div>
               
               <div className="space-y-3">
-                <Link href={`/student/day/${progress.currentDay}`}>
+                <Link href={`/student/day/${progress.suggestedDay}`}>
                   <Button variant="secondary" fullWidth className="bg-orange-500 hover:bg-orange-600 text-white border-0">
                     Read Chapter →
                   </Button>
                 </Link>
-                <Link href={`/student/day/${progress.currentDay}`}>
+                <Link href="/student/progress">
                   <Button fullWidth>
                     View Progress →
                   </Button>

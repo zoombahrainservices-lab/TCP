@@ -7,6 +7,13 @@ export interface ProgramReport {
     responses: any
     completedAt: string
   } | null
+  foundation: {
+    self_check_score: number
+    score_band: 'good' | 'danger_zone' | 'tom_start' | 'counselor'
+    identity_statement: string | null
+    chosen_action: string | null
+    completedAt: string
+  } | null
   summary: {
     completionPercentage: number
     completedDays: number
@@ -35,6 +42,7 @@ export interface ProgramReport {
     taskDueAt: string | null
     proofUploadedAt: string | null
     submittedOnTime: boolean | null
+    recordId: number | null
   }>
 }
 
@@ -44,10 +52,10 @@ export interface ProgramReport {
 export async function buildChildProgramReport(childId: string): Promise<ProgramReport> {
   const adminClient = createAdminClient()
 
-  // 1. Fetch baseline
+  // 1. Fetch baseline (legacy and Foundation data)
   const { data: baseline } = await adminClient
     .from('program_baselines')
-    .select('responses, created_at')
+    .select('responses, created_at, self_check_score, score_band, identity_statement, chosen_action, updated_at')
     .eq('student_id', childId)
     .maybeSingle()
 
@@ -161,6 +169,7 @@ export async function buildChildProgramReport(childId: string): Promise<ProgramR
       taskDueAt: record?.task_due_at || null,
       proofUploadedAt: record?.proof_uploaded_at || null,
       submittedOnTime,
+      recordId: record?.id || null,
     }
   })
 
@@ -170,6 +179,13 @@ export async function buildChildProgramReport(childId: string): Promise<ProgramR
     baseline: baseline ? {
       responses: baseline.responses,
       completedAt: baseline.created_at
+    } : null,
+    foundation: baseline && baseline.self_check_score ? {
+      self_check_score: baseline.self_check_score,
+      score_band: baseline.score_band,
+      identity_statement: baseline.identity_statement,
+      chosen_action: baseline.chosen_action,
+      completedAt: baseline.updated_at || baseline.created_at
     } : null,
     summary: {
       completionPercentage: Math.round((completedDays / totalDays) * 100),

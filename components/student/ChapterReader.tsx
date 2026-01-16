@@ -9,12 +9,27 @@ interface ChapterReaderProps {
 }
 
 export default function ChapterReader({ content, onNext, onBack, dayNumber, title }: ChapterReaderProps) {
+  const handleDownloadPDF = () => {
+    window.open(`/api/chapters/${dayNumber}/pdf`, '_blank')
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Reading Header Bar */}
-      <div className="bg-blue-800 text-white px-4 py-3 md:px-6 md:py-4 mb-0 flex items-center gap-3 shadow-lg">
-        <div className="text-2xl">📖</div>
-        <span className="font-semibold text-base md:text-lg">Reading</span>
+      <div className="bg-blue-800 text-white px-4 py-3 md:px-6 md:py-4 mb-0 flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="text-2xl">📖</div>
+          <span className="font-semibold text-base md:text-lg">Reading</span>
+        </div>
+        <button
+          onClick={handleDownloadPDF}
+          className="px-3 py-1.5 bg-white text-blue-800 rounded-lg hover:bg-gray-100 font-medium transition-colors flex items-center gap-2 text-sm"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          PDF
+        </button>
       </div>
 
       {/* Chapter Content */}

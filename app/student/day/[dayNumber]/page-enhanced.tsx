@@ -64,15 +64,11 @@ export default function DayPageEnhanced() {
           return
         }
         
-        // Get progress to check if day is accessible
+        // Get progress (no longer blocking access)
         const prog = await getStudentProgress(session.id)
         setProgress(prog)
         
-        if (dayNumber > prog.currentDay) {
-          setError(`Please complete Day ${prog.currentDay} first`)
-          setLoading(false)
-          return
-        }
+        // Allow access to any day - no blocking
         
         // Get chapter content
         const chap = await getChapterContent(dayNumber)

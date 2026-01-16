@@ -4,10 +4,23 @@ import { createClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage/uploads'
 import { revalidatePath } from 'next/cache'
 
-export async function getStudentProgress(studentId: string) {
+export type DayStatus = 'completed' | 'in-progress' | 'not-started'
+
+export interface StudentProgress {
+  completedDays: number[]
+  inProgressDays: number[]
+  suggestedDay: number
+  totalDays: number
+  completionPercentage: number
+  dayStatuses: Record<number, DayStatus>
+  // Keep currentDay for backward compatibility during transition
+  currentDay: number
+}
+
+export async function getStudentProgress(studentId: string): Promise<StudentProgress> {
   const supabase = await createClient()
 
-  // Get all completed records for this student
+  // Get all records for this student
   const { data: records, error } = await supabase
     .from('daily_records')
     .select('day_number, completed')
@@ -19,16 +32,37 @@ export async function getStudentProgress(studentId: string) {
   }
 
   const completedDays = records?.filter(r => r.completed).map(r => r.day_number) || []
-  const currentDay = completedDays.length > 0 ? Math.max(...completedDays) + 1 : 1
+  const inProgressDays = records?.filter(r => !r.completed).map(r => r.day_number) || []
   
-  // Ensure currentDay doesn't exceed 30
-  const nextDay = currentDay > 30 ? 30 : currentDay
+  // Suggested day = lowest incomplete day, or next after max completed, or 1
+  let suggestedDay = 1
+  if (inProgressDays.length > 0) {
+    suggestedDay = Math.min(...inProgressDays)
+  } else if (completedDays.length > 0) {
+    suggestedDay = Math.min(Math.max(...completedDays) + 1, 30)
+  }
+
+  // Build day statuses map for all 30 days
+  const dayStatuses: Record<number, DayStatus> = {}
+  for (let day = 1; day <= 30; day++) {
+    if (completedDays.includes(day)) {
+      dayStatuses[day] = 'completed'
+    } else if (inProgressDays.includes(day)) {
+      dayStatuses[day] = 'in-progress'
+    } else {
+      dayStatuses[day] = 'not-started'
+    }
+  }
 
   return {
     completedDays,
-    currentDay: nextDay,
+    inProgressDays,
+    suggestedDay,
     totalDays: 30,
     completionPercentage: Math.round((completedDays.length / 30) * 100),
+    dayStatuses,
+    // Keep currentDay for backward compatibility
+    currentDay: suggestedDay,
   }
 }
 
