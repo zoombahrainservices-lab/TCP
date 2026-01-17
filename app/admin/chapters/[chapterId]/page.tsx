@@ -48,12 +48,14 @@ export default function EditChapterPage() {
     }
 
     setDeleting(true)
-    const result = await deleteChapter(chapterId)
-    
-    if (result.success) {
-      router.push('/admin/chapters')
-    } else {
-      alert(result.error || 'Failed to delete chapter')
+    try {
+      const result = await deleteChapter(chapterId)
+      
+      if (result.success) {
+        router.push('/admin/chapters')
+      }
+    } catch (error: any) {
+      alert(error.message || 'Failed to delete chapter')
       setDeleting(false)
     }
   }
