@@ -170,7 +170,7 @@ export async function getAllChapters() {
   return chapters || []
 }
 
-export async function deleteChapter(chapterId: string) {
+export async function deleteChapter(chapterId: number) {
   const adminClient = createAdminClient()
   
   const { error } = await adminClient
