@@ -416,7 +416,7 @@ export default function DayPage() {
                 }
                 
                 // For other days, parse normally
-                const lines = desc.split('\n').map(l => l.trim()).filter(l => l !== '')
+                const lines = desc.split('\n').map((l: string) => l.trim()).filter((l: string) => l !== '')
                 
                 if (lines.length > 0) {
                   return lines.map((line, idx) => {
