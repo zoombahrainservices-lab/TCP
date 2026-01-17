@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import confetti from 'canvas-confetti'
 
 interface MilestoneToastProps {
   open: boolean
@@ -12,6 +13,27 @@ interface MilestoneToastProps {
 export default function MilestoneToast({ open, milestone, chapterTitle, onClose }: MilestoneToastProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [isExiting, setIsExiting] = useState(false)
+  
+  // Trigger confetti when milestone is achieved
+  useEffect(() => {
+    if (open) {
+      // Fire confetti from the center of the screen
+      const fireConfetti = async () => {
+        try {
+          await confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.5, x: 0.5 }, // Center of screen
+            colors: ['#F5B301', '#4A90E2', '#E63946', '#111111'], // TCP brand colors
+          })
+        } catch (error) {
+          console.error('Confetti error:', error)
+        }
+      }
+      
+      fireConfetti()
+    }
+  }, [open])
 
   // Handle enter animation
   useEffect(() => {
@@ -24,13 +46,13 @@ export default function MilestoneToast({ open, milestone, chapterTitle, onClose 
     }
   }, [open])
 
-  // Auto-dismiss after 4 seconds
+  // Auto-dismiss after 2 seconds (confetti shows for 1-2 seconds)
   useEffect(() => {
     if (!open) return
 
     const timer = setTimeout(() => {
       handleClose()
-    }, 4000) // 4 seconds
+    }, 2000) // 2 seconds
 
     return () => clearTimeout(timer)
   }, [open])
