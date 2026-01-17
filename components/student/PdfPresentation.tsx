@@ -11,62 +11,17 @@ interface PdfPresentationProps {
 }
 
 export default function PdfPresentation({ dayNumber, title, totalPages, onComplete, onBack }: PdfPresentationProps) {
-  const [currentPage, setCurrentPage] = useState(0) // 0 = cover page, 1+ = content pages
+  const [currentPage, setCurrentPage] = useState(0) // 0 = cover page, 1+ = content pages (PDF)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [imageError, setImageError] = useState(false)
-  const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set())
 
   const chapterDir = `chapter${String(dayNumber).padStart(2, '0')}`
   const hasCover = dayNumber === 1 // Cover page only for Day 1
+  const pdfUrl = dayNumber === 1 ? '/tcp-foundation-chapter1.pdf' : `/chapters/${chapterDir}/chapter.pdf`
   
-  // Initialize currentImageUrl based on initial page
-  const getInitialImageUrl = () => {
-    if (hasCover && currentPage === 0) {
-      return `/chapters/${chapterDir}/cover.jpg`
-    } else if (currentPage >= 1 && currentPage <= totalPages) {
-      return `/chapters/${chapterDir}/page${String(currentPage).padStart(2, '0')}.png`
-    }
-    return `/chapters/${chapterDir}/page01.png` // Fallback
-  }
-  
-  const [currentImageUrl, setCurrentImageUrl] = useState<string>(getInitialImageUrl())
-  
-  // Update image URL when page changes
-  useEffect(() => {
-    if (currentPage === 0 && hasCover) {
-      // Cover page
-      setCurrentImageUrl(`/chapters/${chapterDir}/cover.jpg`)
-      setImageError(false)
-    } else if (currentPage >= 1 && currentPage <= totalPages) {
-      // Content pages
-      setCurrentImageUrl(`/chapters/${chapterDir}/page${String(currentPage).padStart(2, '0')}.png`)
-      setImageError(false)
-    } else {
-      // Clamp page number to valid range
-      if (currentPage < (hasCover ? 0 : 1)) {
-        setCurrentPage(hasCover ? 0 : 1)
-      } else if (currentPage > totalPages) {
-        setCurrentPage(totalPages)
-      }
-    }
-  }, [currentPage, chapterDir, totalPages, hasCover])
-
-  // Preload adjacent pages
-  useEffect(() => {
-    const pagesToPreload = [
-      currentPage - 1,
-      currentPage,
-      currentPage + 1,
-    ].filter(p => p >= 1 && p <= totalPages && !loadedPages.has(p))
-
-    pagesToPreload.forEach(page => {
-      const img = new Image()
-      img.src = `/chapters/${chapterDir}/page${String(page).padStart(2, '0')}.png`
-      img.onload = () => {
-        setLoadedPages(prev => new Set(prev).add(page))
-      }
-    })
-  }, [currentPage, totalPages, chapterDir, loadedPages])
+  // Determine what to show: cover (page 0) or PDF (page 1+)
+  const isShowingCover = currentPage === 0 && hasCover
+  const pdfPageParam = currentPage > 0 ? `#page=${currentPage}` : '#page=1'
 
   // Keyboard navigation
   useEffect(() => {
@@ -113,26 +68,6 @@ export default function PdfPresentation({ dayNumber, title, totalPages, onComple
   }
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const img = e.currentTarget
-    // Try JPEG extension if PNG fails
-    if (currentImageUrl.endsWith('.png')) {
-      const jpegUrl = currentImageUrl.replace(/\.png$/, '.jpeg')
-      const jpgUrl = currentImageUrl.replace(/\.png$/, '.jpg')
-      
-      // Try JPEG first
-      if (!img.src.includes('.jpeg') && !img.src.includes('.jpg')) {
-        setCurrentImageUrl(jpegUrl)
-        setImageError(false)
-        return
-      }
-      // Try JPG if JPEG failed
-      if (img.src.includes('.jpeg')) {
-        setCurrentImageUrl(jpgUrl)
-        setImageError(false)
-        return
-      }
-    }
-    // If all attempts failed, show error
     setImageError(true)
   }
 
@@ -184,33 +119,42 @@ export default function PdfPresentation({ dayNumber, title, totalPages, onComple
       </div>
 
       {/* Main Presentation Area */}
-      <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden">
-        <div className="relative max-w-5xl w-full h-full flex items-center justify-center">
-          {/* Image with transition */}
-          {!imageError ? (
-            <img
-              src={currentImageUrl}
-              alt={`${title} - Page ${currentPage}`}
-              onError={handleImageError}
-              onLoad={handleImageLoad}
-              className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${
-                isTransitioning ? 'opacity-0' : 'opacity-100'
-              }`}
-            />
+      <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden bg-gray-900">
+        <div className="relative w-full h-full flex items-center justify-center">
+          {isShowingCover ? (
+            /* Cover Page */
+            <div className="max-w-5xl w-full h-full flex items-center justify-center">
+              {!imageError ? (
+                <img
+                  src={`/chapters/${chapterDir}/cover.jpg`}
+                  alt={`${title} - Cover`}
+                  onError={handleImageError}
+                  onLoad={handleImageLoad}
+                  className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${
+                    isTransitioning ? 'opacity-0' : 'opacity-100'
+                  }`}
+                />
+              ) : (
+                <div className="bg-gray-800 rounded-lg p-8 text-center">
+                  <div className="text-white text-lg mb-4">Cover image not found</div>
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="bg-gray-800 rounded-lg p-8 text-center">
-              <div className="text-white text-lg mb-4">
-                Page {currentPage} image not found
-              </div>
-              <div className="text-gray-400 text-sm">
-                Expected: {currentImageUrl}
-              </div>
+            /* PDF Viewer */
+            <div className="w-full h-full flex items-center justify-center">
+              <iframe
+                src={`${pdfUrl}${pdfPageParam}`}
+                className="w-full h-full border-none rounded-lg shadow-2xl"
+                title={`${title} - Page ${currentPage}`}
+                style={{ minHeight: '600px' }}
+              />
             </div>
           )}
 
           {/* Loading indicator during transition */}
           {isTransitioning && (
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
             </div>
           )}
