@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import confetti from 'canvas-confetti'
 
 interface CelebrationOverlayProps {
   open: boolean
@@ -10,6 +11,86 @@ interface CelebrationOverlayProps {
 }
 
 export default function CelebrationOverlay({ open, milestone, chapterTitle, onClose }: CelebrationOverlayProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // Launch fireworks using canvas-confetti (behind the card)
+  useEffect(() => {
+    if (!open) return
+
+    // Multiple bursts from different positions
+    const colors = ['#fbbf24', '#f472b6', '#60a5fa', '#34d399', '#ef4444', '#8b5cf6']
+    
+    // Left side burst
+    setTimeout(() => {
+      confetti({
+        particleCount: 100,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.5 },
+        colors: colors,
+        zIndex: 40,
+      })
+    }, 100)
+
+    // Right side burst
+    setTimeout(() => {
+      confetti({
+        particleCount: 100,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.5 },
+        colors: colors,
+        zIndex: 40,
+      })
+    }, 300)
+
+    // Center burst
+    setTimeout(() => {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { x: 0.5, y: 0.5 },
+        colors: colors,
+        zIndex: 40,
+      })
+    }, 500)
+
+    // Top bursts
+    setTimeout(() => {
+      confetti({
+        particleCount: 80,
+        angle: 90,
+        spread: 60,
+        origin: { x: 0.5, y: 0 },
+        colors: colors,
+        zIndex: 40,
+      })
+    }, 200)
+
+    // Bottom burst
+    setTimeout(() => {
+      confetti({
+        particleCount: 80,
+        angle: 270,
+        spread: 60,
+        origin: { x: 0.5, y: 1 },
+        colors: colors,
+        zIndex: 40,
+      })
+    }, 400)
+  }, [open])
+
+  // Auto-dismiss after 2.5 seconds
+  useEffect(() => {
+    if (!open) return
+
+    const timer = setTimeout(() => {
+      onClose()
+    }, 2500) // 2.5 seconds
+
+    return () => clearTimeout(timer)
+  }, [open, onClose])
+
   // Close on Escape key
   useEffect(() => {
     if (!open) return
@@ -65,13 +146,21 @@ export default function CelebrationOverlay({ open, milestone, chapterTitle, onCl
       aria-modal="true"
       aria-labelledby="celebration-title"
     >
-      {/* Backdrop with blur */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      {/* Canvas for fireworks (behind card) */}
+      <canvas
+        ref={canvasRef}
+        className="fixed inset-0 pointer-events-none"
+        style={{ zIndex: 40 }}
+      />
 
-      {/* Celebration Card */}
+      {/* Backdrop with blur */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" style={{ zIndex: 41 }} />
+
+      {/* Celebration Card - Transparent */}
       <div
-        className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-scaleIn"
+        className="relative bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl max-w-md w-full p-8 text-center animate-scaleIn border border-white/20"
         onClick={(e) => e.stopPropagation()}
+        style={{ zIndex: 50 }}
       >
         {/* Gradient header */}
         <div className={`inline-block px-4 py-2 rounded-full bg-gradient-to-r ${color} text-white text-sm font-semibold mb-4`}>
@@ -108,90 +197,6 @@ export default function CelebrationOverlay({ open, milestone, chapterTitle, onCl
           </svg>
         </button>
 
-        {/* Fireworks/Confetti Animation for all milestones */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
-          {(() => {
-            const colors = ['#fbbf24', '#f472b6', '#60a5fa', '#34d399', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
-            const particles = []
-            
-            // Generate random positions for particles (calculate once per render)
-            for (let i = 0; i < 20; i++) {
-              const angle = (i / 20) * Math.PI * 2
-              const distance = 100 + Math.random() * 50
-              const x = Math.cos(angle) * distance
-              const y = Math.sin(angle) * distance
-              
-              particles.push({
-                key: `particle-${i}`,
-                left: 50,
-                top: 50,
-                color: colors[i % colors.length],
-                x,
-                y,
-                delay: Math.random() * 0.5,
-                duration: 1.5 + Math.random() * 0.5,
-              })
-            }
-            
-            return particles.map((particle) => (
-              <div
-                key={particle.key}
-                className="absolute w-2 h-2 rounded-full animate-fireworks"
-                style={{
-                  left: `${particle.left}%`,
-                  top: `${particle.top}%`,
-                  backgroundColor: particle.color,
-                  '--fireworks-x': `${particle.x}px`,
-                  '--fireworks-y': `${particle.y}px`,
-                  animationDelay: `${particle.delay}s`,
-                  animationDuration: `${particle.duration}s`,
-                } as React.CSSProperties}
-              />
-            ))
-          })()}
-          
-          {/* Larger confetti pieces */}
-          {(() => {
-            const colors = ['#ef4444', '#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899']
-            const confetti = []
-            
-            for (let i = 0; i < 15; i++) {
-              const angle = (i / 15) * Math.PI * 2 + Math.PI / 15
-              const distance = 80 + Math.random() * 60
-              const x = Math.cos(angle) * distance
-              const y = Math.sin(angle) * distance
-              
-              confetti.push({
-                key: `confetti-${i}`,
-                left: 50,
-                top: 50,
-                color: colors[i % colors.length],
-                x,
-                y,
-                delay: 0.2 + Math.random() * 0.3,
-                duration: 2 + Math.random() * 0.5,
-                rotation: Math.random() * 360,
-              })
-            }
-            
-            return confetti.map((item) => (
-              <div
-                key={item.key}
-                className="absolute w-3 h-3 animate-fireworks"
-                style={{
-                  left: `${item.left}%`,
-                  top: `${item.top}%`,
-                  backgroundColor: item.color,
-                  '--fireworks-x': `${item.x}px`,
-                  '--fireworks-y': `${item.y}px`,
-                  animationDelay: `${item.delay}s`,
-                  animationDuration: `${item.duration}s`,
-                  clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
-                } as React.CSSProperties}
-              />
-            ))
-          })()}
-        </div>
       </div>
 
       <style jsx>{`
@@ -215,45 +220,12 @@ export default function CelebrationOverlay({ open, milestone, chapterTitle, onCl
           }
         }
 
-        @keyframes confetti {
-          0% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(400px) rotate(360deg);
-            opacity: 0;
-          }
-        }
-
-        @keyframes fireworks {
-          0% {
-            transform: translate(0, 0) scale(0) rotate(0deg);
-            opacity: 1;
-          }
-          50% {
-            opacity: 1;
-          }
-          100% {
-            transform: translate(var(--fireworks-x, 100px), var(--fireworks-y, 100px)) scale(1.5) rotate(360deg);
-            opacity: 0;
-          }
-        }
-
         .animate-fadeIn {
           animation: fadeIn 0.3s ease-out;
         }
 
         .animate-scaleIn {
           animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        .animate-confetti {
-          animation: confetti 2s ease-out infinite;
-        }
-
-        .animate-fireworks {
-          animation: fireworks 2s ease-out forwards;
         }
       `}</style>
     </div>
