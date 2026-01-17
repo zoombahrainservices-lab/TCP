@@ -158,8 +158,8 @@ export async function GET(
     // Generate PDF
     const pdfBytes = await generateDailyResultPdfBytes(pdfData)
     
-    // Return PDF as download
-    return new NextResponse(pdfBytes, {
+    // Return PDF as download (convert Uint8Array to Buffer for NextResponse)
+    return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
