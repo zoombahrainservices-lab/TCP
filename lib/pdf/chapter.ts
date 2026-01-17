@@ -1,11 +1,19 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 
+interface ChapterChunk {
+  id: number
+  title?: string
+  body: string[]
+  imageUrl?: string | null
+}
+
 interface Chapter {
   day_number: number
   title: string
   subtitle?: string
   content: string
   task_description: string
+  chunks?: ChapterChunk[]
 }
 
 /**
@@ -150,8 +158,27 @@ export async function generateChapterPdfBytes(chapter: Chapter): Promise<Uint8Ar
   })
   y -= 25
   
+  // Build content from chunks if available, otherwise use content field
+  let contentText = chapter.content || ''
+  
+  // If chunks exist, convert them to text content
+  if (chapter.chunks && Array.isArray(chapter.chunks) && chapter.chunks.length > 0) {
+    const chunksText: string[] = []
+    chapter.chunks.forEach((chunk: ChapterChunk) => {
+      if (chunk.title) {
+        chunksText.push(`\n## ${chunk.title}\n`)
+      }
+      if (chunk.body && Array.isArray(chunk.body)) {
+        chunk.body.forEach((paragraph: string) => {
+          chunksText.push(paragraph)
+          chunksText.push('') // Empty line between paragraphs
+        })
+      }
+    })
+    contentText = chunksText.join('\n')
+  }
+  
   // Content (split into lines, handle pagination)
-  const contentText = chapter.content || ''
   const contentLines = wrapText(contentText, maxWidth, bodyFont, 12)
   
   for (const line of contentLines) {
