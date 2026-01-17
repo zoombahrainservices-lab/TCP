@@ -97,8 +97,14 @@ export async function generateChapterPdfBytes(chapter: Chapter): Promise<Uint8Ar
     throw new Error('Chapter data is required')
   }
   
-  if (!chapter.title || !chapter.content) {
-    throw new Error('Chapter title and content are required')
+  if (!chapter.title) {
+    throw new Error('Chapter title is required')
+  }
+  
+  // Content can be empty if chunks exist
+  const hasContent = chapter.content || (chapter.chunks && Array.isArray(chapter.chunks) && chapter.chunks.length > 0)
+  if (!hasContent) {
+    throw new Error('Chapter must have either content or chunks')
   }
   
   const pdfDoc = await PDFDocument.create()
