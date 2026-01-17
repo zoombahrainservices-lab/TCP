@@ -140,9 +140,11 @@ export default function BaselineForm({ studentId }: BaselineFormProps) {
           </div>
 
           <SelfCheckScale
+            question={question.question}
+            questionId={question.id}
             value={answers[question.id]}
             onChange={(value) => handleAnswerChange(question.id, value)}
-            labels={['Very Low', 'Low', 'Moderate', 'High', 'Very High']}
+            maxValue={5}
           />
         </Card>
       ))}
