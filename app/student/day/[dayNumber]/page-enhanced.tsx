@@ -347,8 +347,9 @@ export default function DayPageEnhanced() {
           <div className="space-y-6 mb-8">
             {(chapter.before_questions as any[]).map((q) => (
               <div key={q.id}>
-                <p className="text-gray-700 mb-3 font-medium">{q.question}</p>
                 <SelfCheckScale
+                  question={q.question}
+                  questionId={q.id}
                   value={beforeAnswers[q.id]}
                   onChange={(value) => setBeforeAnswers(prev => ({ ...prev, [q.id]: value }))}
                 />
