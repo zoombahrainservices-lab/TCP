@@ -81,13 +81,17 @@ export default function BaselineForm({ studentId }: BaselineFormProps) {
     setSubmitting(true)
 
     try {
+      // Map answers to the expected q1-q7 format
       const responses = {
-        answers: baselineQuestions.map(q => ({
-          questionId: q.id,
-          question: q.question,
-          answer: answers[q.id]
-        })),
-        completedAt: new Date().toISOString()
+        responses: {
+          q1: answers[baselineQuestions[0].id] || 0,
+          q2: answers[baselineQuestions[1].id] || 0,
+          q3: answers[baselineQuestions[2].id] || 0,
+          q4: answers[baselineQuestions[3].id] || 0,
+          q5: answers[baselineQuestions[4].id] || 0,
+          q6: answers[baselineQuestions[5].id] || 0,
+          q7: answers[baselineQuestions[6].id] || 0,
+        }
       }
 
       const result = await submitProgramBaseline(studentId, responses)
