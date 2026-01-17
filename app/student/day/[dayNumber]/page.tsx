@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   getStudentProgress, 
-  getChapterContent, 
+  getChapterContent,
+  getChapterMetadata,
   startDay, 
   saveBeforeAnswers,
   uploadProof,
@@ -12,18 +13,21 @@ import {
   completeDay,
   getDailyRecord
 } from '@/app/actions/student'
-import { hasProgramBaseline, getMyFoundation, type FoundationData } from '@/app/actions/baseline'
+import { hasProgramBaseline } from '@/app/actions/baseline'
 import { getSession } from '@/app/actions/auth'
 import ChapterReader from '@/components/student/ChapterReader'
+import ChapterFlipbook from '@/components/student/ChapterFlipbook'
+import PdfPresentation from '@/components/student/PdfPresentation'
 import SelfCheckScale from '@/components/student/SelfCheckScale'
 import ReflectionInput from '@/components/student/ReflectionInput'
 import UploadForm from '@/components/student/UploadForm'
-import FoundationIntroBanner from '@/components/student/FoundationIntroBanner'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import ScoreReport, { defaultDay1Bands } from '@/components/student/ScoreReport'
 
 type Step = 'overview' | 'reader' | 'before' | 'task' | 'upload' | 'after' | 'complete'
+type ReaderMode = 'learning' | 'presentation'
 
 export default function DayPage() {
   const params = useParams()
@@ -31,6 +35,7 @@ export default function DayPage() {
   const dayNumber = parseInt(params.dayNumber as string)
   
   const [step, setStep] = useState<Step>('overview')
+  const [readerMode, setReaderMode] = useState<ReaderMode>('learning')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
@@ -38,12 +43,12 @@ export default function DayPage() {
   const [chapter, setChapter] = useState<any>(null)
   const [recordId, setRecordId] = useState<number | null>(null)
   const [progress, setProgress] = useState<any>(null)
+  const [chapterMetadata, setChapterMetadata] = useState<{ totalPages: number; hasImages: boolean } | null>(null)
   
   const [beforeAnswers, setBeforeAnswers] = useState<Record<string, number>>({})
   const [afterAnswers, setAfterAnswers] = useState<Record<string, number>>({})
   const [reflection, setReflection] = useState('')
   const [uploaded, setUploaded] = useState(false)
-  const [foundation, setFoundation] = useState<FoundationData | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -56,21 +61,17 @@ export default function DayPage() {
         
         setUserId(session.id)
         
-        // Note: No Foundation requirement - students can access any day
-        
-        // Get Foundation status (for banner display, not blocking)
-        const found = await getMyFoundation()
-        setFoundation(found)
-        
-        // Get progress (no longer blocking access)
+        // Get progress
         const prog = await getStudentProgress(session.id)
         setProgress(prog)
-        
-        // Allow access to any day - no blocking
         
         // Load chapter
         const chap = await getChapterContent(dayNumber)
         setChapter(chap)
+        
+        // Load chapter metadata (for flipbook)
+        const metadata = await getChapterMetadata(dayNumber)
+        setChapterMetadata(metadata)
         
         // Check if already started
         const existing = await getDailyRecord(session.id, dayNumber)
@@ -86,6 +87,9 @@ export default function DayPage() {
             setStep('after')
           } else if (existing.before_answers && existing.before_answers.length > 0) {
             setStep('task')
+          } else {
+            // Started but not completed - continue to reader
+            setStep('reader')
           }
         }
         
@@ -203,8 +207,10 @@ export default function DayPage() {
       {/* Progress Indicator */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-600">Day {dayNumber} of 30</span>
-          <span className="text-sm text-gray-500">
+          <span className="headline text-sm text-[var(--color-charcoal)]">
+            DAY {dayNumber} OF 30
+          </span>
+          <span className="text-sm text-[var(--color-gray)]">
             {step === 'overview' && 'Overview'}
             {step === 'reader' && 'Reading'}
             {step === 'before' && 'Before Self-Check'}
@@ -216,7 +222,7 @@ export default function DayPage() {
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div 
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+            className="bg-[var(--color-blue)] h-2 rounded-full transition-all duration-300"
             style={{ 
               width: `${
                 step === 'overview' ? 0 :
@@ -232,17 +238,6 @@ export default function DayPage() {
         </div>
       </div>
 
-      {/* Foundation Intro Banner - Only show on early days if Foundation not completed */}
-      {(() => {
-        const shouldShowFoundationIntro = !foundation && dayNumber <= 3
-        return shouldShowFoundationIntro ? (
-          <FoundationIntroBanner 
-            dayNumber={dayNumber} 
-            hasFoundation={false} 
-          />
-        ) : null
-      })()}
-
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
           {error}
@@ -257,7 +252,7 @@ export default function DayPage() {
               <span className="inline-block px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium mb-4">
                 Day {dayNumber}
               </span>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">{chapter.title}</h1>
+              <h1 className="headline-xl mb-2 text-[var(--color-charcoal)]">{chapter.title}</h1>
               {chapter.subtitle && (
                 <p className="text-xl text-gray-600">{chapter.subtitle}</p>
               )}
@@ -269,20 +264,106 @@ export default function DayPage() {
 
       {/* Step: Reader */}
       {step === 'reader' && (
-        <ChapterReader
-          content={chapter.content}
-          dayNumber={dayNumber}
-          title={chapter.title}
-          onNext={() => setStep('before')}
-          onBack={() => setStep('overview')}
-        />
+        <>
+          {/* Mode Toggle - Only show for Day 1 if both chunks and images exist */}
+          {dayNumber === 1 && chapter.chunks && Array.isArray(chapter.chunks) && chapter.chunks.length > 0 && chapterMetadata?.hasImages ? (
+            <div className="max-w-4xl mx-auto mb-4 px-4">
+              <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setReaderMode('learning')}
+                  className={`flex-1 py-2 px-4 rounded-md font-medium transition-colors ${
+                    readerMode === 'learning'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  📚 Learning Mode
+                </button>
+                <button
+                  onClick={() => setReaderMode('presentation')}
+                  className={`flex-1 py-2 px-4 rounded-md font-medium transition-colors ${
+                    readerMode === 'presentation'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  📊 Presentation Mode
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Render based on mode and available content */}
+          {dayNumber === 1 && chapter.chunks && Array.isArray(chapter.chunks) && chapter.chunks.length > 0 && chapterMetadata?.hasImages ? (
+            // Day 1 with both modes available
+            readerMode === 'learning' ? (
+              <ChapterReader
+                content={chapter.content}
+                chunks={chapter.chunks}
+                dayNumber={dayNumber}
+                title={chapter.title}
+                onNext={() => setStep('before')}
+                onBack={() => setStep('overview')}
+              />
+            ) : (
+              <PdfPresentation
+                dayNumber={dayNumber}
+                title={chapter.title}
+                totalPages={chapterMetadata.totalPages}
+                onComplete={() => setStep('before')}
+                onBack={() => setStep('overview')}
+              />
+            )
+          ) : chapter.chunks && Array.isArray(chapter.chunks) && chapter.chunks.length > 0 ? (
+            // Has chunks but no images - use learning mode only
+            <ChapterReader
+              content={chapter.content}
+              chunks={chapter.chunks}
+              dayNumber={dayNumber}
+              title={chapter.title}
+              onNext={() => setStep('before')}
+              onBack={() => setStep('overview')}
+            />
+          ) : chapterMetadata?.hasImages ? (
+            // Has images but no chunks - use flipbook
+            <ChapterFlipbook
+              dayNumber={dayNumber}
+              chapterTitle={chapter.title}
+              totalPages={chapterMetadata.totalPages}
+              onComplete={() => setStep('before')}
+              onBack={() => setStep('overview')}
+            />
+          ) : (
+            // Fallback - standard text reader
+            <ChapterReader
+              content={chapter.content}
+              chunks={chapter.chunks}
+              dayNumber={dayNumber}
+              title={chapter.title}
+              onNext={() => setStep('before')}
+              onBack={() => setStep('overview')}
+            />
+          )}
+        </>
       )}
 
       {/* Step: Before Self-Check */}
       {step === 'before' && (
         <Card>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Before We Begin</h2>
-          <p className="text-gray-600 mb-6">Rate yourself on these questions (1 = Not at all, 5 = Extremely)</p>
+          <h2 className="headline-lg mb-4 text-[var(--color-charcoal)]">YOUR SELF-CHECK</h2>
+          <p className="text-[var(--color-gray)] mb-6">
+            {dayNumber === 1 
+              ? 'Rate yourself honestly on a scale of 1-7 for each question below.'
+              : 'Rate yourself on these questions (1 = Not at all, 5 = Extremely)'}
+          </p>
+          
+          {/* Add ScoreReport for Day 1 */}
+          {dayNumber === 1 && (
+            <div className="mb-8">
+              <ScoreReport bands={defaultDay1Bands} />
+            </div>
+          )}
+          
           <div className="space-y-6 mb-8">
             {(chapter.before_questions as any[]).map((q) => (
               <SelfCheckScale
@@ -291,6 +372,8 @@ export default function DayPage() {
                 question={q.question}
                 value={beforeAnswers[q.id] || 0}
                 onChange={(value) => setBeforeAnswers({ ...beforeAnswers, [q.id]: value })}
+                scale={q.scale}
+                maxValue={q.scale ? 7 : 5}
               />
             ))}
           </div>
@@ -306,7 +389,52 @@ export default function DayPage() {
         <Card>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Task</h2>
           <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-            <p className="text-gray-700 text-lg leading-relaxed">{chapter.task_description}</p>
+            <div className="text-gray-700 text-lg leading-relaxed">
+              {(() => {
+                const desc = chapter.task_description || ''
+                
+                // For Day 1, use special formatting
+                if (dayNumber === 1) {
+                  const beforeText = 'Write your identity statement: "I am a [identity] who [impact]." Then choose ONE action:'
+                  const afterText = 'Complete your chosen action and document it in a text note (what you did, how it felt, what you learned).'
+                  
+                  return (
+                    <>
+                      <p className="mb-3">{beforeText}</p>
+                      <div className="mb-2">
+                        <span className="font-semibold">1.</span> Share your identity statement with someone you trust
+                      </div>
+                      <div className="mb-2">
+                        <span className="font-semibold">2.</span> Text someone to be your accountability partner
+                      </div>
+                      <div className="mb-2">
+                        <span className="font-semibold">3.</span> Delete one distracting app from your phone
+                      </div>
+                      <p className="mb-3 mt-3">{afterText}</p>
+                    </>
+                  )
+                }
+                
+                // For other days, parse normally
+                const lines = desc.split('\n').map(l => l.trim()).filter(l => l !== '')
+                
+                if (lines.length > 0) {
+                  return lines.map((line, idx) => {
+                    const numberedMatch = line.match(/^[\(]?(\d+)[\.\)]\s*(.+)$/)
+                    if (numberedMatch) {
+                      return (
+                        <div key={idx} className="mb-2">
+                          <span className="font-semibold">{numberedMatch[1]}.</span> {numberedMatch[2]}
+                        </div>
+                      )
+                    }
+                    return <p key={idx} className="mb-3">{line}</p>
+                  })
+                }
+                
+                return <p>{desc}</p>
+              })()}
+            </div>
           </div>
           <Button fullWidth onClick={() => setStep('upload')}>Continue to Upload →</Button>
         </Card>

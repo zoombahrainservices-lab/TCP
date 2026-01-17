@@ -11,8 +11,8 @@ export default async function AdminDashboard() {
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-        <p className="text-gray-600">System overview and management</p>
+        <h1 className="headline-xl text-[var(--color-charcoal)] mb-2">Admin Dashboard</h1>
+        <p className="text-[var(--color-gray)]">System overview and management</p>
       </div>
 
       {/* Stats Grid */}
@@ -48,7 +48,7 @@ export default async function AdminDashboard() {
 
       {/* Quick Actions */}
       <Card>
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
+        <h2 className="headline-md text-[var(--color-charcoal)] mb-6">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link href="/admin/chapters">
             <div className="border-2 border-gray-200 rounded-lg p-6 hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer">

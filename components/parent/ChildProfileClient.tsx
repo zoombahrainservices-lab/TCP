@@ -65,30 +65,18 @@ export default function ChildProfileClient({ childId, parentId, progress }: Chil
       {/* Progress Bar */}
       <Card className="mb-8">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">30-Day Progress</h2>
-        <ProgressBar30 completedDays={progress.completedDays} currentDay={progress.currentDay} />
+        <ProgressBar30 
+          completedDays={progress.completedDays} 
+          inProgressDays={progress.inProgressDays}
+          suggestedDay={progress.suggestedDay}
+          dayStatuses={progress.dayStatuses}
+        />
       </Card>
 
       {/* Program Downloads Section */}
       <Card className="mb-8">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Program Downloads</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Foundation Card */}
-          <div className="border border-blue-200 bg-blue-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Foundation</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Self-assessment, identity statement, and commitment
-            </p>
-            <a
-              href="/tcp-foundation-chapter1.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button variant="secondary" size="sm" fullWidth>
-                📄 Download Foundation PDF
-              </Button>
-            </a>
-          </div>
-
           {/* 90-Day Challenge Card */}
           <div className="border border-purple-200 bg-purple-50 rounded-lg p-4">
             <h3 className="font-semibold text-gray-900 mb-2">90-Day Challenge</h3>

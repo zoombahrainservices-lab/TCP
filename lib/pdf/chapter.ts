@@ -9,30 +9,66 @@ interface Chapter {
 }
 
 /**
+ * Sanitizes text for PDF - removes problematic characters
+ */
+function sanitizeText(text: string): string {
+  if (!text) return ''
+  // Remove or replace problematic characters that pdf-lib can't handle
+  return text
+    .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width characters
+    .replace(/[\u0000-\u001F]/g, '') // Remove control characters except newlines
+    .trim()
+}
+
+/**
  * Wraps text to fit within a specified width
  */
 function wrapText(text: string, maxWidth: number, font: any, fontSize: number): string[] {
+  if (!text) return []
+  
   const lines: string[] = []
   const paragraphs = text.split('\n')
   
   for (const paragraph of paragraphs) {
-    if (!paragraph.trim()) {
+    const sanitized = sanitizeText(paragraph)
+    if (!sanitized) {
       lines.push('')
       continue
     }
     
-    const words = paragraph.split(' ')
+    const words = sanitized.split(' ')
     let currentLine = ''
     
     for (const word of words) {
       const testLine = currentLine ? `${currentLine} ${word}` : word
-      const width = font.widthOfTextAtSize(testLine, fontSize)
       
-      if (width > maxWidth && currentLine) {
-        lines.push(currentLine)
-        currentLine = word
-      } else {
-        currentLine = testLine
+      try {
+        const width = font.widthOfTextAtSize(testLine, fontSize)
+        
+        if (width > maxWidth && currentLine) {
+          lines.push(currentLine)
+          currentLine = word
+        } else {
+          currentLine = testLine
+        }
+      } catch (error) {
+        // If there's an error measuring text, try to sanitize the word
+        const sanitizedWord = sanitizeText(word)
+        if (sanitizedWord) {
+          const testLineSanitized = currentLine ? `${currentLine} ${sanitizedWord}` : sanitizedWord
+          try {
+            const width = font.widthOfTextAtSize(testLineSanitized, fontSize)
+            if (width > maxWidth && currentLine) {
+              lines.push(currentLine)
+              currentLine = sanitizedWord
+            } else {
+              currentLine = testLineSanitized
+            }
+          } catch (e) {
+            // Skip problematic words
+            continue
+          }
+        }
       }
     }
     
@@ -48,6 +84,15 @@ function wrapText(text: string, maxWidth: number, font: any, fontSize: number): 
  * Generates a PDF from chapter content
  */
 export async function generateChapterPdfBytes(chapter: Chapter): Promise<Uint8Array> {
+  // Validate chapter data
+  if (!chapter) {
+    throw new Error('Chapter data is required')
+  }
+  
+  if (!chapter.title || !chapter.content) {
+    throw new Error('Chapter title and content are required')
+  }
+  
   const pdfDoc = await PDFDocument.create()
   
   // Embed fonts
@@ -106,18 +151,27 @@ export async function generateChapterPdfBytes(chapter: Chapter): Promise<Uint8Ar
   y -= 25
   
   // Content (split into lines, handle pagination)
-  const contentLines = wrapText(chapter.content, maxWidth, bodyFont, 12)
+  const contentText = chapter.content || ''
+  const contentLines = wrapText(contentText, maxWidth, bodyFont, 12)
   
   for (const line of contentLines) {
     checkNewPage(20)
     
-    page.drawText(line, {
-      x: margin,
-      y,
-      size: 12,
-      font: bodyFont,
-      color: rgb(0, 0, 0),
-    })
+    try {
+      const sanitizedLine = sanitizeText(line)
+      if (sanitizedLine) {
+        page.drawText(sanitizedLine, {
+          x: margin,
+          y,
+          size: 12,
+          font: bodyFont,
+          color: rgb(0, 0, 0),
+        })
+      }
+    } catch (error) {
+      console.error('Error drawing text line:', error, 'Line:', line)
+      // Skip problematic lines
+    }
     y -= 18
   }
   
@@ -134,18 +188,27 @@ export async function generateChapterPdfBytes(chapter: Chapter): Promise<Uint8Ar
   })
   y -= 25
   
-  const taskLines = wrapText(chapter.task_description, maxWidth, bodyFont, 12)
+  const taskText = chapter.task_description || ''
+  const taskLines = wrapText(taskText, maxWidth, bodyFont, 12)
   
   for (const line of taskLines) {
     checkNewPage(20)
     
-    page.drawText(line, {
-      x: margin,
-      y,
-      size: 12,
-      font: bodyFont,
-      color: rgb(0, 0, 0),
-    })
+    try {
+      const sanitizedLine = sanitizeText(line)
+      if (sanitizedLine) {
+        page.drawText(sanitizedLine, {
+          x: margin,
+          y,
+          size: 12,
+          font: bodyFont,
+          color: rgb(0, 0, 0),
+        })
+      }
+    } catch (error) {
+      console.error('Error drawing task line:', error, 'Line:', line)
+      // Skip problematic lines
+    }
     y -= 18
   }
   

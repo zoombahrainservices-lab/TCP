@@ -185,3 +185,83 @@ export async function deleteChapter(chapterId: string) {
 
   return { success: true }
 }
+
+export async function getChapter(chapterId: number) {
+  const adminClient = createAdminClient()
+  
+  const { data: chapter, error } = await adminClient
+    .from('chapters')
+    .select('*')
+    .eq('id', chapterId)
+    .single()
+
+  if (error) {
+    console.error('getChapter error:', error)
+    throw new Error('Failed to fetch chapter')
+  }
+
+  return chapter
+}
+
+export async function updateChapter(chapterId: number, data: any) {
+  const adminClient = createAdminClient()
+  
+  const updateData: any = {
+    day_number: data.day_number,
+    title: data.title,
+    subtitle: data.subtitle,
+    content: data.content,
+    task_description: data.task_description,
+    task_deadline_hours: data.task_deadline_hours,
+    before_questions: data.before_questions,
+    after_questions: data.after_questions,
+  }
+
+  // Include chunks if they exist
+  if (data.chunks) {
+    updateData.chunks = data.chunks
+  }
+
+  const { error } = await adminClient
+    .from('chapters')
+    .update(updateData)
+    .eq('id', chapterId)
+
+  if (error) {
+    console.error('updateChapter error:', error)
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}
+
+export async function createChapter(data: any) {
+  const adminClient = createAdminClient()
+  
+  const insertData: any = {
+    day_number: data.day_number,
+    title: data.title,
+    subtitle: data.subtitle,
+    content: data.content,
+    task_description: data.task_description,
+    task_deadline_hours: data.task_deadline_hours,
+    before_questions: data.before_questions,
+    after_questions: data.after_questions,
+  }
+
+  // Include chunks if they exist
+  if (data.chunks) {
+    insertData.chunks = data.chunks
+  }
+
+  const { error } = await adminClient
+    .from('chapters')
+    .insert(insertData)
+
+  if (error) {
+    console.error('createChapter error:', error)
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}

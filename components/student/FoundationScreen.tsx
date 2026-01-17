@@ -12,13 +12,13 @@ interface FoundationScreenProps {
 }
 
 const SELF_CHECK_QUESTIONS = [
-  { id: 'q1', text: 'How often do you feel confident in social situations?' },
-  { id: 'q2', text: 'How comfortable are you starting conversations with new people?' },
-  { id: 'q3', text: 'How well do you handle disagreements or conflicts?' },
-  { id: 'q4', text: 'How often do you express your thoughts and feelings clearly?' },
-  { id: 'q5', text: 'How comfortable are you speaking in front of groups?' },
-  { id: 'q6', text: 'How well do you listen and understand others\' perspectives?' },
-  { id: 'q7', text: 'How confident are you in your communication skills overall?' },
+  { id: 'q1', text: 'How often I grab phone when working', scale: '1=rarely, 7=constantly' },
+  { id: 'q2', text: 'Remember yesterday\'s scrolling', scale: '1=yes, 7=barely' },
+  { id: 'q3', text: 'Feel after phone session', scale: '1=energized, 7=empty' },
+  { id: 'q4', text: 'Time on passion this year', scale: '1=more, 7=abandoned' },
+  { id: 'q5', text: 'Time before phone urge', scale: '1=30+ min, 7=under 5' },
+  { id: 'q6', text: 'Use phone to avoid feelings', scale: '1=rarely, 7=always' },
+  { id: 'q7', text: 'Phone vanished 24hrs', scale: '1=relieved, 7=panicked' },
 ]
 
 const SCORE_BAND_INFO = {
@@ -143,12 +143,20 @@ export default function FoundationScreen({ initialFoundation, studentId }: Found
           <div className={`p-4 rounded-lg border-2 ${SCORE_BAND_INFO[result.scoreBand as keyof typeof SCORE_BAND_INFO]?.color || 'bg-gray-100'}`}>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold">
-                {SCORE_BAND_INFO[result.scoreBand as keyof typeof SCORE_BAND_INFO]?.title || 'Result'}
+                {result.scoreBand === 'good' ? 'You\'re good' :
+                 result.scoreBand === 'danger_zone' ? 'Danger zone' :
+                 result.scoreBand === 'tom_start' ? 'Tom\'s starting point' :
+                 result.scoreBand === 'counselor' ? 'Counselor Recommended' :
+                 'Result'}
               </h3>
               <Badge variant="default">Score: {result.score}/49</Badge>
             </div>
             <p className="text-sm">
-              {SCORE_BAND_INFO[result.scoreBand as keyof typeof SCORE_BAND_INFO]?.description}
+              {result.scoreBand === 'good' ? 'You\'re good (7-14)' :
+               result.scoreBand === 'danger_zone' ? 'Danger zone—start SPARK now (15-28)' :
+               result.scoreBand === 'tom_start' ? 'Tom\'s starting point—recovery possible (29-42)' :
+               result.scoreBand === 'counselor' ? 'Talk to school counselor or trusted adult (43-49)' :
+               ''}
             </p>
           </div>
         </Card>
@@ -156,19 +164,20 @@ export default function FoundationScreen({ initialFoundation, studentId }: Found
 
       {/* Self-Check Questions */}
       <Card>
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Self-Check Assessment</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">YOUR SELF-CHECK</h3>
         <p className="text-gray-600 mb-6 text-sm">
-          Rate yourself honestly on a scale of 1-7 (1 = Never/Not at all, 7 = Always/Extremely)
+          Rate yourself honestly on a scale of 1-7 for each question below.
         </p>
         
         <div className="space-y-6">
           {SELF_CHECK_QUESTIONS.map((question, index) => (
             <div key={question.id} className="border-b border-gray-200 pb-4">
-              <label className="block text-gray-700 font-medium mb-3">
+              <label className="block text-gray-700 font-medium mb-2">
                 {index + 1}. {question.text}
               </label>
+              <p className="text-xs text-gray-500 mb-3">{question.scale}</p>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-12">Never</span>
+                <span className="text-xs text-gray-500 w-16 text-right">{question.scale.split(',')[0].split('=')[1]}</span>
                 <div className="flex gap-2 flex-1 justify-center">
                   {[1, 2, 3, 4, 5, 6, 7].map((value) => (
                     <button
@@ -185,7 +194,7 @@ export default function FoundationScreen({ initialFoundation, studentId }: Found
                     </button>
                   ))}
                 </div>
-                <span className="text-xs text-gray-500 w-12 text-right">Always</span>
+                <span className="text-xs text-gray-500 w-16 text-left">{question.scale.split(',')[1]?.split('=')[1] || ''}</span>
               </div>
             </div>
           ))}

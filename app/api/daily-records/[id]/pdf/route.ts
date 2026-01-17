@@ -5,10 +5,21 @@ import { generateDailyResultPdfBytes } from '@/lib/pdf/daily-result'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const recordId = parseInt(params.id)
+    // Handle both Promise and direct params (Next.js 14 vs 15)
+    const resolvedParams = await Promise.resolve(params)
+    const idStr = resolvedParams.id
+    
+    if (!idStr) {
+      return NextResponse.json(
+        { error: 'Record ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    const recordId = parseInt(idStr, 10)
     
     if (isNaN(recordId)) {
       return NextResponse.json(
@@ -47,7 +58,15 @@ export async function GET(
       .eq('id', recordId)
       .single()
     
-    if (recordError || !record) {
+    if (recordError) {
+      console.error('Error fetching record:', recordError)
+      return NextResponse.json(
+        { error: 'Record not found', details: recordError.message },
+        { status: 404 }
+      )
+    }
+    
+    if (!record) {
       return NextResponse.json(
         { error: 'Record not found' },
         { status: 404 }
@@ -90,17 +109,50 @@ export async function GET(
     
     // Prepare data for PDF generation
     const chapter = record.chapters as any
+    
+    // Map questions to the format expected by PDF generator
+    const beforeQuestions = Array.isArray(chapter?.before_questions)
+      ? chapter.before_questions.map((q: any) => ({
+          id: q.id || q.questionId || 0,
+          question: q.question || q.text || ''
+        }))
+      : []
+    
+    const afterQuestions = Array.isArray(chapter?.after_questions)
+      ? chapter.after_questions.map((q: any) => ({
+          id: q.id || q.questionId || 0,
+          question: q.question || q.text || ''
+        }))
+      : []
+    
+    // Map answers to the format expected by PDF generator
+    const beforeAnswers = Array.isArray(record.before_answers)
+      ? record.before_answers.map((a: any) => ({
+          questionId: a.questionId || a.id || 0,
+          question: a.question || '',
+          answer: a.answer || 0
+        }))
+      : []
+    
+    const afterAnswers = Array.isArray(record.after_answers)
+      ? record.after_answers.map((a: any) => ({
+          questionId: a.questionId || a.id || 0,
+          question: a.question || '',
+          answer: a.answer || 0
+        }))
+      : []
+    
     const pdfData = {
       dayNumber: record.day_number,
       chapterTitle: chapter?.title || `Day ${record.day_number}`,
       chapterSubtitle: chapter?.subtitle,
-      beforeQuestions: chapter?.before_questions || [],
-      afterQuestions: chapter?.after_questions || [],
-      beforeAnswers: record.before_answers || [],
-      afterAnswers: record.after_answers || [],
+      beforeQuestions,
+      afterQuestions,
+      beforeAnswers,
+      afterAnswers,
       reflection: record.reflection_text || '',
-      completed: record.completed,
-      completedAt: record.updated_at,
+      completed: record.completed || false,
+      completedAt: record.updated_at || new Date().toISOString(),
     }
     
     // Generate PDF

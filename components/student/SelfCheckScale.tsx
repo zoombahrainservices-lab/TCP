@@ -5,33 +5,54 @@ interface SelfCheckScaleProps {
   questionId: string
   value: number
   onChange: (value: number) => void
+  scale?: string // Optional scale string like "1=rarely, 7=constantly"
+  maxValue?: number // Optional max value (default 5, or 7 for Day 1)
 }
 
-export default function SelfCheckScale({ question, questionId, value, onChange }: SelfCheckScaleProps) {
-  const options = [1, 2, 3, 4, 5]
+export default function SelfCheckScale({ question, questionId, value, onChange, scale, maxValue }: SelfCheckScaleProps) {
+  // Determine max value: use provided, or parse from scale, or default to 5
+  const max = maxValue || (scale ? parseInt(scale.split(',')[1]?.split('=')[1]?.trim()) || 7 : 5)
+  const options = Array.from({ length: max }, (_, i) => i + 1)
+
+  // Parse scale labels if provided
+  let leftLabel = 'Not at all'
+  let rightLabel = 'Extremely'
+  
+  if (scale) {
+    const parts = scale.split(',')
+    if (parts.length === 2) {
+      const leftPart = parts[0].split('=')
+      const rightPart = parts[1].split('=')
+      if (leftPart.length === 2) leftLabel = leftPart[1].trim()
+      if (rightPart.length === 2) rightLabel = rightPart[1].trim()
+    }
+  }
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-700">{question}</label>
-      <div className="flex gap-2 justify-between max-w-md">
+      <label className="block text-sm font-medium text-[var(--color-charcoal)]">{question}</label>
+      {scale && (
+        <p className="text-xs text-gray-500 mb-2">{scale}</p>
+      )}
+      <div className="flex gap-1.5 md:gap-2 justify-center max-w-2xl">
         {options.map((option) => (
           <button
             key={option}
             type="button"
             onClick={() => onChange(option)}
-            className={`flex-1 py-3 px-4 rounded-lg border-2 font-semibold transition-all ${
+            className={`w-10 h-10 md:w-12 md:h-12 rounded-full border-2 font-bold text-sm md:text-base transition-all ${
               value === option
-                ? 'border-blue-500 bg-blue-50 text-blue-700'
-                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                ? 'border-[var(--color-blue)] bg-[var(--color-blue)] text-white scale-110'
+                : 'border-gray-300 bg-white text-[var(--color-charcoal)] hover:border-[var(--color-blue)]'
             }`}
           >
             {option}
           </button>
         ))}
       </div>
-      <div className="flex justify-between text-xs text-gray-500 max-w-md">
-        <span>Not at all</span>
-        <span>Extremely</span>
+      <div className="flex justify-between text-xs text-[var(--color-gray)] max-w-2xl mt-2">
+        <span>{leftLabel}</span>
+        <span>{rightLabel}</span>
       </div>
     </div>
   )

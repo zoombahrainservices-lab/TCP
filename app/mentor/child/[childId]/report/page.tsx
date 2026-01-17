@@ -54,10 +54,10 @@ export default function MentorChildReportPage() {
       </div>
 
       <div className="bg-white p-8 rounded-lg shadow-md print:shadow-none">
-        {/* Foundation Section */}
+        {/* Day 1 Assessment Section */}
         {report.foundation && (
           <div className="border-2 border-blue-200 bg-blue-50 rounded-lg p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Foundation</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Day 1 Assessment</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <span className="text-sm text-gray-600">Assessment Score:</span>
@@ -81,12 +81,12 @@ export default function MentorChildReportPage() {
             )}
             <div className="mt-4">
               <a 
-                href="/tcp-foundation-chapter1.pdf" 
+                href="/api/chapters/1/pdf" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-700 underline text-sm"
               >
-                📄 Download Foundation PDF
+                📄 Download Day 1 Chapter PDF
               </a>
             </div>
           </div>
@@ -94,7 +94,7 @@ export default function MentorChildReportPage() {
         
         {!report.foundation && (
           <div className="border-2 border-gray-200 bg-gray-50 rounded-lg p-6 mb-6">
-            <p className="text-gray-600 text-sm">Foundation assessment not yet completed.</p>
+            <p className="text-gray-600 text-sm">Day 1 not yet completed.</p>
           </div>
         )}
         

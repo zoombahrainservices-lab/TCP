@@ -96,7 +96,7 @@ export async function submitProgramBaseline(
   }
 
   // Validate all 7 questions are answered
-  const requiredQuestions = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7']
+  const requiredQuestions: (keyof typeof responses)[] = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7']
   for (const q of requiredQuestions) {
     if (!responses[q] || responses[q] < 1 || responses[q] > 7) {
       return { success: false, error: `Invalid response for ${q}. Must be 1-7.` }

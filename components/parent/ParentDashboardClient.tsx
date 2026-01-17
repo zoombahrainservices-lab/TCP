@@ -24,8 +24,8 @@ export default function ParentDashboardClient({ parentId, initialChildren }: Par
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Children</h1>
-          <p className="text-gray-600">Manage and track your children's progress</p>
+          <h1 className="headline-xl text-[var(--color-charcoal)] mb-2">My Children</h1>
+          <p className="text-[var(--color-gray)]">Manage and track your children's progress</p>
         </div>
         <Button onClick={() => setModalOpen(true)}>
           + Add Child

@@ -1,6 +1,5 @@
 import { requireAuth } from '@/lib/auth/guards'
 import { getStudentProgress, getChapterContent, getDailyRecord } from '@/app/actions/student'
-import { getMyFoundation } from '@/app/actions/baseline'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
@@ -10,7 +9,6 @@ export default async function StudentProgressPage() {
   const user = await requireAuth('student')
   
   // Fetch all necessary data
-  const foundation = await getMyFoundation()
   const progress = await getStudentProgress(user.id)
   
   // Fetch all chapters and their corresponding daily records
@@ -51,7 +49,7 @@ export default async function StudentProgressPage() {
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Progress</h1>
           <p className="text-gray-600">
-            Track your journey through the Foundation and 30-day program
+            Track your journey through the 30-day program
           </p>
         </div>
 
@@ -59,30 +57,6 @@ export default async function StudentProgressPage() {
         <Card className="mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Program Downloads</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Foundation Card */}
-            <div className="border border-blue-200 bg-blue-50 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">Foundation</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Your self-assessment, identity statement, and commitment
-              </p>
-              <div className="flex flex-col gap-2">
-                <Link href="/student/baseline">
-                  <Button variant="secondary" size="sm" fullWidth>
-                    Read Foundation
-                  </Button>
-                </Link>
-                <a
-                  href="/tcp-foundation-chapter1.pdf"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button variant="secondary" size="sm" fullWidth>
-                    📄 Download Foundation PDF
-                  </Button>
-                </a>
-              </div>
-            </div>
-
             {/* 90-Day Challenge Card */}
             <div className="border border-purple-200 bg-purple-50 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-2">90-Day Challenge</h3>
@@ -131,61 +105,6 @@ export default async function StudentProgressPage() {
                 {30 - progress.completedDays.length - progress.inProgressDays.length}
               </div>
               <div className="text-sm text-gray-600">Not Started</div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Day 0 - Foundation */}
-        <Card className="mb-6 border-l-4 border-blue-500">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Day 0 - Foundation
-                </h3>
-                <Badge variant={foundation ? 'success' : 'default'}>
-                  {foundation ? 'Completed' : 'Not Started'}
-                </Badge>
-                {foundation && foundation.score_band && (
-                  <Badge variant={
-                    foundation.score_band === 'good' ? 'success' :
-                    foundation.score_band === 'danger_zone' ? 'warning' :
-                    'default'
-                  }>
-                    {foundation.score_band === 'good' ? 'Good Standing' :
-                     foundation.score_band === 'danger_zone' ? 'Danger Zone' :
-                     foundation.score_band === 'tom_start' ? 'Tom Start' :
-                     'Counselor'}
-                  </Badge>
-                )}
-              </div>
-              {foundation && foundation.identity_statement && (
-                <p className="text-sm text-gray-600 italic">
-                  "{foundation.identity_statement.substring(0, 80)}
-                  {foundation.identity_statement.length > 80 ? '...' : ''}"
-                </p>
-              )}
-              {!foundation && (
-                <p className="text-sm text-gray-600">
-                  Build your communication foundation with self-assessment and identity
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Link href="/student/baseline">
-                <Button size="sm" variant="secondary">
-                  {foundation ? 'View / Update' : 'Start Foundation'}
-                </Button>
-              </Link>
-              <a
-                href="/tcp-foundation-chapter1.pdf"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button size="sm" variant="secondary">
-                  📄 Download PDF
-                </Button>
-              </a>
             </div>
           </div>
         </Card>

@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* TCP Color Palette */
+  --color-charcoal: #111111;      /* Primary background, headings, serious text */
+  --color-offwhite: #F5F5F2;      /* Page & reading backgrounds */
+  --color-amber: #F5B301;         /* Attention, CTA, dopamine highlights */
+  --color-red: #E63946;           /* Danger, relapse warnings */
+  --color-blue: #4A90E2;          /* Reflection, recovery, calm states */
+  --color-gray: #9A9A9A;          /* Secondary text, borders, metadata */
+  
+  /* Typography Variables */
+  --font-headline: 'Bebas Neue', 'Oswald', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  
+  /* Usage rule: ~70% Off-White + Gray, 20% Charcoal, 10% Accent */
+  --background: var(--color-offwhite);
+  --foreground: var(--color-charcoal);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-charcoal: #111111;
+  --color-offwhite: #F5F5F2;
+  --color-amber: #F5B301;
+  --color-red: #E63946;
+  --color-blue: #4A90E2;
+  --color-gray: #9A9A9A;
+  
+  --font-headline: var(--font-bebas-neue);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Remove dark mode override for TCP design */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-offwhite);
+  color: var(--color-charcoal);
+  font-family: var(--font-body);
+  line-height: 1.6;
+}
+
+/* Headline utility classes */
+.headline {
+  font-family: var(--font-headline);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+
+.headline-xl {
+  font-family: var(--font-headline);
+  text-transform: uppercase;
+  font-size: 2.5rem;
+  line-height: 1.1;
+}
+
+.headline-lg {
+  font-family: var(--font-headline);
+  text-transform: uppercase;
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.headline-md {
+  font-family: var(--font-headline);
+  text-transform: uppercase;
+  font-size: 1.5rem;
+  line-height: 1.3;
+}
+
+/* Data/Mono text utility */
+.text-data {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
 }

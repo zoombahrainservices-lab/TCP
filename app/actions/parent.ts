@@ -204,6 +204,18 @@ export async function getChildProgress(parentId: string, childId: string) {
     suggestedDay = Math.min(Math.max(...completedDays) + 1, 30)
   }
 
+  // Build day statuses map for all 30 days
+  const dayStatuses: Record<number, 'completed' | 'in-progress' | 'not-started'> = {}
+  for (let day = 1; day <= 30; day++) {
+    if (completedDays.includes(day)) {
+      dayStatuses[day] = 'completed'
+    } else if (inProgressDays.includes(day)) {
+      dayStatuses[day] = 'in-progress'
+    } else {
+      dayStatuses[day] = 'not-started'
+    }
+  }
+
   // Get chapter info for all 30 days
   const { data: chapters } = await adminClient
     .from('chapters')
@@ -232,6 +244,7 @@ export async function getChildProgress(parentId: string, childId: string) {
     currentDay: suggestedDay, // Keep field name for compatibility but use suggested day logic
     suggestedDay,
     completionPercentage: Math.round((completedDays.length / 30) * 100),
+    dayStatuses,
     days: daysInfo,
   }
 }

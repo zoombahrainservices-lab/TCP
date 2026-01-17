@@ -82,6 +82,34 @@ export async function getChapterContent(dayNumber: number) {
   return chapter
 }
 
+/**
+ * Get chapter metadata including page count if images are available
+ */
+export async function getChapterMetadata(dayNumber: number): Promise<{ totalPages: number; hasImages: boolean } | null> {
+  try {
+    // Server-side: read from filesystem
+    const fs = await import('fs/promises')
+    const path = await import('path')
+    const chapterDir = `chapter${String(dayNumber).padStart(2, '0')}`
+    const metadataFilePath = path.join(process.cwd(), 'public', 'chapters', chapterDir, 'meta.json')
+    
+    try {
+      const metadataContent = await fs.readFile(metadataFilePath, 'utf-8')
+      const metadata = JSON.parse(metadataContent)
+      return {
+        totalPages: metadata.totalPages || 0,
+        hasImages: true,
+      }
+    } catch (fileError) {
+      // Metadata file doesn't exist - chapter images not available
+      return null
+    }
+  } catch (error) {
+    console.error(`Failed to load metadata for chapter ${dayNumber}:`, error)
+    return null
+  }
+}
+
 export async function startDay(studentId: string, dayNumber: number) {
   const supabase = await createClient()
 
