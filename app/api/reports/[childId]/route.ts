@@ -5,7 +5,7 @@ import { buildChildProgramReport } from '@/lib/reports'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { childId: string } }
+  { params }: { params: Promise<{ childId: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -27,7 +27,7 @@ export async function GET(
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
 
-    const { childId } = params
+    const { childId } = await params
 
     // Verify access
     if (profile.role === 'parent' || profile.role === 'mentor') {
