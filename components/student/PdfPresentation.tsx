@@ -13,44 +13,20 @@ interface PdfPresentationProps {
 export default function PdfPresentation({ dayNumber, title, totalPages, onComplete, onBack }: PdfPresentationProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [isTransitioning, setIsTransitioning] = useState(false)
-  const [imageError, setImageError] = useState(false)
-  const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set())
+  const [pdfUrl, setPdfUrl] = useState<string>('')
+  const [pdfError, setPdfError] = useState(false)
 
-  const chapterDir = `chapter${String(dayNumber).padStart(2, '0')}`
-  // Try PNG first, fallback to JPEG if PNG doesn't exist
-  const [currentImageUrl, setCurrentImageUrl] = useState(`/chapters/${chapterDir}/page${String(currentPage).padStart(2, '0')}.png`)
-  
-  // Update image URL when page changes and validate page number
+  // Determine PDF path based on day number
   useEffect(() => {
-    if (currentPage >= 1 && currentPage <= totalPages) {
-      setCurrentImageUrl(`/chapters/${chapterDir}/page${String(currentPage).padStart(2, '0')}.png`)
-      setImageError(false) // Reset error when page changes
+    // For Day 1, use tcp-foundation-chapter1.pdf
+    if (dayNumber === 1) {
+      setPdfUrl('/tcp-foundation-chapter1.pdf')
     } else {
-      // Clamp page number to valid range
-      if (currentPage < 1) {
-        setCurrentPage(1)
-      } else if (currentPage > totalPages) {
-        setCurrentPage(totalPages)
-      }
+      // For other days, use pattern: tcp-day-{dayNumber}.pdf
+      setPdfUrl(`/tcp-day-${dayNumber}.pdf`)
     }
-  }, [currentPage, chapterDir, totalPages])
-
-  // Preload adjacent pages
-  useEffect(() => {
-    const pagesToPreload = [
-      currentPage - 1,
-      currentPage,
-      currentPage + 1,
-    ].filter(p => p >= 1 && p <= totalPages && !loadedPages.has(p))
-
-    pagesToPreload.forEach(page => {
-      const img = new Image()
-      img.src = `/chapters/${chapterDir}/page${String(page).padStart(2, '0')}.png`
-      img.onload = () => {
-        setLoadedPages(prev => new Set(prev).add(page))
-      }
-    })
-  }, [currentPage, totalPages, chapterDir, loadedPages])
+    setPdfError(false)
+  }, [dayNumber])
 
   // Keyboard navigation
   useEffect(() => {
@@ -69,12 +45,8 @@ export default function PdfPresentation({ dayNumber, title, totalPages, onComple
   const handlePreviousPage = () => {
     if (currentPage > 1 && !isTransitioning) {
       setIsTransitioning(true)
-      setImageError(false) // Reset error when navigating
       setTimeout(() => {
-        const prevPage = currentPage - 1
-        if (prevPage >= 1) {
-          setCurrentPage(prevPage)
-        }
+        setCurrentPage(prev => Math.max(1, prev - 1))
         setIsTransitioning(false)
       }, 200)
     }
@@ -83,51 +55,27 @@ export default function PdfPresentation({ dayNumber, title, totalPages, onComple
   const handleNextPage = () => {
     if (currentPage < totalPages && !isTransitioning) {
       setIsTransitioning(true)
-      setImageError(false) // Reset error when navigating
       setTimeout(() => {
-        const nextPage = currentPage + 1
-        if (nextPage <= totalPages) {
-          setCurrentPage(nextPage)
-        }
+        setCurrentPage(prev => Math.min(totalPages, prev + 1))
         setIsTransitioning(false)
       }, 200)
     }
   }
 
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const img = e.currentTarget
-    // Try JPEG extension if PNG fails
-    if (currentImageUrl.endsWith('.png')) {
-      const jpegUrl = currentImageUrl.replace(/\.png$/, '.jpeg')
-      const jpgUrl = currentImageUrl.replace(/\.png$/, '.jpg')
-      
-      // Try JPEG first
-      if (!img.src.includes('.jpeg') && !img.src.includes('.jpg')) {
-        setCurrentImageUrl(jpegUrl)
-        setImageError(false)
-        return
-      }
-      // Try JPG if JPEG failed
-      if (img.src.includes('.jpeg')) {
-        setCurrentImageUrl(jpgUrl)
-        setImageError(false)
-        return
-      }
-    }
-    // If all attempts failed, show error
-    setImageError(true)
+  const handlePdfError = () => {
+    console.error(`Failed to load PDF: ${pdfUrl}`)
+    setPdfError(true)
   }
 
-  const handleImageLoad = () => {
-    setImageError(false)
-  }
-
-  if (imageError) {
+  if (pdfError) {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <div className="text-red-600 text-lg mb-4">
-            Failed to load presentation page {currentPage}
+            Failed to load PDF presentation
+          </div>
+          <div className="text-gray-600 text-sm mb-4">
+            PDF file not found: {pdfUrl}
           </div>
           <div className="flex gap-4 justify-center">
             <button
@@ -137,7 +85,10 @@ export default function PdfPresentation({ dayNumber, title, totalPages, onComple
               Go Back
             </button>
             <button
-              onClick={() => setImageError(false)}
+              onClick={() => {
+                setPdfError(false)
+                setPdfUrl(pdfUrl) // Retry
+              }}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Retry
@@ -162,28 +113,23 @@ export default function PdfPresentation({ dayNumber, title, totalPages, onComple
       </div>
 
       {/* Main Presentation Area */}
-      <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden">
+      <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden bg-gray-900">
         <div className="relative max-w-5xl w-full h-full flex items-center justify-center">
-          {/* Image with transition */}
-          {!imageError ? (
-            <img
-              src={currentImageUrl}
-              alt={`${title} - Page ${currentPage}`}
-              onError={handleImageError}
-              onLoad={handleImageLoad}
-              className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${
+          {/* PDF Viewer */}
+          {pdfUrl && (
+            <iframe
+              src={`${pdfUrl}#page=${currentPage}`}
+              className={`w-full h-full max-w-full max-h-full rounded-lg shadow-2xl transition-opacity duration-200 ${
                 isTransitioning ? 'opacity-0' : 'opacity-100'
               }`}
+              style={{ 
+                display: isTransitioning ? 'none' : 'block',
+                minHeight: '600px',
+                border: 'none'
+              }}
+              onError={handlePdfError}
+              title={`${title} - Page ${currentPage}`}
             />
-          ) : (
-            <div className="bg-gray-800 rounded-lg p-8 text-center">
-              <div className="text-white text-lg mb-4">
-                Page {currentPage} image not found
-              </div>
-              <div className="text-gray-400 text-sm">
-                Expected: {currentImageUrl}
-              </div>
-            </div>
           )}
 
           {/* Loading indicator during transition */}
@@ -235,7 +181,6 @@ export default function PdfPresentation({ dayNumber, title, totalPages, onComple
                   onClick={() => {
                     if (!isTransitioning && pageNum !== currentPage && pageNum >= 1 && pageNum <= totalPages) {
                       setIsTransitioning(true)
-                      setImageError(false)
                       setTimeout(() => {
                         setCurrentPage(pageNum)
                         setIsTransitioning(false)
