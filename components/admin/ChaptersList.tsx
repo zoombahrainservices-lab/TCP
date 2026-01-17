@@ -16,14 +16,14 @@ export default function ChaptersList({ chapters }: ChaptersListProps) {
   const router = useRouter()
   const [deleting, setDeleting] = useState<string | null>(null)
 
-  const handleDelete = async (chapterId: string, title: string) => {
+  const handleDelete = async (chapterId: number | string, title: string) => {
     if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
       return
     }
 
-    setDeleting(chapterId)
+    setDeleting(String(chapterId))
     try {
-      await deleteChapter(chapterId)
+      await deleteChapter(typeof chapterId === 'number' ? chapterId : parseInt(chapterId, 10))
       router.refresh()
     } catch (error) {
       alert('Failed to delete chapter')
