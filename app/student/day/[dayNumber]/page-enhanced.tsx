@@ -423,8 +423,9 @@ export default function DayPageEnhanced() {
           <div className="space-y-6 mb-8">
             {(chapter.after_questions as any[]).map((q) => (
               <div key={q.id}>
-                <p className="text-gray-700 mb-3 font-medium">{q.question}</p>
                 <SelfCheckScale
+                  question={q.question}
+                  questionId={q.id}
                   value={afterAnswers[q.id]}
                   onChange={(value) => setAfterAnswers(prev => ({ ...prev, [q.id]: value }))}
                 />
