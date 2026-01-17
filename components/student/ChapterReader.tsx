@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import MilestoneToast from './MilestoneToast'
+import CelebrationOverlay from './CelebrationOverlay'
 
 interface ChapterChunk {
   id: number
@@ -300,8 +300,8 @@ export default function ChapterReader({ content, chunks, onNext, onBack, dayNumb
           </button>
         </div>
 
-        {/* Milestone Toast Notification */}
-        <MilestoneToast
+        {/* Milestone Celebration with Fireworks */}
+        <CelebrationOverlay
           open={activeMilestone !== null}
           milestone={activeMilestone ?? 0}
           chapterTitle={title}

@@ -108,14 +108,39 @@ export default function CelebrationOverlay({ open, milestone, chapterTitle, onCl
           </svg>
         </button>
 
-        {/* Decorative confetti elements for 100% */}
-        {milestone === 100 && (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
-            <div className="absolute top-0 left-1/4 w-2 h-2 bg-yellow-400 rounded-full animate-confetti" style={{ animationDelay: '0s' }} />
-            <div className="absolute top-0 left-1/2 w-2 h-2 bg-pink-400 rounded-full animate-confetti" style={{ animationDelay: '0.1s' }} />
-            <div className="absolute top-0 left-3/4 w-2 h-2 bg-blue-400 rounded-full animate-confetti" style={{ animationDelay: '0.2s' }} />
-          </div>
-        )}
+        {/* Fireworks/Confetti Animation for all milestones */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
+          {/* Fireworks particles */}
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 rounded-full animate-fireworks"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                backgroundColor: ['#fbbf24', '#f472b6', '#60a5fa', '#34d399', '#f59e0b'][Math.floor(Math.random() * 5)],
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${2 + Math.random()}s`,
+              }}
+            />
+          ))}
+          {/* Larger confetti pieces */}
+          {Array.from({ length: 15 }).map((_, i) => (
+            <div
+              key={`large-${i}`}
+              className="absolute w-3 h-3 animate-fireworks"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                backgroundColor: ['#ef4444', '#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899'][Math.floor(Math.random() * 5)],
+                animationDelay: `${Math.random() * 1.5}s`,
+                animationDuration: `${2.5 + Math.random()}s`,
+                transform: `rotate(${Math.random() * 360}deg)`,
+                clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       <style jsx>{`
@@ -150,6 +175,23 @@ export default function CelebrationOverlay({ open, milestone, chapterTitle, onCl
           }
         }
 
+        @keyframes fireworks {
+          0% {
+            transform: translate(0, 0) scale(0) rotate(0deg);
+            opacity: 1;
+          }
+          50% {
+            opacity: 1;
+          }
+          100% {
+            transform: translate(
+              ${Math.random() * 200 - 100}px,
+              ${Math.random() * 200 - 100}px
+            ) scale(1.5) rotate(360deg);
+            opacity: 0;
+          }
+        }
+
         .animate-fadeIn {
           animation: fadeIn 0.3s ease-out;
         }
@@ -160,6 +202,10 @@ export default function CelebrationOverlay({ open, milestone, chapterTitle, onCl
 
         .animate-confetti {
           animation: confetti 2s ease-out infinite;
+        }
+
+        .animate-fireworks {
+          animation: fireworks 2s ease-out forwards;
         }
       `}</style>
     </div>
