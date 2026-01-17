@@ -146,15 +146,8 @@ export default function CelebrationOverlay({ open, milestone, chapterTitle, onCl
       aria-modal="true"
       aria-labelledby="celebration-title"
     >
-      {/* Backdrop with lighter blur - allows fireworks to show through */}
+      {/* Backdrop with lighter blur */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" style={{ zIndex: 40 }} />
-
-      {/* Canvas for fireworks (above backdrop, behind card) */}
-      <canvas
-        ref={canvasRef}
-        className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 45 }}
-      />
 
       {/* Celebration Card - Transparent */}
       <div
@@ -196,8 +189,14 @@ export default function CelebrationOverlay({ open, milestone, chapterTitle, onCl
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
         </button>
-
       </div>
+
+      {/* Canvas for fireworks (above card) */}
+      <canvas
+        ref={canvasRef}
+        className="fixed inset-0 pointer-events-none"
+        style={{ zIndex: 55 }}
+      />
 
       <style jsx>{`
         @keyframes fadeIn {
