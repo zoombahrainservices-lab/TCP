@@ -19,6 +19,18 @@ export default function PdfPresentation({ dayNumber, title, totalPages, onComple
   const chapterDir = `chapter${String(dayNumber).padStart(2, '0')}`
   const hasCover = dayNumber === 1 // Cover page only for Day 1
   
+  // Initialize currentImageUrl based on initial page
+  const getInitialImageUrl = () => {
+    if (hasCover && currentPage === 0) {
+      return `/chapters/${chapterDir}/cover.jpg`
+    } else if (currentPage >= 1 && currentPage <= totalPages) {
+      return `/chapters/${chapterDir}/page${String(currentPage).padStart(2, '0')}.png`
+    }
+    return `/chapters/${chapterDir}/page01.png` // Fallback
+  }
+  
+  const [currentImageUrl, setCurrentImageUrl] = useState<string>(getInitialImageUrl())
+  
   // Update image URL when page changes
   useEffect(() => {
     if (currentPage === 0 && hasCover) {
