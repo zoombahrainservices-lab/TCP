@@ -419,7 +419,7 @@ export default function DayPage() {
                 const lines = desc.split('\n').map((l: string) => l.trim()).filter((l: string) => l !== '')
                 
                 if (lines.length > 0) {
-                  return lines.map((line, idx) => {
+                  return lines.map((line: string, idx: number) => {
                     const numberedMatch = line.match(/^[\(]?(\d+)[\.\)]\s*(.+)$/)
                     if (numberedMatch) {
                       return (
