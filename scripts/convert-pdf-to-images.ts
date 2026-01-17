@@ -62,6 +62,23 @@ export async function convertPdfToImages(
   const sharp = sharpModule.default || sharpModule
   const { createCanvas } = await import('canvas')
 
+  // Polyfill Path2D for Node.js canvas compatibility
+  if (typeof Path2D === 'undefined') {
+    (global as any).Path2D = class Path2D {
+      constructor(init?: any) {}
+      addPath(path: any, transform?: any) {}
+      arc(x: number, y: number, radius: number, startAngle: number, endAngle: number, anticlockwise?: boolean) {}
+      arcTo(x1: number, y1: number, x2: number, y2: number, radius: number) {}
+      bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number) {}
+      closePath() {}
+      ellipse(x: number, y: number, radiusX: number, radiusY: number, rotation: number, startAngle: number, endAngle: number, anticlockwise?: boolean) {}
+      lineTo(x: number, y: number) {}
+      moveTo(x: number, y: number) {}
+      quadraticCurveTo(cpx: number, cpy: number, x: number, y: number) {}
+      rect(x: number, y: number, width: number, height: number) {}
+    }
+  }
+
   // Convert each page to image
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
     const page = await pdf.getPage(pageNum)
