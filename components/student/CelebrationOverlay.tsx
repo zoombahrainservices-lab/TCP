@@ -146,15 +146,15 @@ export default function CelebrationOverlay({ open, milestone, chapterTitle, onCl
       aria-modal="true"
       aria-labelledby="celebration-title"
     >
-      {/* Canvas for fireworks (behind card) */}
+      {/* Backdrop with lighter blur - allows fireworks to show through */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" style={{ zIndex: 40 }} />
+
+      {/* Canvas for fireworks (above backdrop, behind card) */}
       <canvas
         ref={canvasRef}
         className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 40 }}
+        style={{ zIndex: 45 }}
       />
-
-      {/* Backdrop with blur */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" style={{ zIndex: 41 }} />
 
       {/* Celebration Card - Transparent */}
       <div
