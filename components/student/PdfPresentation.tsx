@@ -145,6 +145,7 @@ export default function PdfPresentation({ dayNumber, title, totalPages, onComple
             /* PDF Viewer */
             <div className="w-full h-full flex items-center justify-center">
               <iframe
+                key={`pdf-${currentPage}`}
                 src={`${pdfUrl}${pdfPageParam}`}
                 className="w-full h-full border-none rounded-lg shadow-2xl"
                 title={`${title} - Page ${currentPage}`}
