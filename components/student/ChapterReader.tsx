@@ -23,6 +23,7 @@ export default function ChapterReader({ content, chunks, onNext, onBack, dayNumb
   const [currentIndex, setCurrentIndex] = useState(0)
   const [shownMilestones, setShownMilestones] = useState<number[]>([])
   const [activeMilestone, setActiveMilestone] = useState<number | null>(null)
+  const [showCoverPage, setShowCoverPage] = useState(dayNumber === 1) // Show cover for Day 1 only
 
   // Memoize chunks check to prevent unnecessary re-renders
   const chunksArray = useMemo(() => {
@@ -33,6 +34,7 @@ export default function ChapterReader({ content, chunks, onNext, onBack, dayNumb
   const isChunkedMode = chunksArray !== null
   const storageKey = `chapter-${dayNumber}-progress`
   const chunksLength = chunksArray?.length ?? 0
+  const hasCover = dayNumber === 1
 
   // Load progress from localStorage on mount (only once)
   useEffect(() => {
@@ -44,6 +46,7 @@ export default function ChapterReader({ content, chunks, onNext, onBack, dayNumb
         const savedIndex = parseInt(saved, 10)
         if (!isNaN(savedIndex) && savedIndex >= 0 && savedIndex < chunksLength) {
           setCurrentIndex(savedIndex)
+          setShowCoverPage(false) // If resuming, skip cover page
         }
       }
     } catch (err) {
@@ -108,6 +111,12 @@ export default function ChapterReader({ content, chunks, onNext, onBack, dayNumb
   }
 
   const handleNext = () => {
+    // If showing cover page, hide it and show first chunk
+    if (showCoverPage) {
+      setShowCoverPage(false)
+      return
+    }
+    
     if (isChunkedMode && chunksArray) {
       if (currentIndex < chunksLength - 1) {
         setCurrentIndex(prev => prev + 1)
@@ -126,6 +135,12 @@ export default function ChapterReader({ content, chunks, onNext, onBack, dayNumb
   }
 
   const handlePrevious = () => {
+    // If on first chunk and has cover, show cover page
+    if (isChunkedMode && hasCover && currentIndex === 0 && !showCoverPage) {
+      setShowCoverPage(true)
+      return
+    }
+    
     if (isChunkedMode && currentIndex > 0) {
       setCurrentIndex(prev => prev - 1)
     } else {
@@ -135,6 +150,63 @@ export default function ChapterReader({ content, chunks, onNext, onBack, dayNumb
 
   // Chunked mode rendering
   if (isChunkedMode && chunksArray) {
+    // Show cover page if enabled
+    if (showCoverPage && hasCover) {
+      const chapterDir = `chapter${String(dayNumber).padStart(2, '0')}`
+      return (
+        <div className="max-w-4xl mx-auto">
+          {/* Reading Header Bar */}
+          <div className="bg-[var(--color-blue)] text-white px-4 py-3 md:px-6 md:py-4 mb-0 flex items-center justify-between shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">📖</div>
+              <span className="headline-md">Reading</span>
+            </div>
+            <button
+              onClick={handleDownloadPDF}
+              className="px-3 py-1.5 bg-[var(--color-amber)] text-white rounded-full hover:bg-[#d49f01] font-medium transition-colors flex items-center gap-2 text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              PDF
+            </button>
+          </div>
+
+          {/* Cover Page */}
+          <div className="bg-white shadow-lg">
+            <img
+              src={`/chapters/${chapterDir}/cover.jpg`}
+              alt={`${title} - Cover`}
+              className="w-full h-auto object-contain"
+              loading="eager"
+            />
+          </div>
+
+          {/* Navigation Footer */}
+          <div className="bg-white border-t border-gray-200 p-4 md:p-6 flex justify-between shadow-lg">
+            <button
+              onClick={onBack}
+              className="px-4 md:px-6 py-2 md:py-3 bg-gray-300 text-[var(--color-charcoal)] rounded-lg hover:bg-gray-400 font-medium transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </button>
+            <button
+              onClick={handleNext}
+              className="px-4 md:px-6 py-2 md:py-3 bg-[var(--color-amber)] text-white rounded-lg hover:bg-[#d49f01] font-medium transition-colors flex items-center gap-2"
+            >
+              Next
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )
+    }
+
     const currentChunk = chunksArray[currentIndex]
     const progress = (currentIndex + 1) / chunksLength
     const progressPercentage = Math.round(progress * 100)
@@ -214,9 +286,9 @@ export default function ChapterReader({ content, chunks, onNext, onBack, dayNumb
         <div className="bg-white border-t border-gray-200 p-4 md:p-6 flex justify-between shadow-lg">
           <button
             onClick={handlePrevious}
-            disabled={currentIndex === 0}
+            disabled={currentIndex === 0 && !hasCover}
             className={`px-4 md:px-6 py-2 md:py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-              currentIndex === 0
+              currentIndex === 0 && !hasCover
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-gray-300 text-[var(--color-charcoal)] hover:bg-gray-400'
             }`}
