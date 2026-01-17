@@ -122,21 +122,21 @@ export default function PdfPresentation({ dayNumber, title, totalPages, onComple
       <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden bg-gray-900">
         <div className="relative w-full h-full flex items-center justify-center">
           {isShowingCover ? (
-            /* Cover Page - Match PDF iframe size */
-            <div className="w-full h-full flex items-center justify-center">
+            /* Cover Page - Fixed 600px height */
+            <div className="w-full flex items-center justify-center">
               {!imageError ? (
                 <img
                   src={`/chapters/${chapterDir}/cover.jpg`}
                   alt={`${title} - Cover`}
                   onError={handleImageError}
                   onLoad={handleImageLoad}
-                  className={`w-full h-full object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${
+                  className={`w-full object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${
                     isTransitioning ? 'opacity-0' : 'opacity-100'
                   }`}
-                  style={{ minHeight: '600px' }}
+                  style={{ height: '600px' }}
                 />
               ) : (
-                <div className="bg-gray-800 rounded-lg p-8 text-center">
+                <div className="bg-gray-800 rounded-lg p-8 text-center" style={{ height: '600px' }}>
                   <div className="text-white text-lg mb-4">Cover image not found</div>
                 </div>
               )}
