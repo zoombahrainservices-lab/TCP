@@ -297,15 +297,16 @@ export async function uploadChunkImage(formData: FormData) {
   const sanitizedExt = fileExt?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
   const path = `day${dayNumber}/chunk${chunkId}/${timestamp}.${sanitizedExt}`
   
-  // Convert File to Blob for upload
-  const blob = new Blob([file], { type: file.type })
+  // Read file as ArrayBuffer for upload (more reliable than Blob)
+  const arrayBuffer = await file.arrayBuffer()
   
   // Upload file
   const { error: uploadError } = await adminClient.storage
     .from('chunk-images')
-    .upload(path, blob, {
+    .upload(path, arrayBuffer, {
       upsert: true,
-      contentType: file.type
+      contentType: file.type,
+      cacheControl: '3600'
     })
   
   if (uploadError) {
@@ -313,16 +314,11 @@ export async function uploadChunkImage(formData: FormData) {
     return { success: false, error: `Upload failed: ${uploadError.message}` }
   }
   
-  // Get public URL
-  const { data } = adminClient.storage
-    .from('chunk-images')
-    .getPublicUrl(path)
+  // Get public URL - construct directly since bucket is public
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const publicUrl = `${supabaseUrl}/storage/v1/object/public/chunk-images/${path}`
   
-  if (!data.publicUrl) {
-    return { success: false, error: 'Failed to get public URL' }
-  }
-  
-  return { success: true, url: data.publicUrl }
+  return { success: true, url: publicUrl }
 }
 
 /**
