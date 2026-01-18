@@ -1,0 +1,740 @@
+.journeyWrapper {
+    width: 100%;
+    max-width: 100%;
+    font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+    padding: 24px 0;
+    background: #f6f8fb;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+.journeyTitle {
+    letter-spacing: 0.12em;
+    font-size: 12px;
+    font-weight: 600;
+    color: #777e91;
+    text-transform: uppercase;
+    margin: 0 0 16px clamp(20px, 5vw, 80px);
+}
+
+/* full-width white card */
+.journeyMap {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    padding: 60px clamp(16px, 4vw, 80px) 60px;
+    background: #ffffff;
+    border-radius: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: clamp(0.5rem, 2vw, 3rem);
+    box-shadow: 0 10px 40px rgba(18, 32, 56, 0.15);
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+.journeyTrack {
+    display: none;
+    /* the diamonds are doing the job now */
+}
+
+/* each zone column */
+.zone {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    /* align from top for consistent positioning */
+}
+
+/* Connector between zones - contains diamond and small circles */
+.zoneConnector {
+    position: relative;
+    width: clamp(1rem, 3vw, 3rem);
+    /* matches the gap between zones */
+    height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    min-width: 0;
+    /* Running light animation delay based on connector index */
+}
+
+/* Progress line - connects Zone 1 to Zone 2 directly (horizontal line) */
+/* Line extends from Zone 1's right edge to Zone 2's left edge */
+.diamondProgress {
+    position: absolute;
+    left: -87px;
+    /* Start from left: extend 87px (75px + 12px offset) to reach Zone 1's right edge */
+    top: 150px;
+    /* Center vertically with zone circles (75px + 75px radius) */
+    width: calc(100% + 175px);
+    /* Connector width (100%) + 75px (Zone 1) + 75px (Zone 2) + 25px (extra length) */
+    height: 8px;
+    /* Increased from 6px */
+    transform: translateY(-50%);
+    z-index: 2;
+    pointer-events: none;
+    overflow: visible;
+}
+
+/* Progress track outline - horizontal line showing full path in muted color */
+.diamondProgress::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 8px;
+    /* Increased from 6px */
+    z-index: 2;
+    pointer-events: none;
+    /* Muted grey outline showing full horizontal path */
+    background: rgba(200, 210, 230, 0.4);
+    border: 1px solid rgba(180, 190, 210, 0.6);
+    box-shadow:
+        0 0 4px rgba(180, 190, 210, 0.3),
+        inset 0 0 2px rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+/* Progress fill - horizontal line connecting Zone 1 (left) to Zone 2 (right) */
+/* Fills from left to right based on progress */
+.diamondProgress::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 8px;
+    /* Increased from 6px */
+    z-index: 3;
+    /* Above the outline */
+    opacity: 1;
+    /* Width fills based on progress - --progress is 0-1 (0% to 100%) */
+    width: calc(100% * var(--progress, 0));
+    min-width: 0;
+    /* Progress fills from left to right */
+    /* First half (0-50% progress): Zone 1 color (red) */
+    /* Second half (50-100% progress): Zone 2 color (orange) */
+    background: linear-gradient(to right,
+            var(--from-color, #FF2D2D) 0%,
+            var(--from-color, #FF2D2D) 49%,
+            var(--to-color, #FFAA23) 50%,
+            var(--to-color, #FFAA23) 100%);
+    box-shadow:
+        0 0 10px var(--from-color, #FF2D2D),
+        0 0 20px var(--from-color, #FF2D2D),
+        0 0 30px var(--from-color, #FF2D2D),
+        0 0 10px var(--to-color, #FFAA23),
+        0 0 20px var(--to-color, #FFAA23),
+        0 0 30px var(--to-color, #FFAA23);
+    transition: width 0.5s ease, box-shadow 0.5s ease;
+    border-radius: 4px;
+}
+
+/* Progress track outline - rounded corners */
+.diamondProgress::after {
+    border-radius: 3px;
+}
+
+/* Running light - travels directly from Zone 1 to bottom lock circle */
+.diamondLight {
+    position: absolute;
+    left: 50%;
+    top: 150px;
+    width: calc(100% + 150px);
+    height: 200px;
+    transform: translate(-50%, -50%) rotate(45deg);
+    border-radius: 12px;
+    border: 3px solid transparent;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 1;
+    animation: runningLightTravel 4s linear infinite;
+    animation-delay: var(--light-delay, 0s);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    filter: blur(1px);
+}
+
+/* Traveling light - moves from top (Zone 1) directly to bottom (lock circle) */
+@keyframes runningLightTravel {
+    0% {
+        /* Start at top vertex - Zone 1 color (neon red #FF2D2D) */
+        border-top-color: var(--from-color, #FF2D2D);
+        border-right-color: transparent;
+        border-bottom-color: transparent;
+        border-left-color: transparent;
+        box-shadow:
+            0 -8px 20px var(--from-color, #FF2D2D),
+            0 -12px 40px var(--from-color, #FF2D2D),
+            0 -16px 60px var(--from-color, #FF2D2D);
+        opacity: 0;
+    }
+
+    5% {
+        opacity: 1;
+    }
+
+    50% {
+        /* Light reaches bottom lock - still Zone 1 color */
+        border-top-color: transparent;
+        border-right-color: transparent;
+        border-bottom-color: var(--from-color, #FF2D2D);
+        border-left-color: transparent;
+        box-shadow:
+            0 8px 20px var(--from-color, #FF2D2D),
+            0 12px 40px var(--from-color, #FF2D2D),
+            0 16px 60px var(--from-color, #FF2D2D);
+    }
+
+    51% {
+        /* Transition to Zone 2 color at lock */
+        border-bottom-color: var(--to-color, #FFAA23);
+        box-shadow:
+            0 8px 20px var(--to-color, #FFAA23),
+            0 12px 40px var(--to-color, #FFAA23),
+            0 16px 60px var(--to-color, #FFAA23);
+    }
+
+    95% {
+        opacity: 1;
+    }
+
+    100% {
+        /* Completed cycle - light at bottom lock */
+        border-top-color: transparent;
+        border-right-color: transparent;
+        border-bottom-color: var(--to-color, #FFAA23);
+        border-left-color: transparent;
+        box-shadow:
+            0 8px 20px var(--to-color, #FFAA23),
+            0 12px 40px var(--to-color, #FFAA23),
+            0 16px 60px var(--to-color, #FFAA23);
+        opacity: 1;
+    }
+}
+
+/* DIAMOND - positioned between zones
+   Left vertex connects to right edge of zone 1 circle (at circle's rightmost point)
+   Right vertex connects to left edge of zone 2 circle (at circle's leftmost point)
+   Top/bottom vertices have small circles with icons
+   
+   The diamond center is positioned at the connector center, but we need to align:
+   - Left/right vertices with circle edges (75px from circle center)
+   - Top/bottom vertices with small circle centers (100px from connector center)
+*/
+.diamondConnector {
+    position: absolute;
+    left: 50%;
+    top: 150px;
+    /* Aligned with circle centers (75px zone offset + 75px radius) */
+    /* Width spans from right edge of zone 1 to left edge of zone 2 */
+    /* Width = connector width + 75px (zone 1 right) + 75px (zone 2 left) */
+    width: calc(100% + 150px);
+    /* connector width + circle radius on each side */
+    /* Height: top/bottom vertices are at ±100px from diamond center */
+    height: 200px;
+    /* 2 * 100px for top/bottom vertices */
+    transform: translate(-50%, -50%) rotate(45deg);
+    border: 4px solid var(--diamond-color, #FF2D2D);
+    /* Increased width and colored */
+    border-radius: 12px;
+    background: transparent;
+    z-index: 1;
+    /* behind small circles */
+    box-shadow:
+        0 0 8px var(--diamond-color, #FF2D2D),
+        0 0 16px rgba(255, 45, 45, 0.5);
+    /* Subtle glow on diamond */
+    /* Diamond center is at: left 50%, top 150px */
+    /* After rotation 45deg, corners are at diagonal positions */
+    /* Top corners: at top edge, offset horizontally */
+    /* Bottom corners: at bottom edge, offset horizontally */
+}
+
+/* Small circles positioned at diamond top/bottom corner edges */
+/* The center of each small circle must align exactly with the diamond's corner edge */
+.smallCircleTop,
+.smallCircleBottom {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 3px solid #d0d5e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 12px rgba(20, 32, 68, 0.22);
+    z-index: 3;
+    /* above diamond */
+    /* Center the circle on the diamond corner edge */
+    transform: translate(-50%, -50%);
+}
+
+/* TOP corner: Circle center at diamond's top-middle vertex/corner
+   For a 45deg rotated diamond, the top vertex is the top-middle corner
+   This is centered horizontally between the two big circles
+   Top vertex vertically: moved up a bit more
+   Top vertex horizontally: 50% (centered in connector)
+*/
+.smallCircleTop {
+    left: 50%;
+    /* Centered horizontally - top-middle corner of diamond */
+    top: 20px;
+    /* Diamond top vertex - moved up a bit more (from 30px to 20px) */
+    /* No blinking animation - static */
+}
+
+/* BOTTOM corner: Circle center at diamond's bottom-middle vertex/corner
+   Bottom vertex is the bottom-middle corner
+   This is centered horizontally between the two big circles
+   Bottom vertex vertically: moved down a bit more
+   Bottom vertex horizontally: 50% (centered in connector)
+*/
+.smallCircleBottom {
+    left: 50%;
+    /* Centered horizontally - bottom-middle corner of diamond */
+    top: 280px;
+    /* Diamond bottom vertex - moved down a bit more (from 270px to 280px) */
+    /* No blinking animation - static */
+}
+
+.smallIcon {
+    font-size: 16px;
+}
+
+.lockIcon {
+    font-size: 16px;
+}
+
+/* Big zone circle - all circles at same vertical position */
+.zoneCircle {
+    position: absolute;
+    left: 50%;
+    top: 75px;
+    /* All circles start at same vertical position (radius from top) */
+    z-index: 2;
+    /* above diamond, below small circles */
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 5px solid #d8dff0;
+    /* Default grey border for inactive zones */
+    background: radial-gradient(circle at 30% 20%,
+            #ffffff 0,
+            #f9fbff 35%,
+            #f1f4fb 100%);
+    box-shadow: 0 0 0 8px rgba(232, 236, 247, 0.3),
+        0 14px 32px rgba(16, 33, 68, 0.15);
+    /* Default grey shadow for inactive zones */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    transform: translateX(-50%) scale(1);
+    /* Center horizontally, base scale */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    /* Circle center is at: left 50%, top 75px + 75px = 150px from zone top */
+    /* Circle edges: right edge at left 50% + 75px, left edge at left 50% - 75px */
+}
+
+/* First zone (Zone 1) - shift slightly to the left */
+.zone:first-child .zoneCircle {
+    transform: translateX(calc(-50% - 20px)) scale(1);
+    /* Shift left by 20px */
+}
+
+/* Text inside big circle */
+.zoneLabelTop {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    color: #8f96aa;
+}
+
+.zoneName {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1.4;
+    margin-bottom: 6px;
+    color: #2c3550;
+}
+
+.zoneDays {
+    font-size: 10px;
+    opacity: 0.8;
+    color: #8f96aa;
+}
+
+/* Badge between big circle & bottom small circle */
+.zoneBadge {
+    position: absolute;
+    left: 50%;
+    top: 240px;
+    /* positioned below big circle (150px + 90px), above bottom small circle (250px) */
+    transform: translateX(-50%);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 3px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #d9deeb;
+    box-shadow: 0 4px 10px rgba(20, 32, 68, 0.12);
+    z-index: 2;
+}
+
+/* Current mission button */
+.currentMissionBtn {
+    position: absolute;
+    left: 50%;
+    top: 270px;
+    /* positioned below badge */
+    transform: translateX(-50%);
+    border: none;
+    outline: none;
+    padding: 6px 18px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    background: #ffd93b;
+    color: #252b3b;
+    box-shadow: 0 6px 18px rgba(190, 140, 0, 0.45);
+    z-index: 2;
+}
+
+.lockDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ffffff;
+}
+
+/* ---------- ANIMATIONS ---------- */
+
+/* Neon pulse animation for big circles */
+@keyframes neonPulse {
+    0% {
+        box-shadow:
+            0 0 8px var(--zone-core, #FF2D2D),
+            0 0 18px var(--zone-glow, #FF6C6C),
+            0 0 32px var(--zone-glow, #FF6C6C),
+            0 16px 36px var(--zone-shadow, rgba(255, 109, 109, 0.8));
+    }
+
+    100% {
+        box-shadow:
+            0 0 14px var(--zone-core, #FF2D2D),
+            0 0 28px var(--zone-glow, #FF6C6C),
+            0 0 60px var(--zone-glow, #FF6C6C),
+            0 16px 36px var(--zone-shadow, rgba(255, 109, 109, 0.9));
+    }
+}
+
+/* Separate scale animation for current zone */
+@keyframes neonPulseScale {
+
+    0%,
+    100% {
+        transform: scale(1.08);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.zoneCurrent .zoneCircle {
+    animation: neonPulse 2s ease-in-out infinite, neonPulseScale 2s ease-in-out infinite;
+}
+
+/* Running light animation along diamond border */
+@keyframes runningLight {
+    0% {
+        stroke-dashoffset: 0;
+        opacity: 0.8;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        stroke-dashoffset: 1200;
+        opacity: 0.8;
+    }
+}
+
+/* Small circle ping when light passes */
+@keyframes smallPing {
+
+    0%,
+    48% {
+        box-shadow: 0 6px 12px rgba(20, 32, 68, 0.22),
+            0 0 0 0 var(--ping-color, #ff4444);
+        border-color: #d0d5e6;
+    }
+
+    50% {
+        box-shadow: 0 6px 12px rgba(20, 32, 68, 0.22),
+            0 0 0 8px var(--ping-color, #ff4444),
+            0 0 20px var(--ping-color, #ff4444),
+            0 0 30px var(--ping-color, #ff4444);
+        border-color: var(--ping-color, #ff4444);
+    }
+
+    52% {
+        box-shadow: 0 6px 12px rgba(20, 32, 68, 0.22),
+            0 0 0 12px var(--ping-color, #ff4444),
+            0 0 25px var(--ping-color, #ff4444),
+            0 0 40px var(--ping-color, #ff4444);
+        border-color: var(--ping-color, #ff4444);
+    }
+
+    54%,
+    100% {
+        box-shadow: 0 6px 12px rgba(20, 32, 68, 0.22),
+            0 0 0 0 var(--ping-color, #ff4444);
+        border-color: #d0d5e6;
+    }
+}
+
+/* ---------- COLORS & NEON EFFECTS ---------- */
+
+/* Zone 1 - Neon Red */
+.zoneRed {
+    --zone-color: #FF2D2D;
+    --zone-core: #FF2D2D;
+    --zone-glow: #FF6C6C;
+    --zone-shadow: rgba(255, 109, 109, 0.8);
+}
+
+/* Zone 1 circle - show neon when active */
+.zoneRed.zoneActive .zoneCircle,
+.zoneRed.zoneCurrent .zoneCircle {
+    border-color: #FF2D2D !important;
+    box-shadow:
+        0 0 12px #FF2D2D,
+        0 0 22px #FF6C6C,
+        0 0 44px rgba(255, 109, 109, 0.8),
+        0 16px 36px rgba(255, 45, 45, 0.4) !important;
+    animation: neonPulse 1.5s ease-in-out infinite;
+}
+
+/* Zone 1 should be active by default if not locked */
+.zoneRed:not(.zoneGrey) .zoneCircle {
+    border-color: #FF2D2D;
+    box-shadow:
+        0 0 12px #FF2D2D,
+        0 0 22px #FF6C6C,
+        0 0 44px rgba(255, 109, 109, 0.8),
+        0 16px 36px rgba(255, 45, 45, 0.4);
+    animation: neonPulse 1.5s ease-in-out infinite;
+}
+
+.zoneRed .smallCircleTop,
+.zoneRed .smallCircleBottom {
+    border-color: #ff4b4b;
+}
+
+.zoneRed .zoneLabelTop,
+.zoneRed .zoneName {
+    color: #b61010;
+}
+
+/* Zone 2 - Neon Orange */
+.zoneOrange {
+    --zone-color: #FFAA23;
+    --zone-core: #FFAA23;
+    --zone-glow: #FFD25B;
+    --zone-shadow: rgba(255, 215, 91, 0.8);
+}
+
+/* Zone 2 starts grey */
+.zoneOrange .zoneCircle {
+    border-color: #d8dff0;
+    box-shadow: 0 0 0 8px rgba(232, 236, 247, 0.3),
+        0 14px 32px rgba(16, 33, 68, 0.15);
+}
+
+/* Zone 2 activates when Zone 1 completes (progress reaches 100%) */
+.zoneOrange.zoneActive .zoneCircle {
+    border-color: #FFAA23 !important;
+    box-shadow:
+        0 0 12px #FFAA23,
+        0 0 22px #FFD25B,
+        0 0 44px rgba(255, 215, 91, 0.8),
+        0 16px 36px rgba(255, 170, 35, 0.4) !important;
+    animation: neonPulse 1.5s ease-in-out infinite;
+}
+
+.zoneOrange .smallCircleTop,
+.zoneOrange .smallCircleBottom {
+    border-color: #ff9f2d;
+}
+
+.zoneOrange .zoneLabelTop,
+.zoneOrange .zoneName {
+    color: #d77408;
+}
+
+/* Zone 3 - Neon Yellow */
+.zoneYellow {
+    --zone-color: #F7DA0D;
+    --zone-core: #F7DA0D;
+    --zone-glow: #FFF27A;
+    --zone-shadow: rgba(255, 242, 122, 0.8);
+}
+
+/* Zone 3 starts grey */
+.zoneYellow .zoneCircle {
+    border-color: #d8dff0;
+    box-shadow: 0 0 0 8px rgba(232, 236, 247, 0.3),
+        0 14px 32px rgba(16, 33, 68, 0.15);
+}
+
+/* Zone 3 activates when Zone 2 completes */
+.zoneYellow.zoneActive .zoneCircle {
+    border-color: #F7DA0D !important;
+    box-shadow:
+        0 0 12px #F7DA0D,
+        0 0 22px #FFF27A,
+        0 0 44px rgba(255, 242, 122, 0.8),
+        0 16px 36px rgba(247, 218, 13, 0.4) !important;
+    animation: neonPulse 1.5s ease-in-out infinite;
+}
+
+.zoneYellow .smallCircleTop,
+.zoneYellow .smallCircleBottom {
+    border-color: #ffd93b;
+}
+
+.zoneYellow .zoneLabelTop,
+.zoneYellow .zoneName {
+    color: #c9a30a;
+}
+
+/* Zone 4 - Neon Green */
+.zoneGreen {
+    --zone-color: #28D94D;
+    --zone-core: #28D94D;
+    --zone-glow: #7BFF9B;
+    --zone-shadow: rgba(123, 255, 155, 0.8);
+}
+
+/* Zone 4 starts grey */
+.zoneGreen .zoneCircle {
+    border-color: #d8dff0;
+    box-shadow: 0 0 0 8px rgba(232, 236, 247, 0.3),
+        0 14px 32px rgba(16, 33, 68, 0.15);
+}
+
+/* Zone 4 activates when Zone 3 completes */
+.zoneGreen.zoneActive .zoneCircle {
+    border-color: #28D94D !important;
+    box-shadow:
+        0 0 12px #28D94D,
+        0 0 22px #7BFF9B,
+        0 0 44px rgba(123, 255, 155, 0.8),
+        0 16px 36px rgba(40, 217, 77, 0.4) !important;
+    animation: neonPulse 1.5s ease-in-out infinite;
+}
+
+.zoneGreen .smallCircleTop,
+.zoneGreen .smallCircleBottom {
+    border-color: #4cd964;
+}
+
+.zoneGreen .zoneLabelTop,
+.zoneGreen .zoneName {
+    color: #1c8c42;
+}
+
+/* Zone 5 - Neon Blue */
+.zoneBlue {
+    --zone-color: #0DB7FF;
+    --zone-core: #0DB7FF;
+    --zone-glow: #86E3FF;
+    --zone-shadow: rgba(134, 227, 255, 0.85);
+}
+
+/* Zone 5 starts grey */
+.zoneBlue .zoneCircle {
+    border-color: #d8dff0;
+    box-shadow: 0 0 0 8px rgba(232, 236, 247, 0.3),
+        0 14px 32px rgba(16, 33, 68, 0.15);
+}
+
+/* Zone 5 activates when Zone 4 completes */
+.zoneBlue.zoneActive .zoneCircle {
+    border-color: #0DB7FF !important;
+    box-shadow:
+        0 0 12px #0DB7FF,
+        0 0 22px #86E3FF,
+        0 0 44px rgba(134, 227, 255, 0.85),
+        0 16px 36px rgba(13, 183, 255, 0.4) !important;
+    animation: neonPulse 1.5s ease-in-out infinite;
+}
+
+.zoneBlue .smallCircleTop,
+.zoneBlue .smallCircleBottom {
+    border-color: #4aa9ff;
+}
+
+.zoneBlue .zoneLabelTop,
+.zoneBlue .zoneName {
+    color: #1f6eb7;
+}
+
+/* Grey / locked zones */
+.zoneGrey {
+    --zone-color: #d8dff0;
+    --zone-glow: rgba(232, 236, 247, 0.5);
+    --zone-shadow: rgba(16, 33, 68, 0.2);
+}
+
+.zoneGrey .zoneCircle {
+    border-color: #d8dff0;
+    box-shadow: 0 0 0 8px rgba(232, 236, 247, 0.9),
+        0 14px 32px rgba(16, 33, 68, 0.2);
+}
+
+.zoneGrey .smallCircleTop,
+.zoneGrey .smallCircleBottom {
+    border-color: #d8dff0;
+}
+
+/* Current zone - stronger pulse and scale */
+.zoneCurrent .zoneCircle {
+    animation: neonPulse 1.5s ease-in-out infinite !important;
+    box-shadow:
+        0 0 14px var(--zone-core, #FF2D2D),
+        0 0 28px var(--zone-glow, #FF6C6C),
+        0 0 60px var(--zone-glow, #FF6C6C),
+        0 0 90px var(--zone-shadow, rgba(255, 109, 109, 0.9)),
+        0 20px 40px var(--zone-shadow, rgba(255, 45, 45, 0.6)) !important;
+    transform: translateX(-50%) scale(1.05);
+}
+
+.zoneCurrent:first-child .zoneCircle {
+    transform: translateX(calc(-50% - 20px)) scale(1.05);
+}
