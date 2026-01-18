@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
-import { uploadChunkImage, removeChunkImage } from '@/app/actions/admin'
+import { uploadChunkImage, removeChunkImage, updateChapterChunks } from '@/app/actions/admin'
 
 interface Question {
   id: string
@@ -99,6 +99,16 @@ export default function ChapterEditorForm({
       const newChunks = [...chunks]
       newChunks[chunkIndex] = { ...chunk, imageUrl: result.url }
       setChunks(newChunks)
+      
+      // Auto-save chunks to database if this is an existing chapter
+      if (initialData?.id) {
+        try {
+          await updateChapterChunks(initialData.id, newChunks)
+        } catch (saveErr: any) {
+          console.error('Auto-save chunks failed:', saveErr)
+          // Don't show error to user - they can still save manually
+        }
+      }
     } catch (err: any) {
       setError(`Image upload failed: ${err.message}`)
     } finally {
@@ -127,6 +137,16 @@ export default function ChapterEditorForm({
       const newChunks = [...chunks]
       newChunks[chunkIndex] = { ...chunk, imageUrl: null }
       setChunks(newChunks)
+      
+      // Auto-save chunks to database if this is an existing chapter
+      if (initialData?.id) {
+        try {
+          await updateChapterChunks(initialData.id, newChunks)
+        } catch (saveErr: any) {
+          console.error('Auto-save chunks failed:', saveErr)
+          // Don't show error to user - they can still save manually
+        }
+      }
     } catch (err: any) {
       setError(`Image removal failed: ${err.message}`)
     } finally {

@@ -322,6 +322,26 @@ export async function uploadChunkImage(formData: FormData) {
 }
 
 /**
+ * Update only the chunks column of a chapter
+ * Used for auto-saving chunks after image upload
+ */
+export async function updateChapterChunks(chapterId: number, chunks: any[]) {
+  const adminClient = createAdminClient()
+  
+  const { error } = await adminClient
+    .from('chapters')
+    .update({ chunks })
+    .eq('id', chapterId)
+  
+  if (error) {
+    console.error('updateChapterChunks error:', error)
+    return { success: false, error: error.message }
+  }
+  
+  return { success: true }
+}
+
+/**
  * Remove a chunk image from storage
  * Server action for admin use only
  */
