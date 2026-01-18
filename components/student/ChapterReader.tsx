@@ -37,14 +37,26 @@ export default function ChapterReader({ content, chunks, onNext, onBack, dayNumb
   const hasCover = dayNumber === 1
 
   // Load progress from localStorage on mount (only once)
-  // Note: Always start with cover page for new sessions
   useEffect(() => {
     if (!isChunkedMode || !chunksArray) return
     
-    // Always start with cover page for Day 1, regardless of saved progress
-    // User can navigate to saved chunk if needed
+    try {
+      const saved = localStorage.getItem(storageKey)
+      if (saved) {
+        const savedIndex = parseInt(saved, 10)
+        if (!isNaN(savedIndex) && savedIndex >= 0 && savedIndex < chunksLength) {
+          setCurrentIndex(savedIndex)
+          // Skip cover page when resuming from saved progress
+          if (hasCover && savedIndex > 0) {
+            setShowCoverPage(false)
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load progress:', err)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []) // Run once on mount
 
   // Save progress to localStorage when index changes
   useEffect(() => {
