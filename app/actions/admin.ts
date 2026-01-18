@@ -265,3 +265,92 @@ export async function createChapter(data: any) {
 
   return { success: true }
 }
+
+/**
+ * Upload a chunk image and return the public URL
+ * Server action for admin use only
+ */
+export async function uploadChunkImage(formData: FormData) {
+  const adminClient = createAdminClient()
+  
+  const file = formData.get('file') as File
+  const chunkId = parseInt(formData.get('chunkId') as string)
+  const dayNumber = parseInt(formData.get('dayNumber') as string)
+  
+  if (!file) {
+    return { success: false, error: 'No file provided' }
+  }
+  
+  if (!file.type.startsWith('image/')) {
+    return { success: false, error: 'File must be an image' }
+  }
+  
+  // Validate file size (max 5MB)
+  const maxSize = 5 * 1024 * 1024 // 5MB
+  if (file.size > maxSize) {
+    return { success: false, error: 'Image must be smaller than 5MB' }
+  }
+  
+  // Generate unique path
+  const timestamp = Date.now()
+  const fileExt = file.name.split('.').pop()
+  const sanitizedExt = fileExt?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+  const path = `day${dayNumber}/chunk${chunkId}/${timestamp}.${sanitizedExt}`
+  
+  // Convert File to Blob for upload
+  const blob = new Blob([file], { type: file.type })
+  
+  // Upload file
+  const { error: uploadError } = await adminClient.storage
+    .from('chunk-images')
+    .upload(path, blob, {
+      upsert: true,
+      contentType: file.type
+    })
+  
+  if (uploadError) {
+    console.error('uploadChunkImage error:', uploadError)
+    return { success: false, error: `Upload failed: ${uploadError.message}` }
+  }
+  
+  // Get public URL
+  const { data } = adminClient.storage
+    .from('chunk-images')
+    .getPublicUrl(path)
+  
+  if (!data.publicUrl) {
+    return { success: false, error: 'Failed to get public URL' }
+  }
+  
+  return { success: true, url: data.publicUrl }
+}
+
+/**
+ * Remove a chunk image from storage
+ * Server action for admin use only
+ */
+export async function removeChunkImage(publicUrl: string) {
+  const adminClient = createAdminClient()
+  
+  // Extract path from public URL
+  // URL format: https://.../storage/v1/object/public/chunk-images/path/to/file.jpg
+  const pathMatch = publicUrl.match(/chunk-images\/(.+)$/)
+  
+  if (!pathMatch || !pathMatch[1]) {
+    return { success: false, error: 'Invalid public URL format' }
+  }
+  
+  const path = pathMatch[1]
+  
+  // Delete file
+  const { error } = await adminClient.storage
+    .from('chunk-images')
+    .remove([path])
+  
+  if (error) {
+    console.error('removeChunkImage error:', error)
+    return { success: false, error: `Delete failed: ${error.message}` }
+  }
+  
+  return { success: true }
+}

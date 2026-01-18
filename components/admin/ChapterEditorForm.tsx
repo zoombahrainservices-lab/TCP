@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
-import { uploadChunkImage, removeChunkImage } from '@/lib/storage/chunkImages'
+import { uploadChunkImage, removeChunkImage } from '@/app/actions/admin'
 
 interface Question {
   id: string
@@ -83,15 +83,21 @@ export default function ChapterEditorForm({
     setError('')
     
     try {
-      const imageUrl = await uploadChunkImage({
-        file,
-        chunkId: chunk.id,
-        dayNumber: parseInt(dayNumber)
-      })
+      // Create FormData for server action
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('chunkId', chunk.id.toString())
+      formData.append('dayNumber', dayNumber.toString())
       
-      // Update chunks array
+      const result = await uploadChunkImage(formData)
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Upload failed')
+      }
+      
+      // Update chunks array with the returned URL
       const newChunks = [...chunks]
-      newChunks[chunkIndex] = { ...chunk, imageUrl }
+      newChunks[chunkIndex] = { ...chunk, imageUrl: result.url }
       setChunks(newChunks)
     } catch (err: any) {
       setError(`Image upload failed: ${err.message}`)
@@ -111,7 +117,11 @@ export default function ChapterEditorForm({
     setError('')
     
     try {
-      await removeChunkImage(chunk.imageUrl)
+      const result = await removeChunkImage(chunk.imageUrl)
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Removal failed')
+      }
       
       // Update chunks array
       const newChunks = [...chunks]
