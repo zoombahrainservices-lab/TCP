@@ -343,7 +343,7 @@ export default function PhasePage() {
       {step === 'overview' && (
         <Card>
           <div className="text-center py-8">
-            <PhaseIcon phase={phaseType} size="xl" />
+            <PhaseIcon phase={phaseType} size="lg" />
             <h1 className="headline-xl mb-2 text-[var(--color-charcoal)] mt-4">
               {phase.title || getPhaseLabel(phaseType)}
             </h1>
@@ -560,7 +560,7 @@ export default function PhasePage() {
       {step === 'complete' && (
         <Card>
           <div className="text-center py-12">
-            <PhaseIcon phase={phaseType} size="xl" completed />
+            <PhaseIcon phase={phaseType} size="lg" completed />
             <h2 className="headline-xl text-[var(--color-charcoal)] mt-4 mb-2">
               Challenge Complete!
             </h2>
