@@ -320,29 +320,54 @@ export async function getChildReport(parentId: string, childId: string) {
   }
 
   // Use unified report builder
-  const { buildChildProgramReport } = await import('@/lib/reports')
-  const fullReport = await buildChildProgramReport(childId)
+  const { buildStudentReport } = await import('@/lib/reports')
+  const fullReport = await buildStudentReport(childId)
 
-  // Transform to match existing report format for backwards compatibility
-  const reportData = fullReport.dailyProgress
-    .filter(day => day.completed)
-    .map(day => ({
-      dayNumber: day.dayNumber,
-      title: day.title,
-      beforeScore: day.beforeScore !== null ? day.beforeScore.toFixed(1) : 'N/A',
-      afterScore: day.afterScore !== null ? day.afterScore.toFixed(1) : 'N/A',
-      reflection: day.reflection,
-      completedAt: day.completedAt,
-      recordId: day.recordId, // Add record ID for PDF downloads
-    }))
+  // Transform phase-based report to match existing report format for backwards compatibility
+  // Group phases by chapter to create day-like entries
+  const phasesByChapter = new Map<number, typeof fullReport.phases>()
+  fullReport.phases.forEach(phase => {
+    const chapterKey = phase.chapterNumber
+    if (!phasesByChapter.has(chapterKey)) {
+      phasesByChapter.set(chapterKey, [])
+    }
+    phasesByChapter.get(chapterKey)!.push(phase)
+  })
+
+  const reportData = Array.from(phasesByChapter.entries())
+    .map(([chapterNumber, phases]) => {
+      // Get power-scan (before) and level-up (after) phases for this chapter
+      const powerScanPhase = phases.find(p => p.phaseType === 'power-scan')
+      const levelUpPhase = phases.find(p => p.phaseType === 'level-up')
+      const reflectionPhase = phases.find(p => p.reflectionText)
+
+      return {
+        dayNumber: chapterNumber,
+        title: phases[0]?.chapterTitle || `Chapter ${chapterNumber}`,
+        beforeScore: powerScanPhase?.beforeScore !== null && powerScanPhase?.beforeScore !== undefined 
+          ? powerScanPhase.beforeScore.toFixed(1) 
+          : 'N/A',
+        afterScore: levelUpPhase?.afterScore !== null && levelUpPhase?.afterScore !== undefined 
+          ? levelUpPhase.afterScore.toFixed(1) 
+          : 'N/A',
+        reflection: reflectionPhase?.reflectionText || '',
+        completedAt: phases[0]?.completedAt || '',
+        recordId: null, // Phase-based system doesn't have record IDs in the same way
+      }
+    })
+    .sort((a, b) => a.dayNumber - b.dayNumber)
 
   return {
-    childName: fullReport.childName,
-    completionPercentage: fullReport.summary.completionPercentage,
-    completedDays: fullReport.summary.completedDays,
+    childName: fullReport.studentName,
+    completionPercentage: fullReport.completionPercentage,
+    completedDays: fullReport.completedChapters,
     reportData,
     // Include new metrics
-    summary: fullReport.summary,
-    baseline: fullReport.baseline,
+    summary: {
+      ...fullReport.summary,
+      completionPercentage: fullReport.completionPercentage,
+      completedDays: fullReport.completedChapters,
+    },
+    baseline: null, // Baseline not available in phase-based system
   }
 }

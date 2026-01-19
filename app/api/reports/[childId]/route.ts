@@ -49,7 +49,7 @@ export async function GET(
     const report = await buildStudentReport(childId)
 
     // Return as JSON download
-    const filename = `${report.childName.replace(/\s+/g, '_')}_Report_${new Date().toISOString().split('T')[0]}.json`
+    const filename = `${report.studentName.replace(/\s+/g, '_')}_Report_${new Date().toISOString().split('T')[0]}.json`
 
     return new NextResponse(JSON.stringify(report, null, 2), {
       status: 200,
