@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { buildChildProgramReport } from '@/lib/reports'
+import { buildStudentReport } from '@/lib/reports'
 
 export async function GET(
   request: NextRequest,
@@ -46,7 +46,7 @@ export async function GET(
     }
 
     // Build report
-    const report = await buildChildProgramReport(childId)
+    const report = await buildStudentReport(childId)
 
     // Return as JSON download
     const filename = `${report.childName.replace(/\s+/g, '_')}_Report_${new Date().toISOString().split('T')[0]}.json`
