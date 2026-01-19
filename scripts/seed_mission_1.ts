@@ -1,4 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { config } from 'dotenv'
+import { join } from 'path'
+
+// Load environment variables from .env.local
+config({ path: join(process.cwd(), '.env.local') })
 
 const adminClient = createAdminClient()
 
@@ -55,22 +60,21 @@ async function seedMission1() {
       zone1 = newZone
     }
 
-    if (zoneError) {
-      throw new Error(`Zone error: ${zoneError.message}`)
+    if (!zone1) {
+      throw new Error('Failed to create or update Zone 1')
     }
 
-    console.log('✅ Zone 1 created:', zone1?.id)
+    console.log('✅ Zone 1 created/updated:', zone1.id)
 
     // Step 2: Create/Update Chapter 1 (Mission 1)
     console.log('📚 Creating Mission 1 chapter...')
-    const { data: chapter1, error: chapterError } = await adminClient
-      .from('chapters')
-      .upsert({
-        zone_id: zone1.id,
-        chapter_number: 1,
-        title: 'THE ATTENTION HEIST',
-        subtitle: 'Reclaiming Your Focus from the Digital Void',
-        content: `# 🎯 THE ATTENTION HEIST: YOUR BRAIN UNDER SIEGE
+    
+    const chapterData = {
+      zone_id: zone1.id,
+      chapter_number: 1,
+      title: 'THE ATTENTION HEIST',
+      subtitle: 'Reclaiming Your Focus from the Digital Void',
+      content: `# 🎯 THE ATTENTION HEIST: YOUR BRAIN UNDER SIEGE
 
 Here's what's actually happening:
 Your phone isn't just distracting you—it's stealing your life force. Every notification is a tiny theft. Every scroll is a moment you'll never get back. The algorithms know exactly how to keep you trapped.
@@ -95,7 +99,7 @@ When you need it:
 • 🎨 While creating anything meaningful
 
 The Real Talk: You can't transform your communication if you're distracted every 47 seconds. First mission: Take back your attention.`,
-        task_description: `🎮 YOUR MISSION, SHOULD YOU CHOOSE TO ACCEPT IT:
+      task_description: `🎮 YOUR MISSION, SHOULD YOU CHOOSE TO ACCEPT IT:
 OPERATION: THE 25-MINUTE BLACKOUT
 
 🎯 PRIMARY OBJECTIVE: Complete ONE 25-minute focus session on any important task with your phone in a completely different room (not just face-down nearby—actually OUT OF SIGHT).
@@ -107,79 +111,107 @@ OPERATION: THE 25-MINUTE BLACKOUT
 • Duration: 25 minutes minimum (use a timer in another room or a watch)
 
 🔄 OPTIONAL BONUS MISSION (+10 XP): After your 25-minute blackout, do NOT check your phone immediately. Instead, stand up, stretch for 2 minutes, THEN check it. Notice how that feels different.`,
-        before_questions: [
-          {
-            id: 'q1',
-            question: 'The Notification Battle: When your phone buzzes during homework or a conversation, how quickly can you resist checking it?',
-            scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
-            type: 'scale'
-          },
-          {
-            id: 'q2',
-            question: 'The Focus Test: How long can you work on something important before your mind drifts to checking social media or messaging apps?',
-            scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
-            type: 'scale'
-          },
-          {
-            id: 'q3',
-            question: 'The Memory Challenge: Can you remember what you scrolled through yesterday on your phone for more than 5 minutes?',
-            scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
-            type: 'scale'
-          },
-          {
-            id: 'q4',
-            question: 'The Morning Mission: Do you check your phone within the first 10 minutes of waking up?',
-            scale: '1 = Always, 2 = Usually, 3 = Sometimes, 4 = Rarely, 5 = Never',
-            type: 'scale'
-          },
-          {
-            id: 'q5',
-            question: 'The Real-Time Presence: When hanging with friends, can you keep your phone away for the entire time without feeling anxious?',
-            scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
-            type: 'scale'
-          }
-        ],
-        after_questions: [
-          {
-            id: 'q1',
-            question: 'The Notification Battle: When your phone buzzes, how quickly can you resist checking it?',
-            scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
-            type: 'scale'
-          },
-          {
-            id: 'q2',
-            question: 'The Focus Test: How long can you work on something important before your mind drifts to checking?',
-            scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
-            type: 'scale'
-          },
-          {
-            id: 'q3',
-            question: 'The Memory Challenge: Can you remember what you focused on (instead of scrolled)?',
-            scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
-            type: 'scale'
-          },
-          {
-            id: 'q4',
-            question: 'The Morning Mission: Could you delay checking your phone this morning?',
-            scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
-            type: 'scale'
-          },
-          {
-            id: 'q5',
-            question: 'The Real-Time Presence: Do you feel more capable of phone-free presence now?',
-            scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
-            type: 'scale'
-          }
-        ],
-        task_deadline_hours: 24,
-      }, {
-        onConflict: 'zone_id,chapter_number',
-      })
-      .select()
-      .single()
+      before_questions: [
+        {
+          id: 'q1',
+          question: 'The Notification Battle: When your phone buzzes during homework or a conversation, how quickly can you resist checking it?',
+          scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
+          type: 'scale'
+        },
+        {
+          id: 'q2',
+          question: 'The Focus Test: How long can you work on something important before your mind drifts to checking social media or messaging apps?',
+          scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
+          type: 'scale'
+        },
+        {
+          id: 'q3',
+          question: 'The Memory Challenge: Can you remember what you scrolled through yesterday on your phone for more than 5 minutes?',
+          scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
+          type: 'scale'
+        },
+        {
+          id: 'q4',
+          question: 'The Morning Mission: Do you check your phone within the first 10 minutes of waking up?',
+          scale: '1 = Always, 2 = Usually, 3 = Sometimes, 4 = Rarely, 5 = Never',
+          type: 'scale'
+        },
+        {
+          id: 'q5',
+          question: 'The Real-Time Presence: When hanging with friends, can you keep your phone away for the entire time without feeling anxious?',
+          scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
+          type: 'scale'
+        }
+      ],
+      after_questions: [
+        {
+          id: 'q1',
+          question: 'The Notification Battle: When your phone buzzes, how quickly can you resist checking it?',
+          scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
+          type: 'scale'
+        },
+        {
+          id: 'q2',
+          question: 'The Focus Test: How long can you work on something important before your mind drifts to checking?',
+          scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
+          type: 'scale'
+        },
+        {
+          id: 'q3',
+          question: 'The Memory Challenge: Can you remember what you focused on (instead of scrolled)?',
+          scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
+          type: 'scale'
+        },
+        {
+          id: 'q4',
+          question: 'The Morning Mission: Could you delay checking your phone this morning?',
+          scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
+          type: 'scale'
+        },
+        {
+          id: 'q5',
+          question: 'The Real-Time Presence: Do you feel more capable of phone-free presence now?',
+          scale: '1 = ⚡ Glitching (struggling hard), 2 = 🔋 Low Battery (need serious help), 3 = ⚙️ Powering Up (working on it), 4 = 🔥 High Performance (pretty strong), 5 = 💎 Maximum Power (absolute mastery)',
+          type: 'scale'
+        }
+      ],
+      task_deadline_hours: 24,
+    }
 
-    if (chapterError) {
-      throw new Error(`Chapter error: ${chapterError.message}`)
+    // Check if chapter exists
+    const { data: existingChapter } = await adminClient
+      .from('chapters')
+      .select('id')
+      .eq('zone_id', zone1.id)
+      .eq('chapter_number', 1)
+      .maybeSingle()
+
+    let chapter1
+    if (existingChapter) {
+      // Update existing chapter
+      const { data: updatedChapter, error: updateError } = await adminClient
+        .from('chapters')
+        .update(chapterData)
+        .eq('id', existingChapter.id)
+        .select()
+        .single()
+      
+      if (updateError) {
+        throw new Error(`Chapter update error: ${updateError.message}`)
+      }
+      chapter1 = updatedChapter
+    } else {
+      // Create new chapter
+      const { data: newChapter, error: createError } = await adminClient
+        .from('chapters')
+        .insert(chapterData)
+        .select()
+        .single()
+      
+      if (createError) {
+        throw new Error(`Chapter create error: ${createError.message}`)
+      }
+      chapter1 = newChapter
     }
 
     console.log('✅ Chapter 1 created:', chapter1?.id)
