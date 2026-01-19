@@ -57,31 +57,41 @@ export default function PhasePage() {
     async function loadData() {
       try {
         const session = await getSession()
-        if (!session) return
+        if (!session) {
+          setError('Not authenticated')
+          setLoading(false)
+          return
+        }
 
         setUserId(session.id)
 
         // Load chapter
         const chap = await getChapter(chapterId)
         if (!chap) {
-          setError('Chapter not found')
+          console.error('Chapter not found for chapterId:', chapterId)
+          setError(`Chapter not found (ID: ${chapterId})`)
           setLoading(false)
           return
         }
         setChapter(chap)
 
         // Load phase
+        console.log('Loading phase for chapterId:', chapterId, 'phaseType:', phaseType)
         const phaseData = await getPhaseByType(chapterId, phaseType)
         if (!phaseData) {
-          setError('Phase not found')
+          console.error('Phase not found for chapterId:', chapterId, 'phaseType:', phaseType)
+          setError(`Phase not found (Chapter: ${chapterId}, Type: ${phaseType})`)
           setLoading(false)
           return
         }
+        console.log('Phase loaded:', phaseData)
         setPhase(phaseData)
 
         // Check if phase is unlocked
         const unlocked = await isPhaseUnlocked(session.id, phaseData.id)
         if (!unlocked) {
+          setError('Phase is locked. Complete previous phases first.')
+          setLoading(false)
           router.push(`/student/chapter/${chapterId}`)
           return
         }

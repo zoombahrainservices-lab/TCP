@@ -120,6 +120,8 @@ export async function getPhaseByType(
 ): Promise<Phase | null> {
   const supabase = await createClient()
 
+  console.log('[getPhaseByType] Looking for phase:', { chapterId, phaseType })
+  
   const { data: phase, error } = await supabase
     .from('phases')
     .select('*')
@@ -128,10 +130,26 @@ export async function getPhaseByType(
     .single()
 
   if (error) {
-    console.error('getPhaseByType error:', error)
+    console.error('[getPhaseByType] Error:', error)
+    console.error('[getPhaseByType] Error details:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint
+    })
+    
+    // Check if there are any phases for this chapter at all
+    const { data: allPhases } = await supabase
+      .from('phases')
+      .select('id, chapter_id, phase_type, phase_number')
+      .eq('chapter_id', chapterId)
+    
+    console.log('[getPhaseByType] All phases for chapter:', allPhases)
+    
     return null
   }
 
+  console.log('[getPhaseByType] Found phase:', phase)
   return phase
 }
 
