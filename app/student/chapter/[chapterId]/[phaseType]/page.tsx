@@ -420,7 +420,7 @@ export default function PhasePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-600">
                     {Object.entries(powerMeter).map(([value, label]) => (
                       <div key={value}>
-                        <strong>{value}</strong> = {label}
+                        <strong>{value}</strong> = {String(label)}
                       </div>
                     ))}
                   </div>
