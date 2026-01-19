@@ -74,7 +74,9 @@ export async function submitReview(
     .eq('id', dayRecordId)
 
   if (error) {
-    console.error('submitReview error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('submitReview error:', error)
+    }
     return { success: false, error: 'Failed to submit review' }
   }
 

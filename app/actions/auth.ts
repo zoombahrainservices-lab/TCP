@@ -105,7 +105,9 @@ export async function signUpParent(email: string, password: string, fullName: st
       })
 
     if (profileError) {
-      console.error('Profile creation error:', profileError)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Profile creation error:', profileError)
+      }
       return { error: 'Failed to create profile' }
     }
 

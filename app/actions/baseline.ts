@@ -60,7 +60,9 @@ export async function hasProgramBaseline(studentId: string): Promise<boolean> {
     .maybeSingle()
 
   if (error) {
-    console.error('hasProgramBaseline error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('hasProgramBaseline error:', error)
+    }
     return false
   }
 
@@ -127,7 +129,9 @@ export async function submitProgramBaseline(
     })
 
   if (error) {
-    console.error('submitProgramBaseline error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('submitProgramBaseline error:', error)
+    }
     return { success: false, error: 'Failed to save Foundation data' }
   }
 
@@ -149,7 +153,9 @@ export async function getProgramBaseline(
     .maybeSingle()
 
   if (error) {
-    console.error('getProgramBaseline error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getProgramBaseline error:', error)
+    }
     return null
   }
 
@@ -170,7 +176,9 @@ export async function getMyFoundation(): Promise<FoundationData | null> {
     .maybeSingle()
 
   if (error) {
-    console.error('getMyFoundation error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getMyFoundation error:', error)
+    }
     return null
   }
 
@@ -209,7 +217,9 @@ export async function getAllBaselines(): Promise<BaselineData[]> {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('getAllBaselines error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getAllBaselines error:', error)
+    }
     return []
   }
 

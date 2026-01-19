@@ -105,7 +105,9 @@ export async function getChapterMetadata(dayNumber: number): Promise<{ totalPage
       return null
     }
   } catch (error) {
-    console.error(`Failed to load metadata for chapter ${dayNumber}:`, error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`Failed to load metadata for chapter ${dayNumber}:`, error)
+    }
     return null
   }
 }
@@ -277,7 +279,9 @@ export async function uploadProof(
     .eq('id', recordId)
 
   if (updateError) {
-    console.error('Failed to update proof_uploaded_at:', updateError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to update proof_uploaded_at:', updateError)
+    }
   }
 
   revalidatePath('/student')

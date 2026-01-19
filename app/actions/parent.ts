@@ -61,7 +61,9 @@ export async function createStudentAccount(
     })
 
   if (linkError) {
-    console.error('Failed to link parent and child:', linkError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to link parent and child:', linkError)
+    }
     return { error: 'Failed to link parent and child' }
   }
 
@@ -73,7 +75,9 @@ export async function createStudentAccount(
     })
 
     if (resetError) {
-      console.error('Failed to send invitation email:', resetError)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to send invitation email:', resetError)
+      }
       // Don't fail the whole operation if email fails
     }
   }
@@ -91,7 +95,9 @@ export async function getMyChildren(parentId: string) {
     .eq('parent_id', parentId)
 
   if (linksError) {
-    console.error('getMyChildren - linksError:', linksError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getMyChildren - linksError:', linksError)
+    }
     throw new Error('Failed to fetch children')
   }
 
@@ -107,7 +113,9 @@ export async function getMyChildren(parentId: string) {
     .in('id', childIds)
 
   if (profilesError) {
-    console.error('getMyChildren - profilesError:', profilesError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getMyChildren - profilesError:', profilesError)
+    }
     throw new Error('Failed to fetch children profiles')
   }
 
@@ -175,7 +183,9 @@ export async function getChildProgress(parentId: string, childId: string) {
   }
 
   if (!link) {
-    console.error('getChildProgress - No link found for parentId:', parentId, 'childId:', childId)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getChildProgress - No link found for parentId:', parentId, 'childId:', childId)
+    }
     throw new Error('Access denied')
   }
 

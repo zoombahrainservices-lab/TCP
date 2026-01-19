@@ -16,8 +16,11 @@ const ZONE_COLORS: Record<number, string> = {
 export default async function StudentPage() {
   const user = await requireAuth('student')
 
-  const progress = await getStudentProgress(user.id)
-  const xpData = await getStudentXP(user.id)
+  // Parallel fetch progress and XP data
+  const [progress, xpData] = await Promise.all([
+    getStudentProgress(user.id),
+    getStudentXP(user.id)
+  ])
 
   // Calculate day ranges for each zone (assuming ~6 chapters per zone, 5 phases per chapter)
   // Zone 1: Days 1-7, Zone 2: Days 8-14, Zone 3: Days 15-21, Zone 4: Days 22-28, Zone 5: Days 29-30
@@ -64,7 +67,7 @@ export default async function StudentPage() {
     ? `/student/chapter/${progress.suggestedChapterId}`
     : '/student'
 
-  // Get next mission number from suggested chapter
+  // Get next mission number from suggested chapter (conditional fetch)
   let nextMissionNumber: number | undefined = undefined
   if (progress.suggestedChapterId) {
     const suggestedChapter = await getChapter(progress.suggestedChapterId)

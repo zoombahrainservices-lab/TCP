@@ -46,7 +46,9 @@ export async function createNotification(
     })
 
   if (error) {
-    console.error('createNotification error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('createNotification error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -76,7 +78,9 @@ export async function getNotifications(
     .limit(50)
 
   if (error) {
-    console.error('getNotifications error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getNotifications error:', error)
+    }
     return []
   }
 
@@ -108,7 +112,9 @@ export async function getUnreadNotificationCount(
     .eq('read', false)
 
   if (error) {
-    console.error('getUnreadNotificationCount error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getUnreadNotificationCount error:', error)
+    }
     return 0
   }
 
@@ -151,7 +157,9 @@ export async function markAllNotificationsRead(
     .eq('read', false)
 
   if (error) {
-    console.error('markAllNotificationsRead error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('markAllNotificationsRead error:', error)
+    }
     return { success: false, error: error.message }
   }
 

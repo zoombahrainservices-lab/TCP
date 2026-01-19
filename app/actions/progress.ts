@@ -53,7 +53,9 @@ export async function getStudentProgress(studentId: string): Promise<StudentOver
     `)
 
   if (phasesError || !allPhasesData) {
-    console.error('getStudentProgress - phases error:', phasesError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getStudentProgress - phases error:', phasesError)
+    }
     throw new Error('Failed to fetch phases')
   }
 
@@ -65,7 +67,9 @@ export async function getStudentProgress(studentId: string): Promise<StudentOver
     .not('completed_at', 'is', null)
 
   if (progressError) {
-    console.error('getStudentProgress - progress error:', progressError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getStudentProgress - progress error:', progressError)
+    }
   }
 
   const completedPhaseIds = new Set(completedProgress?.map(p => p.phase_id) || [])
@@ -211,7 +215,9 @@ export async function getAllStudentProgressRecords(studentId: string) {
     .order('created_at', { ascending: true })
 
   if (error) {
-    console.error('getAllStudentProgressRecords error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getAllStudentProgressRecords error:', error)
+    }
     return []
   }
 

@@ -1,5 +1,6 @@
 'use server'
 
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -41,8 +42,9 @@ export interface ChapterProgress {
 
 /**
  * Get all chapters for a zone
+ * Cached to avoid duplicate queries within the same request
  */
-export async function getChaptersByZone(zoneId: number): Promise<ChapterWithZone[]> {
+export const getChaptersByZone = cache(async (zoneId: number): Promise<ChapterWithZone[]> => {
   const supabase = await createClient()
 
   // Get chapters
@@ -53,7 +55,9 @@ export async function getChaptersByZone(zoneId: number): Promise<ChapterWithZone
     .order('chapter_number', { ascending: true })
 
   if (chaptersError) {
-    console.error('getChaptersByZone error:', chaptersError.message)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getChaptersByZone error:', chaptersError.message)
+    }
     throw new Error('Failed to fetch chapters')
   }
 
@@ -69,7 +73,9 @@ export async function getChaptersByZone(zoneId: number): Promise<ChapterWithZone
     .single()
 
   if (zoneError || !zone) {
-    console.error('getChaptersByZone zone error:', zoneError?.message || 'Zone not found')
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getChaptersByZone zone error:', zoneError?.message || 'Zone not found')
+    }
     throw new Error('Failed to fetch zone information')
   }
 
@@ -78,12 +84,13 @@ export async function getChaptersByZone(zoneId: number): Promise<ChapterWithZone
     ...c,
     zone: zone
   })) as ChapterWithZone[]
-}
+})
 
 /**
  * Get a single chapter by ID
+ * Cached to avoid duplicate queries within the same request
  */
-export async function getChapter(chapterId: number): Promise<ChapterWithZone | null> {
+export const getChapter = cache(async (chapterId: number): Promise<ChapterWithZone | null> => {
   const supabase = await createClient()
 
   // First, get the chapter
@@ -94,7 +101,9 @@ export async function getChapter(chapterId: number): Promise<ChapterWithZone | n
     .single()
 
   if (chapterError || !chapter) {
-    console.error('getChapter error:', chapterError?.message || 'Chapter not found', { chapterError, chapterId })
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getChapter error:', chapterError?.message || 'Chapter not found', { chapterError, chapterId })
+    }
     return null
   }
 
@@ -120,7 +129,9 @@ export async function getChapter(chapterId: number): Promise<ChapterWithZone | n
     .single()
 
   if (zoneError || !zone) {
-    console.error('getChapter zone error:', zoneError?.message || 'Zone not found', { zoneError, zoneId: chapter.zone_id })
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getChapter zone error:', zoneError?.message || 'Zone not found', { zoneError, zoneId: chapter.zone_id })
+    }
     // Return chapter without zone if zone fetch fails
     return {
       ...chapter,
@@ -158,7 +169,9 @@ export async function getChapterByNumber(
     .single()
 
   if (chapterError || !chapter) {
-    console.error('getChapterByNumber error:', chapterError?.message || 'Chapter not found')
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getChapterByNumber error:', chapterError?.message || 'Chapter not found')
+    }
     return null
   }
 
@@ -170,7 +183,9 @@ export async function getChapterByNumber(
     .single()
 
   if (zoneError || !zone) {
-    console.error('getChapterByNumber zone error:', zoneError?.message || 'Zone not found')
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getChapterByNumber zone error:', zoneError?.message || 'Zone not found')
+    }
     return null
   }
 
@@ -188,6 +203,10 @@ export async function getChapterByNumber(
  * 
  * UPDATED: Now checks ALL earlier chapters, not just the previous one
  */
+/**
+ * Check if a chapter is unlocked for a student
+ * Optimized: Uses batched queries instead of N+1 queries
+ */
 export async function isChapterUnlocked(
   studentId: string,
   chapterId: number
@@ -202,10 +221,10 @@ export async function isChapterUnlocked(
   const zoneUnlocked = await isZoneUnlocked(studentId, chapter.zone_id)
   if (!zoneUnlocked) return false
 
-  // First chapter in zone is always unlocked (if zone is unlocked)
+  // First chapter in zone is always unlocked
   if (chapter.chapter_number === 1) return true
 
-  // For other chapters, check if ALL earlier chapters in the zone are completed
+  // Get all phases from earlier chapters in one query
   const { data: earlierChapters } = await supabase
     .from('chapters')
     .select('id')
@@ -214,31 +233,34 @@ export async function isChapterUnlocked(
 
   if (!earlierChapters || earlierChapters.length === 0) return true
 
-  // Check if all phases of ALL earlier chapters are completed
-  for (const earlierChapter of earlierChapters) {
-    const { data: phases } = await supabase
-      .from('phases')
-      .select('id')
-      .eq('chapter_id', earlierChapter.id)
+  const earlierChapterIds = earlierChapters.map(c => c.id)
 
-    if (!phases || phases.length === 0) continue
+  // Get all phases from earlier chapters in one query
+  const { data: phases } = await supabase
+    .from('phases')
+    .select('id')
+    .in('chapter_id', earlierChapterIds)
 
-    // Check if all phases in this earlier chapter are completed
-    for (const phase of phases) {
-      const { data: progress } = await supabase
-        .from('student_progress')
-        .select('completed_at')
-        .eq('student_id', studentId)
-        .eq('phase_id', phase.id)
-        .single()
+  if (!phases || phases.length === 0) return true
 
-      if (!progress || !progress.completed_at) {
-        return false // Found an incomplete phase in an earlier chapter
-      }
-    }
-  }
+  const phaseIds = phases.map(p => p.id)
 
-  return true
+  // Get all progress for those phases in one query
+  const { data: progress } = await supabase
+    .from('student_progress')
+    .select('phase_id, completed_at')
+    .eq('student_id', studentId)
+    .in('phase_id', phaseIds)
+
+  // Build a map of completed phases
+  const completedPhaseIds = new Set(
+    (progress || [])
+      .filter(p => p.completed_at)
+      .map(p => p.phase_id)
+  )
+
+  // Check if all phases are completed
+  return phaseIds.every(id => completedPhaseIds.has(id))
 }
 
 /**
@@ -357,7 +379,9 @@ export async function createChapter(data: {
     .single()
 
   if (error) {
-    console.error('createChapter error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('createChapter error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -379,7 +403,9 @@ export async function updateChapter(
     .eq('id', chapterId)
 
   if (error) {
-    console.error('updateChapter error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('updateChapter error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -398,7 +424,9 @@ export async function deleteChapter(chapterId: number): Promise<{ success: boole
     .eq('id', chapterId)
 
   if (error) {
-    console.error('deleteChapter error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('deleteChapter error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -427,7 +455,9 @@ export async function getAllChapters(): Promise<ChapterWithZone[]> {
     .order('chapter_number', { ascending: true })
 
   if (error) {
-    console.error('getAllChapters error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getAllChapters error:', error)
+    }
     throw new Error('Failed to fetch chapters')
   }
 

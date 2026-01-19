@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import confetti from 'canvas-confetti'
 
 interface LevelUpCelebrationProps {
   open: boolean
@@ -20,64 +19,84 @@ export default function LevelUpCelebration({
 }: LevelUpCelebrationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Launch confetti celebration
+  // Launch confetti celebration (dynamically imported)
   useEffect(() => {
     if (!open) return
 
-    const colors = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444']
-    
-    // Multiple confetti bursts
-    const launchConfetti = () => {
-      // Left side burst
-      confetti({
-        particleCount: 100,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0, y: 0.6 },
-        colors: colors,
-        zIndex: 60,
-      })
+    let cancelled = false
+    let repeatTimer: NodeJS.Timeout | null = null
 
-      // Right side burst
-      confetti({
-        particleCount: 100,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1, y: 0.6 },
-        colors: colors,
-        zIndex: 60,
-      })
+    // Dynamically import canvas-confetti only when needed
+    import('canvas-confetti').then((confettiModule) => {
+      if (cancelled) return
+      const confetti = confettiModule.default
 
-      // Center burst
-      setTimeout(() => {
+      const colors = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444']
+      
+      // Multiple confetti bursts
+      const launchConfetti = () => {
+        if (cancelled) return
+        
+        // Left side burst
         confetti({
-          particleCount: 150,
-          spread: 80,
-          origin: { x: 0.5, y: 0.5 },
+          particleCount: 100,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.6 },
           colors: colors,
           zIndex: 60,
         })
-      }, 200)
 
-      // Top burst
-      setTimeout(() => {
+        // Right side burst
         confetti({
-          particleCount: 80,
-          angle: 90,
-          spread: 70,
-          origin: { x: 0.5, y: 0 },
+          particleCount: 100,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.6 },
           colors: colors,
           zIndex: 60,
         })
-      }, 400)
+
+        // Center burst
+        setTimeout(() => {
+          if (!cancelled) {
+            confetti({
+              particleCount: 150,
+              spread: 80,
+              origin: { x: 0.5, y: 0.5 },
+              colors: colors,
+              zIndex: 60,
+            })
+          }
+        }, 200)
+
+        // Top burst
+        setTimeout(() => {
+          if (!cancelled) {
+            confetti({
+              particleCount: 80,
+              angle: 90,
+              spread: 70,
+              origin: { x: 0.5, y: 0 },
+              colors: colors,
+              zIndex: 60,
+            })
+          }
+        }, 400)
+      }
+
+      launchConfetti()
+
+      // Repeat confetti after 1 second
+      repeatTimer = setTimeout(launchConfetti, 1000)
+    })
+
+    return () => {
+      cancelled = true
+      if (repeatTimer) {
+        clearTimeout(repeatTimer)
+      }
     }
-
-    launchConfetti()
-
-    // Repeat confetti after 1 second
-    const repeatTimer = setTimeout(launchConfetti, 1000)
-
-    return () => clearTimeout(repeatTimer)
   }, [open])
 
   // Auto-dismiss after 4 seconds

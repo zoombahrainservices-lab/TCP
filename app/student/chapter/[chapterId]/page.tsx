@@ -1,15 +1,19 @@
 import { requireAuth } from '@/lib/auth/guards'
 import { getChapter, getChapterProgress, isChapterUnlocked } from '@/app/actions/chapters'
-import { getPhasesByChapter, isPhaseUnlocked } from '@/app/actions/phases'
+import { getPhasesByChapter } from '@/app/actions/phases'
+import { createClient } from '@/lib/supabase/server'
 import { PhaseCardWrapper } from '@/components/student/PhaseCardWrapper'
-import { PowerScan } from '@/components/phases/power-scan'
-import { SecretIntel } from '@/components/phases/secret-intel'
-import { VisualGuide } from '@/components/phases/visual-guide'
-import { FieldMission } from '@/components/phases/field-mission'
-import { LevelUp } from '@/components/phases/level-up'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import { redirect } from 'next/navigation'
+
+// Dynamic imports for phase components (code splitting)
+const PowerScan = dynamic(() => import('@/components/phases/power-scan').then(m => ({ default: m.PowerScan })))
+const SecretIntel = dynamic(() => import('@/components/phases/secret-intel').then(m => ({ default: m.SecretIntel })))
+const VisualGuide = dynamic(() => import('@/components/phases/visual-guide').then(m => ({ default: m.VisualGuide })))
+const FieldMission = dynamic(() => import('@/components/phases/field-mission').then(m => ({ default: m.FieldMission })))
+const LevelUp = dynamic(() => import('@/components/phases/level-up').then(m => ({ default: m.LevelUp })))
 
 interface ChapterPageProps {
   params: Promise<{
@@ -43,13 +47,35 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
   // Get all phases
   const phases = await getPhasesByChapter(chapterId)
 
-  // Check unlock status for each phase
-  const phasesWithStatus = await Promise.all(
-    phases.map(async (phase) => {
-      const unlocked = await isPhaseUnlocked(user.id, phase.id)
-      return { ...phase, unlocked }
-    })
+  // Batch phase unlock checks: Get all progress in one query
+  const supabase = await createClient()
+  const phaseIds = phases.map(p => p.id)
+  
+  const { data: allProgress } = await supabase
+    .from('student_progress')
+    .select('phase_id, completed_at, started_at')
+    .eq('student_id', user.id)
+    .in('phase_id', phaseIds)
+
+  // Build progress map
+  const progressMap = new Map(
+    (allProgress || []).map(p => [p.phase_id, p])
   )
+
+  // Compute unlock status in memory
+  // Phase 1 is unlocked if chapter is unlocked
+  // Other phases are unlocked if previous phase is completed
+  const phasesWithStatus = phases.map((phase, index) => {
+    let unlocked = false
+    if (phase.phase_number === 1) {
+      unlocked = chapterProgress.isUnlocked // First phase unlocked if chapter unlocked
+    } else {
+      const previousPhase = phases[index - 1]
+      const prevProgress = progressMap.get(previousPhase.id)
+      unlocked = !!prevProgress?.completed_at
+    }
+    return { ...phase, unlocked }
+  })
 
   const { totalPhases, completedPhases, currentPhase, completionPercentage } = chapterProgress
 

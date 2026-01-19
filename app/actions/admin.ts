@@ -27,7 +27,9 @@ export async function getAllParents() {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('getAllParents error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getAllParents error:', error)
+    }
     throw new Error('Failed to fetch parents')
   }
 
@@ -59,7 +61,9 @@ export async function getAllStudents() {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('getAllStudents error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getAllStudents error:', error)
+    }
     throw new Error('Failed to fetch students')
   }
 
@@ -117,7 +121,9 @@ export async function getStudentResponses(studentId: string) {
     .order('day_number', { ascending: true })
 
   if (error) {
-    console.error('getStudentResponses error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getStudentResponses error:', error)
+    }
     throw new Error('Failed to fetch student responses')
   }
 
@@ -147,7 +153,9 @@ export async function deleteUser(userId: string) {
   const { error: authError } = await adminClient.auth.admin.deleteUser(userId)
   
   if (authError) {
-    console.error('deleteUser error:', authError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('deleteUser error:', authError)
+    }
     throw new Error('Failed to delete user')
   }
 
@@ -163,7 +171,9 @@ export async function getAllChapters() {
     .order('day_number', { ascending: true })
 
   if (error) {
-    console.error('getAllChapters error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getAllChapters error:', error)
+    }
     throw new Error('Failed to fetch chapters')
   }
 
@@ -179,7 +189,9 @@ export async function deleteChapter(chapterId: number) {
     .eq('id', chapterId)
 
   if (error) {
-    console.error('deleteChapter error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('deleteChapter error:', error)
+    }
     throw new Error('Failed to delete chapter')
   }
 
@@ -196,7 +208,9 @@ export async function getChapter(chapterId: number) {
     .single()
 
   if (error) {
-    console.error('getChapter error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getChapter error:', error)
+    }
     throw new Error('Failed to fetch chapter')
   }
 
@@ -228,7 +242,9 @@ export async function updateChapter(chapterId: number, data: any) {
     .eq('id', chapterId)
 
   if (error) {
-    console.error('updateChapter error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('updateChapter error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -259,7 +275,9 @@ export async function createChapter(data: any) {
     .insert(insertData)
 
   if (error) {
-    console.error('createChapter error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('createChapter error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -310,7 +328,9 @@ export async function uploadChunkImage(formData: FormData) {
     })
   
   if (uploadError) {
-    console.error('uploadChunkImage error:', uploadError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('uploadChunkImage error:', uploadError)
+    }
     return { success: false, error: `Upload failed: ${uploadError.message}` }
   }
   
@@ -334,7 +354,9 @@ export async function updateChapterChunks(chapterId: number, chunks: any[]) {
     .eq('id', chapterId)
   
   if (error) {
-    console.error('updateChapterChunks error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('updateChapterChunks error:', error)
+    }
     return { success: false, error: error.message }
   }
   
@@ -364,7 +386,9 @@ export async function removeChunkImage(publicUrl: string) {
     .remove([path])
   
   if (error) {
-    console.error('removeChunkImage error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('removeChunkImage error:', error)
+    }
     return { success: false, error: `Delete failed: ${error.message}` }
   }
   

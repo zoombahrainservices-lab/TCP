@@ -1,5 +1,6 @@
 'use server'
 
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { uploadFile } from '@/lib/storage/uploads'
@@ -65,12 +66,14 @@ export async function getPhasesByChapter(chapterId: number): Promise<Phase[]> {
     .order('phase_number', { ascending: true })
 
   if (error) {
-    console.error('getPhasesByChapter error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getPhasesByChapter error:', error)
+    }
     throw new Error('Failed to fetch phases')
   }
 
   return phases || []
-}
+})
 
 /**
  * Get a single phase by ID
@@ -98,7 +101,9 @@ export async function getPhase(phaseId: number): Promise<PhaseWithChapter | null
     .single()
 
   if (error) {
-    console.error('getPhase error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getPhase error:', error)
+    }
     return null
   }
 
@@ -109,7 +114,7 @@ export async function getPhase(phaseId: number): Promise<PhaseWithChapter | null
       zone: Array.isArray(phase.chapter.zone) ? phase.chapter.zone[0] : phase.chapter.zone
     }
   } as PhaseWithChapter
-}
+})
 
 /**
  * Get phase by chapter and phase type
@@ -120,7 +125,9 @@ export async function getPhaseByType(
 ): Promise<Phase | null> {
   const supabase = await createClient()
 
-  console.log('[getPhaseByType] Looking for phase:', { chapterId, phaseType })
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[getPhaseByType] Looking for phase:', { chapterId, phaseType })
+  }
   
   const { data: phase, error } = await supabase
     .from('phases')
@@ -130,26 +137,30 @@ export async function getPhaseByType(
     .single()
 
   if (error) {
-    console.error('[getPhaseByType] Error:', error)
-    console.error('[getPhaseByType] Error details:', {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint
-    })
-    
-    // Check if there are any phases for this chapter at all
-    const { data: allPhases } = await supabase
-      .from('phases')
-      .select('id, chapter_id, phase_type, phase_number')
-      .eq('chapter_id', chapterId)
-    
-    console.log('[getPhaseByType] All phases for chapter:', allPhases)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[getPhaseByType] Error:', error)
+      console.error('[getPhaseByType] Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      })
+      
+      // Check if there are any phases for this chapter at all
+      const { data: allPhases } = await supabase
+        .from('phases')
+        .select('id, chapter_id, phase_type, phase_number')
+        .eq('chapter_id', chapterId)
+      
+      console.log('[getPhaseByType] All phases for chapter:', allPhases)
+    }
     
     return null
   }
 
-  console.log('[getPhaseByType] Found phase:', phase)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[getPhaseByType] Found phase:', phase)
+  }
   return phase
 }
 
@@ -174,7 +185,9 @@ export async function getPhaseProgress(
     if (error.code === 'PGRST116') {
       return null
     }
-    console.error('getPhaseProgress error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getPhaseProgress error:', error)
+    }
     return null
   }
 
@@ -261,7 +274,9 @@ export async function startPhase(
     .single()
 
   if (error) {
-    console.error('startPhase error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('startPhase error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -284,7 +299,9 @@ export async function savePhaseResponses(
     .eq('id', progressId)
 
   if (error) {
-    console.error('savePhaseResponses error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('savePhaseResponses error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -313,7 +330,9 @@ export async function acknowledgeTask(
     .eq('id', progressId)
 
   if (error) {
-    console.error('acknowledgeTask error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('acknowledgeTask error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -380,7 +399,9 @@ export async function saveReflection(
     .eq('id', progressId)
 
   if (error) {
-    console.error('saveReflection error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('saveReflection error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -418,7 +439,9 @@ export async function completePhase(
     .single()
 
   if (progressError || !progress) {
-    console.error('completePhase error:', progressError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('completePhase error:', progressError)
+    }
     return { success: false, error: progressError?.message || 'Progress not found' }
   }
 
@@ -446,7 +469,9 @@ export async function completePhase(
     .eq('id', progressId)
 
   if (updateError) {
-    console.error('completePhase update error:', updateError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('completePhase update error:', updateError)
+    }
     return { success: false, error: updateError.message }
   }
 
@@ -493,7 +518,9 @@ export async function completePhase(
     revalidatePath('/student')
     return { success: true, xpResult }
   } catch (xpError) {
-    console.error('completePhase: XP award failed', xpError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('completePhase: XP award failed', xpError)
+    }
     // Still return success since phase was completed, just XP failed
     revalidatePath('/student')
     return { success: true, error: 'Phase completed but XP award failed' }
@@ -513,7 +540,9 @@ export async function getPhaseUploads(progressId: number): Promise<any[]> {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('getPhaseUploads error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getPhaseUploads error:', error)
+    }
     return []
   }
 
@@ -547,7 +576,9 @@ export async function createPhase(data: {
     .single()
 
   if (error) {
-    console.error('createPhase error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('createPhase error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -588,7 +619,9 @@ export async function deletePhase(phaseId: number): Promise<{ success: boolean; 
     .eq('id', phaseId)
 
   if (error) {
-    console.error('deletePhase error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('deletePhase error:', error)
+    }
     return { success: false, error: error.message }
   }
 

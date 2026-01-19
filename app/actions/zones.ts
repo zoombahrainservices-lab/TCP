@@ -1,5 +1,7 @@
 'use server'
 
+import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -27,22 +29,29 @@ export interface ZoneProgress {
 
 /**
  * Get all zones
+ * Cached with 1-hour revalidation since zones are static/semi-static data
  */
-export async function getZones(): Promise<Zone[]> {
-  const supabase = await createClient()
+export const getZones = unstable_cache(
+  async (): Promise<Zone[]> => {
+    const supabase = await createClient()
 
-  const { data: zones, error } = await supabase
-    .from('zones')
-    .select('*')
-    .order('zone_number', { ascending: true })
+    const { data: zones, error } = await supabase
+      .from('zones')
+      .select('*')
+      .order('zone_number', { ascending: true })
 
-  if (error) {
-    console.error('getZones error:', error)
-    throw new Error('Failed to fetch zones')
-  }
+    if (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('getZones error:', error)
+      }
+      throw new Error('Failed to fetch zones')
+    }
 
-  return zones || []
-}
+    return zones || []
+  },
+  ['zones'],
+  { revalidate: 3600 } // 1 hour
+)
 
 /**
  * Get a single zone by ID
@@ -57,12 +66,14 @@ export async function getZone(zoneId: number): Promise<Zone | null> {
     .single()
 
   if (error) {
-    console.error('getZone error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getZone error:', error)
+    }
     return null
   }
 
   return zone
-}
+})
 
 /**
  * Get a zone by zone number
@@ -77,7 +88,9 @@ export async function getZoneByNumber(zoneNumber: number): Promise<Zone | null> 
     .single()
 
   if (error) {
-    console.error('getZoneByNumber error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getZoneByNumber error:', error)
+    }
     return null
   }
 
@@ -162,6 +175,7 @@ export async function isZoneUnlocked(studentId: string, zoneId: number): Promise
 
 /**
  * Get zone progress for a student
+ * Optimized: Uses single batched query instead of N+1 queries
  */
 export async function getZoneProgress(studentId: string, zoneId: number): Promise<ZoneProgress | null> {
   const supabase = await createClient()
@@ -170,50 +184,59 @@ export async function getZoneProgress(studentId: string, zoneId: number): Promis
   const zone = await getZone(zoneId)
   if (!zone) return null
 
-  // Get all chapters in this zone
-  const { data: chapters } = await supabase
-    .from('chapters')
-    .select('id')
-    .eq('zone_id', zoneId)
+  // Single query to get all phases with their progress
+  const { data: allData, error } = await supabase
+    .from('phases')
+    .select(`
+      id,
+      chapter_id,
+      chapters!inner (
+        id,
+        zone_id
+      ),
+      student_progress!left (
+        student_id,
+        completed_at
+      )
+    `)
+    .eq('chapters.zone_id', zoneId)
+    .eq('student_progress.student_id', studentId)
 
-  const totalChapters = chapters?.length || 0
-  const totalPhases = totalChapters * 5 // 5 phases per chapter
+  if (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getZoneProgress error:', error)
+    }
+    return null
+  }
 
-  // Count completed chapters and phases
-  let completedChapters = 0
+  if (!allData) return null
+
+  // Compute in memory
+  const chapterMap = new Map<number, { total: number; completed: number }>()
+  let totalPhases = 0
   let completedPhases = 0
 
-  if (chapters && chapters.length > 0) {
-    for (const chapter of chapters) {
-      // Get all phases for this chapter
-      const { data: phases } = await supabase
-        .from('phases')
-        .select('id')
-        .eq('chapter_id', chapter.id)
+  for (const item of allData) {
+    const chapterId = item.chapter_id
+    if (!chapterMap.has(chapterId)) {
+      chapterMap.set(chapterId, { total: 0, completed: 0 })
+    }
+    const chapter = chapterMap.get(chapterId)!
+    chapter.total++
+    totalPhases++
 
-      if (!phases) continue
-
-      let chapterCompleted = true
-      for (const phase of phases) {
-        const { data: progress } = await supabase
-          .from('student_progress')
-          .select('completed_at')
-          .eq('student_id', studentId)
-          .eq('phase_id', phase.id)
-          .single()
-
-        if (progress && progress.completed_at) {
-          completedPhases++
-        } else {
-          chapterCompleted = false
-        }
-      }
-
-      if (chapterCompleted) {
-        completedChapters++
-      }
+    // Handle both array and single object responses from Supabase
+    const progress = Array.isArray(item.student_progress) 
+      ? item.student_progress[0] 
+      : item.student_progress
+    if (progress?.completed_at) {
+      chapter.completed++
+      completedPhases++
     }
   }
+
+  const completedChapters = Array.from(chapterMap.values())
+    .filter(ch => ch.completed === ch.total && ch.total > 0).length
 
   // Check if zone is unlocked
   const isUnlocked = await isZoneUnlocked(studentId, zoneId)
@@ -224,7 +247,7 @@ export async function getZoneProgress(studentId: string, zoneId: number): Promis
 
   return {
     zone,
-    totalChapters,
+    totalChapters: chapterMap.size,
     completedChapters,
     totalPhases,
     completedPhases,
@@ -275,7 +298,9 @@ export async function createZone(data: {
     .single()
 
   if (error) {
-    console.error('createZone error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('createZone error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -297,7 +322,9 @@ export async function updateZone(
     .eq('id', zoneId)
 
   if (error) {
-    console.error('updateZone error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('updateZone error:', error)
+    }
     return { success: false, error: error.message }
   }
 
@@ -316,7 +343,9 @@ export async function deleteZone(zoneId: number): Promise<{ success: boolean; er
     .eq('id', zoneId)
 
   if (error) {
-    console.error('deleteZone error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('deleteZone error:', error)
+    }
     return { success: false, error: error.message }
   }
 

@@ -84,7 +84,9 @@ export async function awardXPForPhase(
     .eq('id', studentId)
 
   if (updateError) {
-    console.error('Failed to update XP:', updateError)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to update XP:', updateError)
+    }
     throw new Error('Failed to award XP')
   }
 
