@@ -250,7 +250,7 @@ export default function PhasePage() {
         setLevelUpData({
           oldLevel: result.xpResult.oldLevel || oldLevel,
           newLevel: result.xpResult.newLevel,
-          xpEarned: result.xpResult.totalXP,
+          totalXP: result.xpResult.totalXP,
         })
         setShowLevelUp(true)
       }
@@ -372,76 +372,91 @@ export default function PhasePage() {
           {phaseType === 'power-scan' && (() => {
             // Default questions if metadata is missing
             const defaultQuestions = [
-              { id: 'q1', question: 'How confident do you feel in your communication skills?', scale: '1=not confident, 7=very confident' },
-              { id: 'q2', question: 'How often do you practice communication skills?', scale: '1=rarely, 7=daily' },
-              { id: 'q3', question: 'How comfortable are you speaking in front of others?', scale: '1=very uncomfortable, 7=very comfortable' },
-              { id: 'q4', question: 'How well do you listen to others?', scale: '1=poorly, 7=excellently' },
-              { id: 'q5', question: 'How aware are you of your body language?', scale: '1=not aware, 7=very aware' },
+              { id: 'q1', question: 'How confident do you feel in your communication skills?', scale: '1=not confident, 5=very confident' },
+              { id: 'q2', question: 'How often do you practice communication skills?', scale: '1=rarely, 5=daily' },
+              { id: 'q3', question: 'How comfortable are you speaking in front of others?', scale: '1=very uncomfortable, 5=very comfortable' },
+              { id: 'q4', question: 'How well do you listen to others?', scale: '1=poorly, 5=excellently' },
+              { id: 'q5', question: 'How aware are you of your body language?', scale: '1=not aware, 5=very aware' },
             ]
             
             const questions = phase.metadata?.questions && phase.metadata.questions.length > 0
               ? phase.metadata.questions
               : defaultQuestions
 
+            // Get power meter info from metadata
+            const powerMeter = phase.metadata?.powerMeter || {
+              '1': '⚡ Glitching (struggling hard)',
+              '2': '🔋 Low Battery (need serious help)',
+              '3': '⚙️ Powering Up (working on it)',
+              '4': '🔥 High Performance (pretty strong)',
+              '5': '💎 Maximum Power (absolute mastery)'
+            }
+
             return (
-              <>
-                {/* Chapter Story Content */}
-                {chapter.content && (
-                  <Card className="mb-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <PhaseIcon phase="power-scan" size="lg" />
-                      <h2 className="headline-lg text-[var(--color-charcoal)]">
-                        {chapter.title}
-                      </h2>
+              <Card>
+                <div className="flex items-center gap-3 mb-4">
+                  <PhaseIcon phase="power-scan" size="lg" />
+                  <h2 className="headline-lg text-[var(--color-charcoal)]">
+                    {phase.title || getPhaseLabel('power-scan')}
+                  </h2>
+                </div>
+                
+                {/* Show phase content if available */}
+                {phase.content && (
+                  <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
+                    <div className="text-gray-700 whitespace-pre-wrap text-sm">
+                      {phase.content}
                     </div>
-                    <div className="prose max-w-none text-gray-700 whitespace-pre-wrap">
-                      {chapter.content}
-                    </div>
-                  </Card>
+                  </div>
                 )}
 
-                {/* Questions Card */}
-                <Card>
-                  <div className="flex items-center gap-3 mb-4">
-                    <PhaseIcon phase="power-scan" size="lg" />
-                    <h2 className="headline-lg text-[var(--color-charcoal)]">
-                      {getPhaseLabel('power-scan')}
-                    </h2>
+                <p className="text-[var(--color-gray)] mb-6">
+                  Rate yourself honestly using the Power Meter (1-5):
+                </p>
+                
+                {/* Power Meter Legend */}
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm font-semibold text-gray-700 mb-2">Power Meter:</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-600">
+                    {Object.entries(powerMeter).map(([value, label]) => (
+                      <div key={value}>
+                        <strong>{value}</strong> = {label}
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-[var(--color-gray)] mb-6">
-                    Rate yourself honestly on each question (1 = Low, 7 = High)
-                  </p>
-                  {questions.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-600 mb-4">No questions available for this phase yet.</p>
+                </div>
+
+                {questions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 mb-4">No questions available for this phase yet.</p>
+                    <Button variant="secondary" onClick={() => router.back()}>
+                      ← Back
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-6 mb-8">
+                      {questions.map((q: any) => (
+                        <SelfCheckScale
+                          key={q.id}
+                          questionId={q.id}
+                          question={q.question}
+                          value={responses[q.id] || 0}
+                          onChange={(value) => setResponses({ ...responses, [q.id]: value })}
+                          maxValue={5}
+                          scaleLabel={q.scale}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex justify-between">
                       <Button variant="secondary" onClick={() => router.back()}>
                         ← Back
                       </Button>
+                      <Button onClick={handleSaveResponses}>Continue →</Button>
                     </div>
-                  ) : (
-                    <>
-                      <div className="space-y-6 mb-8">
-                        {questions.map((q: any) => (
-                          <SelfCheckScale
-                            key={q.id}
-                            questionId={q.id}
-                            question={q.question}
-                            value={responses[q.id] || 0}
-                            onChange={(value) => setResponses({ ...responses, [q.id]: value })}
-                            maxValue={7}
-                          />
-                        ))}
-                      </div>
-                      <div className="flex justify-between">
-                        <Button variant="secondary" onClick={() => router.back()}>
-                          ← Back
-                        </Button>
-                        <Button onClick={handleSaveResponses}>Continue →</Button>
-                      </div>
-                    </>
-                  )}
-                </Card>
-              </>
+                  </>
+                )}
+              </Card>
             )
           })()}
 
