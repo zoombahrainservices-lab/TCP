@@ -13,7 +13,8 @@
     "test:chunk-images": "tsx scripts/test-chunk-images.ts",
     "add-image": "tsx scripts/add-image-to-first-slide.ts",
     "compare-xp": "tsx scripts/compare_xp_systems.ts",
-    "migrate-xp-v2": "tsx scripts/migrate_xp_v2.ts"
+    "migrate-xp-v2": "tsx scripts/migrate_xp_v2.ts",
+    "seed-mission-1": "tsx scripts/seed_mission_1.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

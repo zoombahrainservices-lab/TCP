@@ -21,7 +21,9 @@ export default async function ChildProfilePage({ params }: ChildProfilePageProps
   const progress = await getStudentProgress(childId)
 
   // Get child profile
-  const { data: childProfile } = await (await import('@/lib/supabase/server')).createClient()
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: childProfile } = await supabase
     .from('profiles')
     .select('full_name')
     .eq('id', childId)
