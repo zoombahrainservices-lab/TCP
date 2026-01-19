@@ -1,203 +1,229 @@
+'use server'
+
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export interface ProgramReport {
-  childId: string
-  childName: string
-  baseline: {
-    responses: any
-    completedAt: string
-  } | null
-  foundation: {
-    self_check_score: number
-    score_band: 'good' | 'danger_zone' | 'tom_start' | 'counselor'
-    identity_statement: string | null
-    chosen_action: string | null
-    completedAt: string
-  } | null
+export interface PhaseReport {
+  phaseId: number
+  phaseType: string
+  phaseNumber: number
+  chapterTitle: string
+  chapterNumber: number
+  zoneNumber: number
+  zoneName: string
+  responses: any
+  reflectionText: string | null
+  completedAt: string
+  beforeScore: number | null
+  afterScore: number | null
+}
+
+export interface StudentReport {
+  studentId: string
+  studentName: string
+  completedPhases: number
+  totalPhases: number
+  completedChapters: number
+  totalChapters: number
+  completedZones: number
+  totalZones: number
+  completionPercentage: number
+  phases: PhaseReport[]
   summary: {
-    completionPercentage: number
-    completedDays: number
-    totalDays: number
     averageBeforeScore: number
     averageAfterScore: number
-    scoreImprovement: number
-    onTimeSubmissionRate: number
-    reviewedDaysCount: number
-    reviewRate: number
+    averageImprovement: number
+    totalReflections: number
   }
-  dailyProgress: Array<{
-    dayNumber: number
-    title: string
-    completed: boolean
-    completedAt: string | null
-    beforeScore: number | null
-    afterScore: number | null
-    scoreImprovement: number | null
-    reflection: string | null
-    uploadsCount: number
-    reviewed: boolean
-    reviewFeedback: string | null
-    reviewedAt: string | null
-    taskAcknowledgedAt: string | null
-    taskDueAt: string | null
-    proofUploadedAt: string | null
-    submittedOnTime: boolean | null
-    recordId: number | null
-  }>
 }
 
 /**
- * Build a comprehensive program report for a child
+ * Build comprehensive report for a student
  */
-export async function buildChildProgramReport(childId: string): Promise<ProgramReport> {
+export async function buildStudentReport(studentId: string): Promise<StudentReport> {
   const adminClient = createAdminClient()
 
-  // 1. Fetch baseline (legacy and Foundation data)
-  const { data: baseline } = await adminClient
-    .from('program_baselines')
-    .select('responses, created_at, self_check_score, score_band, identity_statement, chosen_action, updated_at')
-    .eq('student_id', childId)
-    .maybeSingle()
-
-  // 2. Fetch child profile
-  const { data: profile } = await adminClient
+  // Get student profile
+  const { data: student } = await adminClient
     .from('profiles')
     .select('full_name')
-    .eq('id', childId)
+    .eq('id', studentId)
     .single()
 
-  // 3. Fetch all daily records with timestamps, answers, reflection, uploads
-  const { data: records } = await adminClient
-    .from('daily_records')
+  // Get all completed progress with phase/chapter/zone details
+  const { data: progressRecords } = await adminClient
+    .from('student_progress')
     .select(`
       *,
-      uploads (*)
+      phase:phases (
+        id,
+        phase_number,
+        phase_type,
+        chapter:chapters (
+          id,
+          title,
+          chapter_number,
+          zone:zones (
+            id,
+            zone_number,
+            name
+          )
+        )
+      )
     `)
-    .eq('student_id', childId)
-    .order('day_number', { ascending: true })
+    .eq('student_id', studentId)
+    .not('completed_at', 'is', null)
+    .order('completed_at', { ascending: true })
 
-  // 4. Fetch all chapters
-  const { data: chapters } = await adminClient
-    .from('chapters')
-    .select('day_number, title')
-    .order('day_number', { ascending: true })
+  const phases: PhaseReport[] = (progressRecords || []).map((record: any) => {
+    const phase = record.phase
+    const chapter = phase?.chapter
+    const zone = Array.isArray(chapter?.zone) ? chapter.zone[0] : chapter?.zone
 
-  // 5. Calculate metrics
-  const completedRecords = records?.filter(r => r.completed) || []
-  const completedDays = completedRecords.length
-  const totalDays = 30
-
-  // Calculate average scores
-  let totalBeforeScore = 0
-  let totalAfterScore = 0
-  let scoreCount = 0
-
-  completedRecords.forEach(record => {
-    if (record.before_answers && record.before_answers.length > 0) {
-      const beforeAvg = record.before_answers.reduce((sum: number, a: any) => sum + (a.answer || 0), 0) / record.before_answers.length
-      totalBeforeScore += beforeAvg
-    }
-    if (record.after_answers && record.after_answers.length > 0) {
-      const afterAvg = record.after_answers.reduce((sum: number, a: any) => sum + (a.answer || 0), 0) / record.after_answers.length
-      totalAfterScore += afterAvg
-      scoreCount++
-    }
-  })
-
-  const averageBeforeScore = scoreCount > 0 ? totalBeforeScore / scoreCount : 0
-  const averageAfterScore = scoreCount > 0 ? totalAfterScore / scoreCount : 0
-  const scoreImprovement = averageAfterScore - averageBeforeScore
-
-  // Calculate on-time submission rate
-  const recordsWithDeadlines = completedRecords.filter(r => r.task_due_at && r.proof_uploaded_at)
-  const onTimeSubmissions = recordsWithDeadlines.filter(r => {
-    const dueDate = new Date(r.task_due_at)
-    const uploadedDate = new Date(r.proof_uploaded_at)
-    return uploadedDate <= dueDate
-  })
-  const onTimeSubmissionRate = recordsWithDeadlines.length > 0 
-    ? (onTimeSubmissions.length / recordsWithDeadlines.length) * 100 
-    : 0
-
-  // Calculate review rate
-  const reviewedDaysCount = completedRecords.filter(r => r.reviewed_at).length
-  const reviewRate = completedDays > 0 ? (reviewedDaysCount / completedDays) * 100 : 0
-
-  // 6. Build daily progress array
-  const dailyProgress = Array.from({ length: 30 }, (_, i) => {
-    const dayNumber = i + 1
-    const chapter = chapters?.find(c => c.day_number === dayNumber)
-    const record = records?.find(r => r.day_number === dayNumber)
-
-    let beforeScore: number | null = null
-    let afterScore: number | null = null
-    let scoreImprovement: number | null = null
-
-    if (record) {
-      if (record.before_answers && record.before_answers.length > 0) {
-        beforeScore = record.before_answers.reduce((sum: number, a: any) => sum + (a.answer || 0), 0) / record.before_answers.length
+    // Calculate scores if available
+    const responses = record.responses || {}
+    const answers = responses.answers || []
+    
+    let beforeScore = null
+    let afterScore = null
+    
+    if (Array.isArray(answers) && answers.length > 0) {
+      const scores = answers.map((a: any) => a.answer || 0)
+      const avgScore = scores.reduce((a: number, b: number) => a + b, 0) / scores.length
+      
+      // For power-scan (before) vs level-up (after)
+      if (phase?.phase_type === 'power-scan') {
+        beforeScore = avgScore
+      } else if (phase?.phase_type === 'level-up') {
+        afterScore = avgScore
       }
-      if (record.after_answers && record.after_answers.length > 0) {
-        afterScore = record.after_answers.reduce((sum: number, a: any) => sum + (a.answer || 0), 0) / record.after_answers.length
-      }
-      if (beforeScore !== null && afterScore !== null) {
-        scoreImprovement = afterScore - beforeScore
-      }
-    }
-
-    let submittedOnTime: boolean | null = null
-    if (record?.task_due_at && record?.proof_uploaded_at) {
-      const dueDate = new Date(record.task_due_at)
-      const uploadedDate = new Date(record.proof_uploaded_at)
-      submittedOnTime = uploadedDate <= dueDate
     }
 
     return {
-      dayNumber,
-      title: chapter?.title || `Day ${dayNumber}`,
-      completed: record?.completed || false,
-      completedAt: record?.updated_at || null,
+      phaseId: phase?.id || 0,
+      phaseType: phase?.phase_type || '',
+      phaseNumber: phase?.phase_number || 0,
+      chapterTitle: chapter?.title || '',
+      chapterNumber: chapter?.chapter_number || 0,
+      zoneNumber: zone?.zone_number || 0,
+      zoneName: zone?.name || '',
+      responses: record.responses,
+      reflectionText: record.reflection_text,
+      completedAt: record.completed_at,
       beforeScore,
       afterScore,
-      scoreImprovement,
-      reflection: record?.reflection_text || null,
-      uploadsCount: record?.uploads?.length || 0,
-      reviewed: !!record?.reviewed_at,
-      reviewFeedback: record?.review_feedback || null,
-      reviewedAt: record?.reviewed_at || null,
-      taskAcknowledgedAt: record?.task_acknowledged_at || null,
-      taskDueAt: record?.task_due_at || null,
-      proofUploadedAt: record?.proof_uploaded_at || null,
-      submittedOnTime,
-      recordId: record?.id || null,
     }
   })
 
-  return {
-    childId,
-    childName: profile?.full_name || 'Student',
-    baseline: baseline ? {
-      responses: baseline.responses,
-      completedAt: baseline.created_at
-    } : null,
-    foundation: baseline && baseline.self_check_score ? {
-      self_check_score: baseline.self_check_score,
-      score_band: baseline.score_band,
-      identity_statement: baseline.identity_statement,
-      chosen_action: baseline.chosen_action,
-      completedAt: baseline.updated_at || baseline.created_at
-    } : null,
-    summary: {
-      completionPercentage: Math.round((completedDays / totalDays) * 100),
-      completedDays,
-      totalDays,
-      averageBeforeScore: Math.round(averageBeforeScore * 10) / 10,
-      averageAfterScore: Math.round(averageAfterScore * 10) / 10,
-      scoreImprovement: Math.round(scoreImprovement * 10) / 10,
-      onTimeSubmissionRate: Math.round(onTimeSubmissionRate),
-      reviewedDaysCount,
-      reviewRate: Math.round(reviewRate),
-    },
-    dailyProgress,
+  // Calculate summary statistics
+  const beforeScores = phases.filter(p => p.beforeScore !== null).map(p => p.beforeScore!)
+  const afterScores = phases.filter(p => p.afterScore !== null).map(p => p.afterScore!)
+  const totalReflections = phases.filter(p => p.reflectionText).length
+
+  const averageBeforeScore = beforeScores.length > 0
+    ? beforeScores.reduce((a, b) => a + b, 0) / beforeScores.length
+    : 0
+
+  const averageAfterScore = afterScores.length > 0
+    ? afterScores.reduce((a, b) => a + b, 0) / afterScores.length
+    : 0
+
+  const averageImprovement = averageAfterScore - averageBeforeScore
+
+  // Calculate completion counts
+  const completedPhases = phases.length
+  const totalPhases = 150
+
+  // Count unique completed chapters
+  const completedChapterIds = new Set(
+    phases.map(p => `${p.zoneNumber}-${p.chapterNumber}`)
+  )
+  const completedChapters = completedChapterIds.size
+  const totalChapters = 30
+
+  // Count completed zones (all chapters in zone must be complete)
+  const chaptersByZone: Record<number, Set<number>> = {}
+  phases.forEach(p => {
+    if (!chaptersByZone[p.zoneNumber]) {
+      chaptersByZone[p.zoneNumber] = new Set()
+    }
+    chaptersByZone[p.zoneNumber].add(p.chapterNumber)
+  })
+
+  const chaptersPerZone = [7, 7, 7, 7, 2] // Zone 1-4: 7 chapters, Zone 5: 2 chapters
+  let completedZones = 0
+  for (let zoneNum = 1; zoneNum <= 5; zoneNum++) {
+    const chaptersInZone = chaptersByZone[zoneNum]?.size || 0
+    if (chaptersInZone === chaptersPerZone[zoneNum - 1]) {
+      completedZones++
+    }
   }
+
+  const completionPercentage = Math.round((completedPhases / totalPhases) * 100)
+
+  return {
+    studentId,
+    studentName: student?.full_name || 'Student',
+    completedPhases,
+    totalPhases,
+    completedChapters,
+    totalChapters,
+    completedZones,
+    totalZones: 5,
+    completionPercentage,
+    phases,
+    summary: {
+      averageBeforeScore,
+      averageAfterScore,
+      averageImprovement,
+      totalReflections,
+    },
+  }
+}
+
+/**
+ * Get report for a specific zone
+ */
+export async function buildZoneReport(studentId: string, zoneId: number) {
+  const adminClient = createAdminClient()
+
+  const { data: progressRecords } = await adminClient
+    .from('student_progress')
+    .select(`
+      *,
+      phase:phases (
+        *,
+        chapter:chapters!inner (
+          *,
+          zone:zones!inner (*)
+        )
+      )
+    `)
+    .eq('student_id', studentId)
+    .eq('zone_id', zoneId)
+    .not('completed_at', 'is', null)
+    .order('completed_at', { ascending: true })
+
+  return progressRecords || []
+}
+
+/**
+ * Get report for a specific chapter
+ */
+export async function buildChapterReport(studentId: string, chapterId: number) {
+  const adminClient = createAdminClient()
+
+  const { data: progressRecords } = await adminClient
+    .from('student_progress')
+    .select(`
+      *,
+      phase:phases (
+        *
+      ),
+      uploads:phase_uploads (*)
+    `)
+    .eq('student_id', studentId)
+    .eq('chapter_id', chapterId)
+    .order('phase:phase_number', { ascending: true })
+
+  return progressRecords || []
 }

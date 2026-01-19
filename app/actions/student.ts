@@ -323,6 +323,22 @@ export async function completeDay(recordId: number) {
   return { success: true }
 }
 
+export async function getAllDailyRecords(studentId: string) {
+  const supabase = await createClient()
+
+  const { data: records, error } = await supabase
+    .from('daily_records')
+    .select('day_number, reflection_text, before_answers, after_answers, completed, updated_at')
+    .eq('student_id', studentId)
+    .order('day_number', { ascending: true })
+
+  if (error) {
+    throw new Error('Failed to fetch records')
+  }
+
+  return records || []
+}
+
 export async function getDailyRecord(studentId: string, dayNumber: number) {
   const supabase = await createClient()
 

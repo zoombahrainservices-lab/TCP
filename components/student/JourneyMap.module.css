@@ -1,0 +1,393 @@
+/* ---------- ZONE COLOR VARIABLES ---------- */
+
+/* Base zone style with custom property */
+.zone {
+  --zone-color: #d8dff0;
+  --zone-delay: 0s;
+  --zone-glow: rgba(216, 223, 240, 0.5);
+  --zone-shadow: rgba(16, 33, 68, 0.2);
+}
+
+/* Zone 1 - Red Neon */
+.zoneRed {
+  --zone-color: #ff4444;
+  --zone-core: #FF2D2D;
+  --zone-glow: #FF6C6C;
+  --zone-shadow: rgba(255, 109, 109, 0.8);
+  --zone-glow-soft: rgba(255, 109, 109, 0.5);
+}
+
+/* Zone 2 - Orange Neon */
+.zoneOrange {
+  --zone-color: #ff9f2d;
+  --zone-core: #FFAA23;
+  --zone-glow: #FFD25B;
+  --zone-shadow: rgba(255, 215, 91, 0.8);
+  --zone-glow-soft: rgba(255, 215, 91, 0.5);
+}
+
+/* Zone 3 - Yellow Neon */
+.zoneYellow {
+  --zone-color: #ffd93b;
+  --zone-core: #F7DA0D;
+  --zone-glow: #FFF27A;
+  --zone-shadow: rgba(255, 242, 122, 0.8);
+  --zone-glow-soft: rgba(255, 242, 122, 0.5);
+}
+
+/* Zone 4 - Green Neon */
+.zoneGreen {
+  --zone-color: #4cd964;
+  --zone-core: #28D94D;
+  --zone-glow: #7BFF9B;
+  --zone-shadow: rgba(123, 255, 155, 0.8);
+  --zone-glow-soft: rgba(123, 255, 155, 0.5);
+}
+
+/* Zone 5 - Blue Neon */
+.zoneBlue {
+  --zone-color: #21b2ff;
+  --zone-core: #0DB7FF;
+  --zone-glow: #86E3FF;
+  --zone-shadow: rgba(134, 227, 255, 0.85);
+  --zone-glow-soft: rgba(134, 227, 255, 0.5);
+}
+
+/* Grey / Inactive zones */
+.zoneGrey {
+  --zone-color: #d8dff0;
+  --zone-glow: rgba(232, 236, 247, 0.3);
+  --zone-shadow: rgba(16, 33, 68, 0.15);
+}
+
+/* ---------- ANIMATIONS ---------- */
+
+/* Neon pulse for active circles */
+@keyframes neonPulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 0 8px var(--zone-glow),
+      0 0 20px var(--zone-glow),
+      0 0 40px var(--zone-glow),
+      0 16px 36px var(--zone-shadow);
+    transform: scale(1.0);
+  }
+  50% {
+    box-shadow: 
+      0 0 0 12px var(--zone-glow),
+      0 0 30px var(--zone-glow),
+      0 0 60px var(--zone-glow),
+      0 16px 36px var(--zone-shadow);
+    transform: scale(1.03);
+  }
+}
+
+/* Zone activation - transitions from grey to neon when light reaches lock */
+/* Timing: starts at ~90% (same as lock flash) to activate zone */
+@keyframes zoneActivate {
+  0%, 88% {
+    border-color: #d8dff0;
+    box-shadow: 
+      0 0 0 8px rgba(232, 236, 247, 0.3),
+      0 14px 32px rgba(16, 33, 68, 0.15);
+    opacity: 0.7;
+  }
+  91% {
+    /* Light reaches lock - zone activates */
+    border-color: var(--zone-core, #FF2D2D);
+    box-shadow: 
+      0 0 0 8px var(--zone-glow, #FF6C6C),
+      0 0 20px var(--zone-glow, #FF6C6C),
+      0 0 40px var(--zone-glow, #FF6C6C),
+      0 16px 36px var(--zone-shadow, rgba(255, 109, 109, 0.8));
+    opacity: 1;
+  }
+  92%, 100% {
+    border-color: var(--zone-core, #FF2D2D);
+    box-shadow: 
+      0 0 0 8px var(--zone-glow, #FF6C6C),
+      0 0 20px var(--zone-glow, #FF6C6C),
+      0 0 40px var(--zone-glow, #FF6C6C),
+      0 16px 36px var(--zone-shadow, rgba(255, 109, 109, 0.8));
+    opacity: 1;
+    animation: neonPulse 1.5s ease-in-out infinite;
+  }
+}
+
+/* Running light along diamond/connector line */
+@keyframes runLight {
+  0% {
+    background-position: -100% 0;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 200% 0;
+    opacity: 0;
+  }
+}
+
+/* Small circle ping when light reaches bottom lock (at ~90% of fillPath) */
+@keyframes smallPing {
+  0%, 85% {
+    box-shadow: 
+      0 4px 12px rgba(20, 32, 68, 0.22),
+      0 0 0 0 var(--zone-core, #FF2D2D);
+    border-color: #d0d5e6;
+  }
+  90% {
+    /* Light reaches lock - bright flash */
+    box-shadow: 
+      0 4px 12px rgba(20, 32, 68, 0.22),
+      0 0 0 10px var(--zone-core, #FF2D2D),
+      0 0 20px var(--zone-glow, #FF6C6C),
+      0 0 35px var(--zone-glow, #FF6C6C),
+      0 0 50px var(--zone-glow-soft, rgba(255, 109, 109, 0.5));
+    border-color: var(--zone-core, #FF2D2D);
+  }
+  93% {
+    box-shadow: 
+      0 4px 12px rgba(20, 32, 68, 0.22),
+      0 0 0 12px var(--zone-core, #FF2D2D),
+      0 0 25px var(--zone-glow, #FF6C6C),
+      0 0 40px var(--zone-glow, #FF6C6C),
+      0 0 60px var(--zone-glow-soft, rgba(255, 109, 109, 0.5));
+    border-color: var(--zone-core, #FF2D2D);
+  }
+  96%, 100% {
+    box-shadow: 
+      0 4px 12px rgba(20, 32, 68, 0.22),
+      0 0 0 0 var(--zone-core, #FF2D2D);
+    border-color: #d0d5e6;
+  }
+}
+
+/* ---------- DIAMOND PATH FILL ANIMATION ---------- */
+
+/* Base diamond outline - static grey line showing full path */
+.zone::before {
+  content: '';
+  position: absolute;
+  /* These will be set per diamond connector - placeholder geometry */
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 200px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 2px solid #D2D5E6; /* Thin neutral grey */
+  border-radius: 12px;
+  background: transparent;
+  z-index: 1;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  pointer-events: none;
+}
+
+/* Animated neon fill - grows behind moving light head */
+/* Uses sequential border animation to fill path behind the moving head */
+.zone::after {
+  content: '';
+  position: absolute;
+  /* Match ::before geometry exactly */
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 200px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-radius: 12px;
+  border: 3px solid transparent;
+  z-index: 2;
+  pointer-events: none;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  opacity: 0;
+  animation: fillPath 4s linear infinite;
+  animation-delay: var(--zone-delay, 0s);
+  filter: blur(0.5px);
+}
+
+/* Fill path animation - sequential border lighting (top → right → bottom → left) */
+/* Path behind head stays lit, creating "fill behind" effect */
+@keyframes fillPath {
+  0% {
+    /* Start: no light */
+    border-top-color: transparent;
+    border-right-color: transparent;
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+    box-shadow: none;
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  25% {
+    /* Light travels: top edge (head at right) - top edge stays lit */
+    border-top-color: var(--zone-core, #FF2D2D);
+    border-right-color: transparent;
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+    box-shadow: 
+      0 -3px 8px var(--zone-core, #FF2D2D),
+      0 -6px 16px var(--zone-glow, #FF6C6C);
+  }
+  50% {
+    /* Light travels: top + right (head at bottom) - both stay lit */
+    border-top-color: var(--zone-core, #FF2D2D);
+    border-right-color: var(--zone-core, #FF2D2D);
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+    box-shadow: 
+      0 -3px 8px var(--zone-core, #FF2D2D),
+      0 -6px 16px var(--zone-glow-soft, rgba(255, 109, 109, 0.5)),
+      3px 0 8px var(--zone-core, #FF2D2D),
+      6px 0 16px var(--zone-glow, #FF6C6C);
+  }
+  75% {
+    /* Light travels: top + right + bottom (head at left) - all three stay lit */
+    border-top-color: var(--zone-core, #FF2D2D);
+    border-right-color: var(--zone-core, #FF2D2D);
+    border-bottom-color: var(--zone-core, #FF2D2D);
+    border-left-color: transparent;
+    box-shadow: 
+      0 -3px 8px var(--zone-core, #FF2D2D),
+      0 -6px 16px var(--zone-glow-soft, rgba(255, 109, 109, 0.5)),
+      3px 0 8px var(--zone-core, #FF2D2D),
+      6px 0 16px var(--zone-glow-soft, rgba(255, 109, 109, 0.5)),
+      0 3px 8px var(--zone-core, #FF2D2D),
+      0 6px 16px var(--zone-glow, #FF6C6C);
+  }
+  100% {
+    /* Complete: all edges lit (head completes circle) */
+    border-top-color: var(--zone-core, #FF2D2D);
+    border-right-color: var(--zone-core, #FF2D2D);
+    border-bottom-color: var(--zone-core, #FF2D2D);
+    border-left-color: var(--zone-core, #FF2D2D);
+    box-shadow: 
+      0 -3px 8px var(--zone-core, #FF2D2D),
+      0 -6px 16px var(--zone-glow-soft, rgba(255, 109, 109, 0.5)),
+      3px 0 8px var(--zone-core, #FF2D2D),
+      6px 0 16px var(--zone-glow-soft, rgba(255, 109, 109, 0.5)),
+      0 3px 8px var(--zone-core, #FF2D2D),
+      0 6px 16px var(--zone-glow-soft, rgba(255, 109, 109, 0.5)),
+      -3px 0 8px var(--zone-core, #FF2D2D),
+      -6px 0 16px var(--zone-glow, #FF6C6C);
+  }
+}
+
+/* Zone base positioning - needed for pseudo-elements */
+.zone {
+  position: relative;
+}
+
+/* ---------- ZONE CIRCLE STYLES ---------- */
+
+/* Base zone circle - inactive state (grey) */
+.zoneCircle {
+  border-color: #d8dff0;
+  box-shadow: 
+    0 0 0 8px rgba(232, 236, 247, 0.3),
+    0 14px 32px rgba(16, 33, 68, 0.15);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Active zone circles - neon glow */
+.zoneActive .zoneCircle {
+  border-color: var(--zone-color);
+  animation: neonPulse 1.5s ease-in-out infinite;
+  box-shadow: 
+    0 0 0 8px var(--zone-glow),
+    0 0 20px var(--zone-glow),
+    0 0 40px var(--zone-glow),
+    0 16px 36px var(--zone-shadow);
+}
+
+/* Zone activation animation - applies to next zone when light reaches */
+.zoneActivating .zoneCircle {
+  animation: zoneActivate 10s linear infinite;
+  animation-delay: var(--zone-delay, 0s);
+}
+
+/* Current zone - always active and stronger */
+.zoneCurrent.zoneActive .zoneCircle {
+  animation: neonPulse 1.5s ease-in-out infinite;
+  box-shadow: 
+    0 0 0 12px var(--zone-glow),
+    0 0 30px var(--zone-glow),
+    0 0 60px var(--zone-glow),
+    0 0 90px var(--zone-glow),
+    0 20px 40px var(--zone-shadow) !important;
+  transform: scale(1.05);
+}
+
+/* ---------- CONNECTOR LINE STYLES ---------- */
+
+/* Base connector line */
+.connectorLine {
+  background: linear-gradient(
+    to right,
+    #d0d5e6 0%,
+    #d0d5e6 100%
+  );
+  opacity: 0.3;
+}
+
+/* Active connector with running light */
+.connectorActive {
+  position: relative;
+  background: linear-gradient(
+    to right,
+    var(--zone-color) 0%,
+    var(--zone-color) 100%
+  );
+  opacity: 0.6;
+  overflow: hidden;
+}
+
+.connectorActive::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 40%,
+    var(--zone-color) 47.5%,
+    var(--zone-color) 52.5%,
+    transparent 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  opacity: 0;
+  animation: runLight 10s linear infinite;
+  animation-delay: var(--zone-delay, 0s);
+  filter: blur(2px);
+}
+
+/* ---------- SMALL CIRCLE STYLES ---------- */
+
+.smallCircle {
+  border-color: #d0d5e6;
+  box-shadow: 0 4px 12px rgba(20, 32, 68, 0.22);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Small circle ping animation */
+.smallCirclePing {
+  animation: smallPing 10s linear infinite;
+  animation-delay: var(--zone-delay, 0s);
+}
+
+/* ---------- DELAY CLASSES ---------- */
+
+.zoneDelay0 { --zone-delay: 0s; }
+.zoneDelay1 { --zone-delay: 1.2s; }
+.zoneDelay2 { --zone-delay: 2.4s; }
+.zoneDelay3 { --zone-delay: 3.6s; }
+.zoneDelay4 { --zone-delay: 4.8s; }

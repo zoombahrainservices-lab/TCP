@@ -2,7 +2,12 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { Shield, Zap } from 'lucide-react';
 import styles from './JourneyMap.module.css';
+import XpBreakdown from '@/components/student/XpBreakdown';
+import AnimatedRedDot from '@/components/student/AnimatedRedDot';
+import AnimatedLightning from '@/components/student/AnimatedLightning';
+import AnimatedSignalTower from '@/components/student/AnimatedSignalTower';
 
 type ZoneStatus = 'locked' | 'current' | 'upcoming';
 
@@ -30,15 +35,24 @@ type SystemStatus = {
 type Props = {
   zones: Zone[];
   levelInfo: LevelInfo;
+  xpBreakdown?: {
+    phase: number;
+    mission: number;
+    zone: number;
+    total: number;
+  };
   systemStatus: SystemStatus;
   nextMissionUrl: string;
+  nextMissionNumber?: number;
 };
 
 export function StudentDashboard({
   zones,
   levelInfo,
+  xpBreakdown,
   systemStatus,
   nextMissionUrl,
+  nextMissionNumber,
 }: Props) {
   const overallProgress =
     systemStatus.totalMissions === 0
@@ -74,6 +88,12 @@ export function StudentDashboard({
 
         {/* MAIN GRID */}
         <section className="grid gap-6 md:grid-cols-[2.2fr,1fr]">
+          {/* XP Breakdown */}
+          {xpBreakdown && (
+            <div className="col-span-full">
+              <XpBreakdown {...xpBreakdown} />
+            </div>
+          )}
           {/* JOURNEY MAP CARD - Full Width */}
           <div className={`${styles.journeyWrapper} col-span-full`}>
             <h3 className={styles.journeyTitle}>JOURNEY MAP</h3>
@@ -151,33 +171,65 @@ export function StudentDashboard({
                 return (
                   <React.Fragment key={zone.id}>
                     {/* Zone */}
-                    <div
-                      className={`${styles.zone} ${getColorClass()} ${
-                        isCurrent ? styles.zoneCurrent : ''
-                      } ${isActive || isActivatedByProgress ? styles.zoneActive : ''}`}
-                    >
-                      {/* Big zone circle */}
-                      <div className={styles.zoneCircle}>
-                        <span className={styles.zoneLabelTop}>
-                          ZONE {zone.zoneNumber}
-                        </span>
-                        <span className={styles.zoneName}>
-                          {zone.title.toUpperCase()}
-                        </span>
-                        <span className={styles.zoneDays}>{zone.subtitle}</span>
+                    {!isLocked ? (
+                      <Link
+                        href={`/student/zone/${zone.id}`}
+                        className={`${styles.zone} ${getColorClass()} ${
+                          isCurrent ? styles.zoneCurrent : ''
+                        } ${isActive || isActivatedByProgress ? styles.zoneActive : ''}`}
+                        style={{ textDecoration: 'none', display: 'block', cursor: 'pointer' }}
+                      >
+                        {/* Big zone circle */}
+                        <div className={styles.zoneCircle}>
+                          <span className={styles.zoneLabelTop}>
+                            ZONE {zone.zoneNumber}
+                          </span>
+                          <span className={styles.zoneName}>
+                            {zone.title.toUpperCase()}
+                          </span>
+                          <span className={styles.zoneDays}>{zone.subtitle}</span>
+                        </div>
+
+                        {/* Badge below big circle */}
+                        <div className={styles.zoneBadge}>{zoneCode}</div>
+
+                        {/* Current mission button */}
+                        {isCurrent && !isLocked && (
+                          <button className={styles.currentMissionBtn}>
+                            <span className={styles.lockDot} />
+                            CURRENT MISSION
+                          </button>
+                        )}
+                      </Link>
+                    ) : (
+                      <div
+                        className={`${styles.zone} ${getColorClass()} ${
+                          isCurrent ? styles.zoneCurrent : ''
+                        } ${isActive || isActivatedByProgress ? styles.zoneActive : ''}`}
+                      >
+                        {/* Big zone circle */}
+                        <div className={styles.zoneCircle}>
+                          <span className={styles.zoneLabelTop}>
+                            ZONE {zone.zoneNumber}
+                          </span>
+                          <span className={styles.zoneName}>
+                            {zone.title.toUpperCase()}
+                          </span>
+                          <span className={styles.zoneDays}>{zone.subtitle}</span>
+                        </div>
+
+                        {/* Badge below big circle */}
+                        <div className={styles.zoneBadge}>{zoneCode}</div>
+
+                        {/* Current mission button */}
+                        {isCurrent && !isLocked && (
+                          <button className={styles.currentMissionBtn}>
+                            <span className={styles.lockDot} />
+                            CURRENT MISSION
+                          </button>
+                        )}
                       </div>
-
-                      {/* Badge below big circle */}
-                      <div className={styles.zoneBadge}>{zoneCode}</div>
-
-                      {/* Current mission button */}
-                      {isCurrent && !isLocked && (
-                        <button className={styles.currentMissionBtn}>
-                          <span className={styles.lockDot} />
-                          CURRENT MISSION
-                        </button>
-                      )}
-                    </div>
+                    )}
 
                     {/* Diamond connector between zones */}
                     {!isLast && nextZone && (
@@ -201,9 +253,17 @@ export function StudentDashboard({
                         {/* Running light overlay - travels from Zone 1 to bottom lock */}
                         <div className={styles.diamondLight} />
                         
-                        {/* Top small circle with icon */}
+                        {/* Top small circle - red dot for first, lightning for second, signal tower for third, icon for others */}
                         <div className={styles.smallCircleTop}>
-                          <span className={styles.smallIcon}>{getConnectorIcon()}</span>
+                          {index === 0 ? (
+                            <AnimatedRedDot />
+                          ) : index === 1 ? (
+                            <AnimatedLightning />
+                          ) : index === 2 ? (
+                            <AnimatedSignalTower />
+                          ) : (
+                            <span className={styles.smallIcon}>{getConnectorIcon()}</span>
+                          )}
                         </div>
 
                         {/* Bottom small circle with lock - light changes color here */}
@@ -234,51 +294,59 @@ export function StudentDashboard({
           </div>
 
           {/* SYSTEM STATUS CARD */}
-          <aside className="rounded-3xl bg-white p-8 shadow-[0_18px_60px_rgba(0,0,0,0.08)]">
-            <h2 className="text-xs font-semibold tracking-[0.25em] text-slate-500 uppercase">
-              System Status
-            </h2>
+          <aside className="bg-white rounded-xl shadow-lg p-6 w-full max-w-xs animate-slide-in-right">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 tracking-wide">
+              SYSTEM STATUS
+            </h3>
 
-            <div className="mt-6 space-y-4 text-sm">
-              <div className="flex items-baseline justify-between">
-                <span className="text-slate-500">AGENT LEVEL</span>
-                <span className="text-3xl font-bold text-[#6d6bf8]">
-                  {levelInfo.level}
-                </span>
+            {/* Agent Level */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-[#5BC0DE]" />
+                <span className="text-sm text-gray-600">AGENT LEVEL:</span>
+                <span className="font-bold text-gray-800">{levelInfo.level}</span>
               </div>
+              <span className="font-bold text-gray-800">{levelInfo.xp}</span>
+            </div>
 
-              <div className="flex items-baseline justify-between">
-                <span className="text-slate-500">XP EARNED</span>
-                <span className="text-sm font-semibold">
-                  {levelInfo.xp} / {levelInfo.nextLevelXp}
-                </span>
-              </div>
+            {/* XP Earned */}
+            <div className="mb-3">
+              <span className="text-sm text-gray-600">XP EARNED</span>
+            </div>
 
-              <div>
-                <p className="text-[11px] text-slate-500 mb-1">OVERALL PROGRESS</p>
-                <p className="text-xs font-semibold">
+            {/* Overall Progress */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-600">OVERALL PROGRESS:</span>
+                <span className="font-bold text-gray-800">
                   {systemStatus.completedMissions}/{systemStatus.totalMissions}
-                </p>
-                <div className="mt-1 flex gap-1">
-                  {Array.from({ length: progressBlocks }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`h-3 w-4 rounded-[2px] border border-slate-300 ${
-                        i < filledBlocks
-                          ? 'bg-[#00d78a] border-[#00d78a]'
-                          : 'bg-white'
-                      }`}
-                    />
-                  ))}
-                </div>
+                </span>
+              </div>
+              <div className="flex gap-1">
+                {Array.from({ length: progressBlocks }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-2 flex-1 rounded-sm ${
+                      i < filledBlocks ? 'bg-gray-800' : 'bg-gray-200'
+                    }`}
+                  />
+                ))}
               </div>
             </div>
 
-            <Link
-              href={nextMissionUrl}
-              className="mt-8 block rounded-full bg-[#00e0ff] py-3 text-center text-sm font-semibold text-slate-900 shadow-[0_10px_30px_rgba(0,224,255,0.6)] transition hover:bg-[#6ff4ff] hover:shadow-[0_14px_40px_rgba(0,224,255,0.8)]"
-            >
-              START TODAY&apos;S MISSION
+            {/* CTA Button */}
+            <Link href={nextMissionUrl} className="block">
+              <button
+                className="w-full bg-[#5BC0DE] hover:bg-[#4AB0CE] text-white font-bold py-3 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-lg flex items-center justify-center gap-2"
+              >
+                <Zap className="w-4 h-4" />
+                <div className="text-left">
+                  <div className="text-sm">START TODAY&apos;S MISSION</div>
+                  {nextMissionNumber && (
+                    <div className="text-xs opacity-80">(MISSION #{nextMissionNumber})</div>
+                  )}
+                </div>
+              </button>
             </Link>
           </aside>
         </section>

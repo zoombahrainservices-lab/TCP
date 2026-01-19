@@ -1,7 +1,30 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
+import { getSession } from '@/lib/auth/guards'
 
-export default function Home() {
+export default async function Home() {
+  // Check if user is authenticated
+  const session = await getSession()
+
+  // Redirect authenticated users to their dashboard
+  if (session?.role === 'student') {
+    redirect('/student')
+  }
+
+  if (session?.role === 'parent') {
+    redirect('/parent')
+  }
+
+  if (session?.role === 'mentor') {
+    redirect('/mentor')
+  }
+
+  if (session?.role === 'admin') {
+    redirect('/admin')
+  }
+
+  // Not authenticated - show landing page
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}

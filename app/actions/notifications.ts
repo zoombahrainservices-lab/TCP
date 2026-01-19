@@ -1,13 +1,20 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { revalidatePath } from 'next/cache'
+
+export type NotificationType = 
+  | 'phase_reminder'
+  | 'zone_unlocked'
+  | 'chapter_completed'
+  | 'zone_completed'
+  | 'review_received'
+  | 'task_due_soon'
+  | 'general'
 
 export interface Notification {
   id: string
   user_id: string
-  type: string
+  type: NotificationType
   title: string
   message: string
   metadata: any
@@ -16,11 +23,11 @@ export interface Notification {
 }
 
 /**
- * Create a new notification for a user
+ * Create a notification for a user
  */
 export async function createNotification(
   userId: string,
-  type: string,
+  type: NotificationType,
   title: string,
   message: string,
   metadata?: any
@@ -40,101 +47,61 @@ export async function createNotification(
 
   if (error) {
     console.error('createNotification error:', error)
-    return { success: false, error: 'Failed to create notification' }
+    return { success: false, error: error.message }
   }
 
-  revalidatePath('/student')
-  revalidatePath('/parent')
-  revalidatePath('/mentor')
   return { success: true }
 }
 
 /**
  * Get notifications for a user
  */
-export async function getUserNotifications(
+export async function getNotifications(
   userId: string,
-  unreadOnly: boolean = false
+  unreadOnly = false
 ): Promise<Notification[]> {
-  const supabase = await createClient()
+  const adminClient = createAdminClient()
 
-  let query = supabase
+  let query = adminClient
     .from('notifications')
     .select('*')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(50)
 
   if (unreadOnly) {
     query = query.eq('read', false)
   }
 
-  const { data, error } = await query
+  const { data: notifications, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(50)
 
   if (error) {
-    console.error('getUserNotifications error:', error)
+    console.error('getNotifications error:', error)
     return []
   }
 
-  return data || []
+  return notifications || []
 }
 
 /**
- * Mark a notification as read
+ * Alias for getNotifications (for backward compatibility)
  */
-export async function markNotificationRead(
-  notificationId: string
-): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from('notifications')
-    .update({ read: true })
-    .eq('id', notificationId)
-
-  if (error) {
-    console.error('markNotificationRead error:', error)
-    return { success: false, error: 'Failed to mark notification as read' }
-  }
-
-  revalidatePath('/student')
-  revalidatePath('/parent')
-  revalidatePath('/mentor')
-  return { success: true }
+export async function getUserNotifications(
+  userId: string,
+  unreadOnly = false
+): Promise<Notification[]> {
+  return getNotifications(userId, unreadOnly)
 }
 
 /**
- * Mark all notifications as read for a user
+ * Get count of unread notifications for a user
  */
-export async function markAllNotificationsRead(
+export async function getUnreadNotificationCount(
   userId: string
-): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+): Promise<number> {
+  const adminClient = createAdminClient()
 
-  const { error } = await supabase
-    .from('notifications')
-    .update({ read: true })
-    .eq('user_id', userId)
-    .eq('read', false)
-
-  if (error) {
-    console.error('markAllNotificationsRead error:', error)
-    return { success: false, error: 'Failed to mark all notifications as read' }
-  }
-
-  revalidatePath('/student')
-  revalidatePath('/parent')
-  revalidatePath('/mentor')
-  return { success: true }
-}
-
-/**
- * Get unread notification count
- */
-export async function getUnreadNotificationCount(userId: string): Promise<number> {
-  const supabase = await createClient()
-
-  const { count, error } = await supabase
+  const { count, error } = await adminClient
     .from('notifications')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
@@ -149,43 +116,113 @@ export async function getUnreadNotificationCount(userId: string): Promise<number
 }
 
 /**
- * Send email using Supabase Auth
+ * Mark notification as read
  */
-export async function sendEmail(
-  to: string,
-  subject: string,
-  body: string
+export async function markNotificationRead(
+  notificationId: string
 ): Promise<{ success: boolean; error?: string }> {
-  // Note: This requires Supabase email templates to be configured
-  // For now, we'll use the password reset email as a template
-  // In production, you'd want to use a proper email service like SendGrid or AWS SES
-  
   const adminClient = createAdminClient()
 
-  try {
-    // Supabase doesn't have a direct "send email" API
-    // You would typically use a third-party service here
-    // For now, we'll just log it
-    console.log('Email would be sent:', { to, subject, body })
-    
-    // In production, integrate with an email service:
-    // await fetch('https://api.sendgrid.com/v3/mail/send', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
-    //     'Content-Type': 'application/json'
-    //   },
-    //   body: JSON.stringify({
-    //     personalizations: [{ to: [{ email: to }] }],
-    //     from: { email: 'noreply@yourapp.com' },
-    //     subject,
-    //     content: [{ type: 'text/plain', value: body }]
-    //   })
-    // })
+  const { error } = await adminClient
+    .from('notifications')
+    .update({ read: true })
+    .eq('id', notificationId)
 
-    return { success: true }
-  } catch (error: any) {
-    console.error('sendEmail error:', error)
-    return { success: false, error: error.message || 'Failed to send email' }
+  if (error) {
+    console.error('markNotificationRead error:', error)
+    return { success: false, error: error.message }
   }
+
+  return { success: true }
+}
+
+/**
+ * Mark all notifications as read for a user
+ */
+export async function markAllNotificationsRead(
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  const adminClient = createAdminClient()
+
+  const { error } = await adminClient
+    .from('notifications')
+    .update({ read: true })
+    .eq('user_id', userId)
+    .eq('read', false)
+
+  if (error) {
+    console.error('markAllNotificationsRead error:', error)
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}
+
+/**
+ * Send zone unlocked notification
+ */
+export async function notifyZoneUnlocked(
+  userId: string,
+  zoneNumber: number,
+  zoneName: string
+): Promise<void> {
+  await createNotification(
+    userId,
+    'zone_unlocked',
+    `Zone ${zoneNumber} Unlocked!`,
+    `Congratulations! You've unlocked ${zoneName}. Start exploring new chapters!`,
+    { zoneNumber }
+  )
+}
+
+/**
+ * Send chapter completed notification
+ */
+export async function notifyChapterCompleted(
+  userId: string,
+  zoneNumber: number,
+  chapterNumber: number,
+  chapterTitle: string
+): Promise<void> {
+  await createNotification(
+    userId,
+    'chapter_completed',
+    'Chapter Complete!',
+    `Great work completing Chapter ${chapterNumber}: ${chapterTitle} in Zone ${zoneNumber}!`,
+    { zoneNumber, chapterNumber }
+  )
+}
+
+/**
+ * Send zone completed notification
+ */
+export async function notifyZoneCompleted(
+  userId: string,
+  zoneNumber: number,
+  zoneName: string
+): Promise<void> {
+  await createNotification(
+    userId,
+    'zone_completed',
+    `Zone ${zoneNumber} Mastered!`,
+    `Amazing! You've completed all chapters in ${zoneName}. The next zone awaits!`,
+    { zoneNumber }
+  )
+}
+
+/**
+ * Send task due soon reminder
+ */
+export async function notifyTaskDueSoon(
+  userId: string,
+  chapterTitle: string,
+  hoursRemaining: number
+): Promise<void> {
+  await createNotification(
+    userId,
+    'task_due_soon',
+    'Task Due Soon',
+    `Your field mission for "${chapterTitle}" is due in ${hoursRemaining} hours. Don't forget to submit your proof!`,
+    { hoursRemaining }
+  )
 }

@@ -4,6 +4,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'calm' | 'success' | 'warning'
   size?: 'sm' | 'md' | 'lg'
   fullWidth?: boolean
+  glow?: boolean
 }
 
 export default function Button({
@@ -11,6 +12,7 @@ export default function Button({
   variant = 'primary',
   size = 'md',
   fullWidth = false,
+  glow = false,
   className = '',
   disabled,
   ...props
@@ -34,10 +36,11 @@ export default function Button({
   }
   
   const widthStyle = fullWidth ? 'w-full' : ''
+  const glowStyle = glow ? 'animate-glow' : ''
   
   return (
     <button
-      className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${widthStyle} ${className}`}
+      className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${widthStyle} ${glowStyle} ${className}`}
       disabled={disabled}
       {...props}
     >

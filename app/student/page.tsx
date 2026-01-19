@@ -1,139 +1,93 @@
 import { requireAuth } from '@/lib/auth/guards'
-import { getStudentProgress, getChapterContent } from '@/app/actions/student'
-import ProgressBar30 from '@/components/student/ProgressBar30'
-import DayCard from '@/components/student/DayCard'
-import Link from 'next/link'
-import Button from '@/components/ui/Button'
-import Card from '@/components/ui/Card'
-import Badge from '@/components/ui/Badge'
+import { getStudentProgress } from '@/app/actions/progress'
+import { getStudentXP } from '@/app/actions/xp'
+import { getChapter } from '@/app/actions/chapters'
+import { StudentDashboard } from './StudentDashboard'
 
-export default async function StudentDashboard() {
+// Zone color mapping
+const ZONE_COLORS: Record<number, string> = {
+  1: '#ff5a5a', // Red
+  2: '#ffb84b', // Orange
+  3: '#ffe75a', // Yellow
+  4: '#6cff8f', // Green
+  5: '#60c0ff', // Blue
+}
+
+export default async function StudentPage() {
   const user = await requireAuth('student')
-  
-  const progress = await getStudentProgress(user.id)
 
-  // Get suggested chapter info
-  let suggestedChapter = null
-  if (progress.suggestedDay <= 30) {
-    try {
-      suggestedChapter = await getChapterContent(progress.suggestedDay)
-    } catch (error) {
-      // Chapter not found
+  const progress = await getStudentProgress(user.id)
+  const xpData = await getStudentXP(user.id)
+
+  // Calculate day ranges for each zone (assuming ~6 chapters per zone, 5 phases per chapter)
+  // Zone 1: Days 1-7, Zone 2: Days 8-14, Zone 3: Days 15-21, Zone 4: Days 22-28, Zone 5: Days 29-30
+  const DAY_RANGES: Record<number, string> = {
+    1: '(DAYS 1-7)',
+    2: '(DAYS 8-14)',
+    3: '(DAYS 15-21)',
+    4: '(DAYS 22-28)',
+    5: '(DAYS 29-30)',
+  }
+
+  // Map zones to the new component format
+  const zones = progress.zones.map((zoneProgress) => {
+    const { zone, isUnlocked, completionPercentage } = zoneProgress
+    const isCurrent = zone.id === progress.suggestedZoneId
+    
+    // Determine subtitle based on status - use day range format
+    let subtitle = DAY_RANGES[zone.zone_number] || ''
+    if (!isUnlocked && zone.zone_number > 1) {
+      subtitle = `Complete Zone ${zone.zone_number - 1}`
+    }
+
+    // Determine status
+    let status: 'locked' | 'current' | 'upcoming' = 'upcoming'
+    if (!isUnlocked) {
+      status = 'locked'
+    } else if (isCurrent) {
+      status = 'current'
+    }
+
+    return {
+      id: zone.id,
+      zoneNumber: zone.zone_number,
+      title: zone.name,
+      subtitle,
+      color: zone.color || ZONE_COLORS[zone.zone_number] || '#6b7280',
+      status,
+      completionPercentage: isUnlocked ? completionPercentage : 0, // Add progress percentage
+    }
+  })
+
+  // Calculate next mission URL
+  const nextMissionUrl = progress.suggestedChapterId
+    ? `/student/chapter/${progress.suggestedChapterId}`
+    : '/student'
+
+  // Get next mission number from suggested chapter
+  let nextMissionNumber: number | undefined = undefined
+  if (progress.suggestedChapterId) {
+    const suggestedChapter = await getChapter(progress.suggestedChapterId)
+    if (suggestedChapter) {
+      nextMissionNumber = suggestedChapter.chapter_number
     }
   }
 
-  // Get completed chapters for history
-  const completedChapters = await Promise.all(
-    progress.completedDays.slice(-5).map(async (day) => {
-      try {
-        const chapter = await getChapterContent(day)
-        return { day, title: chapter.title }
-      } catch {
-        return { day, title: 'Unknown' }
-      }
-    })
-  )
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container max-w-6xl mx-auto px-4 py-6 md:py-8">
-        {/* Progress Bar Section - Full Width on Mobile */}
-        <Card className="mb-6 md:mb-8">
-          <div className="text-center mb-4">
-            <div className="text-sm md:text-base text-gray-600 mb-3">
-              {progress.completedDays.length} / 30 Days Completed
-              {progress.inProgressDays.length > 0 && (
-                <span className="ml-2 text-yellow-600">({progress.inProgressDays.length} in progress)</span>
-              )}
-            </div>
-            <ProgressBar30 
-              completedDays={progress.completedDays} 
-              inProgressDays={progress.inProgressDays}
-              suggestedDay={progress.suggestedDay}
-              dayStatuses={progress.dayStatuses}
-            />
-          </div>
-        </Card>
-
-        {/* Two Column Layout - Stacks on Mobile */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-          {/* Left Column - Welcome & Action */}
-          <div className="space-y-6">
-            {/* Welcome Section */}
-            <Card>
-              <h1 className="headline-lg text-[var(--color-charcoal)] mb-4">
-                Welcome, {user.fullName.split(' ')[0]}!
-              </h1>
-              
-              {/* Suggested Day CTA */}
-              {progress.suggestedDay <= 30 && suggestedChapter ? (
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Suggested Next:</p>
-                  <Link href={`/student/day/${progress.suggestedDay}`}>
-                    <Button variant="success" size="lg" fullWidth className="text-base md:text-lg py-3 md:py-4">
-                      {progress.dayStatuses[progress.suggestedDay] === 'in-progress' ? 'Continue' : 'Start'} Day {progress.suggestedDay}
-                    </Button>
-                  </Link>
-                </div>
-              ) : progress.completedDays.length === 30 ? (
-                <div className="text-center py-4">
-                  <div className="text-4xl mb-3">🎉</div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">All Complete!</h3>
-                  <p className="text-gray-600 text-sm">You've finished the 30-day challenge</p>
-                </div>
-              ) : null}
-            </Card>
-
-            {/* Previous Days */}
-            <Card>
-              <h2 className="headline-md text-[var(--color-charcoal)] mb-4">Previous Days</h2>
-              <div className="space-y-2">
-                {completedChapters.reverse().slice(0, 3).map((chapter) => (
-                  <DayCard
-                    key={chapter.day}
-                    dayNumber={chapter.day}
-                    title={chapter.title}
-                    status="completed"
-                  />
-                ))}
-                {completedChapters.length === 0 && (
-                  <p className="text-gray-500 text-sm py-4 text-center">
-                    No completed days yet. Start your journey today!
-                  </p>
-                )}
-              </div>
-            </Card>
-          </div>
-
-          {/* Right Column - Suggested Chapter */}
-          {progress.suggestedDay <= 30 && suggestedChapter && (
-            <Card className="lg:sticky lg:top-6 h-fit">
-              <div className="mb-4">
-                <span className="text-sm text-[var(--color-gray)]">Suggested Next</span>
-                <h2 className="headline-lg text-[var(--color-charcoal)] mt-1">
-                  Day {progress.suggestedDay} / 30
-                </h2>
-                <h3 className="text-lg md:text-xl font-semibold text-gray-700 mt-2">
-                  Chapter {progress.suggestedDay}: {suggestedChapter.title}
-                </h3>
-              </div>
-              
-              <div>
-                <Link href={`/student/day/${progress.suggestedDay}`} className="block mb-5">
-                  <Button variant="warning" fullWidth>
-                    Read Chapter →
-                  </Button>
-                </Link>
-                <Link href="/student/progress" className="block">
-                  <Button variant="danger" fullWidth>
-                    View Progress →
-                  </Button>
-                </Link>
-              </div>
-            </Card>
-          )}
-        </div>
-      </div>
-    </div>
+    <StudentDashboard
+      zones={zones}
+      levelInfo={{
+        level: xpData.level,
+        xp: xpData.xp,
+        nextLevelXp: xpData.levelProgress.nextLevelXp,
+      }}
+      xpBreakdown={xpData.breakdown}
+      systemStatus={{
+        completedMissions: progress.completedChapters,
+        totalMissions: progress.totalChapters,
+      }}
+      nextMissionUrl={nextMissionUrl}
+      nextMissionNumber={nextMissionNumber}
+    />
   )
 }
