@@ -2,6 +2,8 @@ interface PhaseIconProps {
   phase: 'power-scan' | 'secret-intel' | 'visual-guide' | 'field-mission' | 'level-up'
   size?: 'sm' | 'md' | 'lg'
   className?: string
+  completed?: boolean
+  current?: boolean
 }
 
 const phaseConfig = {
@@ -18,11 +20,21 @@ const sizeStyles = {
   lg: 'text-3xl'
 }
 
-export default function PhaseIcon({ phase, size = 'md', className = '' }: PhaseIconProps) {
+export default function PhaseIcon({ phase, size = 'md', className = '', completed = false, current = false }: PhaseIconProps) {
   const config = phaseConfig[phase]
   
+  // Build className with status indicators
+  let statusClasses = ''
+  if (completed) {
+    statusClasses = 'opacity-100 ring-2 ring-green-500 ring-offset-1 rounded-full'
+  } else if (current) {
+    statusClasses = 'opacity-100 ring-2 ring-blue-500 ring-offset-1 rounded-full animate-pulse'
+  } else {
+    statusClasses = 'opacity-40'
+  }
+  
   return (
-    <span className={`${sizeStyles[size]} ${config.color} ${className}`} title={config.label}>
+    <span className={`${sizeStyles[size]} ${config.color} ${statusClasses} ${className}`} title={config.label}>
       {config.icon}
     </span>
   )
