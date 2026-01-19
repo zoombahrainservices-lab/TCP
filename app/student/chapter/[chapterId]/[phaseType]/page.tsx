@@ -217,7 +217,7 @@ export default function PhasePage() {
         setLevelUpData({
           oldLevel: result.xpResult.oldLevel || oldLevel,
           newLevel: result.xpResult.newLevel,
-          xpEarned: result.xpResult.totalXP,
+          totalXP: result.xpResult.totalXP,
         })
         setShowLevelUp(true)
       }
