@@ -43,7 +43,7 @@ export function computeUnlockStates(
 
   // Track completion by zone and chapter for efficient lookup
   const zoneCompletion = new Map<number, boolean>()
-  const chapterCompletion = new Map<number, boolean>()
+  const chapterCompletion = new Map<string, boolean>()
 
   for (const phase of sortedPhases) {
     const isCompleted = completedPhaseIds.has(phase.id)
