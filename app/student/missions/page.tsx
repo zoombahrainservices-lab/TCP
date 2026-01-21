@@ -26,7 +26,7 @@ export default async function MissionsPage() {
             <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
               <div className="p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-2">
-                  Zone {zone.zone_number}: {zone.title}
+                  Zone {zone.zone_number}: {zone.name}
                 </h2>
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                   {zone.description}
