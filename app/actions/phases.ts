@@ -640,8 +640,11 @@ export async function completePhase(
     revalidatePath('/student')
     revalidatePath('/student/zone')
     // Revalidate the specific zone page if we have zone info
-    if (progress?.phase?.chapter?.zone_id) {
-      revalidatePath(`/student/zone/${progress.phase.chapter.zone_id}`)
+    // Handle Supabase nested relation structure (might be array or object)
+    const phase = progress.phase && (Array.isArray(progress.phase) ? progress.phase[0] : progress.phase)
+    const chapter = phase && phase.chapter && (Array.isArray(phase.chapter) ? phase.chapter[0] : phase.chapter)
+    if (chapter?.zone_id) {
+      revalidatePath(`/student/zone/${chapter.zone_id}`)
     }
     return { success: true, xpResult }
   } catch (xpError) {
@@ -665,8 +668,12 @@ export async function completePhase(
         .eq('id', progressId)
         .single()
       
-      if (progressData?.phase?.chapter?.zone_id) {
-        revalidatePath(`/student/zone/${progressData.phase.chapter.zone_id}`)
+      if (progressData) {
+        const phaseData = progressData.phase && (Array.isArray(progressData.phase) ? progressData.phase[0] : progressData.phase)
+        const chapterData = phaseData && phaseData.chapter && (Array.isArray(phaseData.chapter) ? phaseData.chapter[0] : phaseData.chapter)
+        if (chapterData?.zone_id) {
+          revalidatePath(`/student/zone/${chapterData.zone_id}`)
+        }
       }
     } catch {
       // Ignore errors in revalidation
