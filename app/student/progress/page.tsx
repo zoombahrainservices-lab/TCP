@@ -158,21 +158,15 @@ export default async function StudentProgressPage() {
                   )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
-                  {day.chapterId ? (
-                    <a
-                      href={`/api/chapters/${day.chapterId}/pdf`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button size="sm" variant="secondary">
-                        📖 Day {day.dayNumber} PDF
-                      </Button>
-                    </a>
-                  ) : (
-                    <Button size="sm" variant="secondary" disabled>
-                      <span className="text-gray-400">PDF unavailable</span>
+                  <a
+                    href={`/api/chapters/${day.dayNumber}/pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button size="sm" variant="secondary">
+                      📖 Day {day.dayNumber} PDF
                     </Button>
-                  )}
+                  </a>
                   {day.completed ? (
                     <Button size="sm" variant="secondary" disabled>
                       <span className="text-gray-400">Results available in mission</span>
