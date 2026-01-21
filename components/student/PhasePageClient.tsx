@@ -57,8 +57,58 @@ export default function PhasePageClient({
   const [levelUpData, setLevelUpData] = useState<{ oldLevel: number; newLevel: number; totalXP: number } | null>(null)
   const [xpEarned, setXpEarned] = useState<number>(0)
   const [xpBonuses, setXpBonuses] = useState<{ chapter?: number; zone?: number; perfect?: number } | null>(null)
-  const [nextChallenge, setNextChallenge] = useState<{ chapterId: number; phaseType: PhaseType } | null>(null)
+  const [nextChallenge, setNextChallenge] = useState<{ chapterId: number; phaseType: PhaseType; phaseNumber?: number } | null>(null)
   const [xpData, setXpData] = useState<{ level: number; xp: number; nextLevelXp: number } | null>(null)
+  const isCompleted = !!initialProgress?.completed_at
+  
+  // Debug: Log step and phase data
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('PhasePageClient Debug:', {
+        step,
+        initialStep,
+        isCompleted,
+        phaseType,
+        hasPhase: !!phase,
+        hasChapter: !!chapter,
+        progressId,
+        responsesCount: Object.keys(responses).length
+      })
+    }
+  }, [step, initialStep, isCompleted, phaseType, phase, chapter, progressId, responses])
+  
+  // Load saved responses and XP data if phase is completed
+  useEffect(() => {
+    if (initialProgress?.completed_at) {
+      // Load saved responses
+      if (initialProgress?.responses) {
+        const savedResponses = initialProgress.responses as any
+        if (savedResponses.answers && Array.isArray(savedResponses.answers)) {
+          const responseMap: Record<string, number> = {}
+          savedResponses.answers.forEach((ans: any) => {
+            if (ans.questionId) {
+              responseMap[ans.questionId] = typeof ans.answer === 'number' ? ans.answer : ans.answer || 0
+            }
+          })
+          setResponses(responseMap)
+        }
+        if (savedResponses.reflection_text) {
+          setReflection(savedResponses.reflection_text)
+        }
+      }
+      
+      // Load next challenge info for completed phase
+      if (phase) {
+        getNextPhase(userId, phase.id).then(next => {
+          setNextChallenge(next)
+        })
+      }
+      
+      // Set XP earned (use base XP if we don't have the actual value)
+      // The actual XP should come from the completion, but for viewing we show base
+      setXpEarned(XP_CONFIG.XP_PER_PHASE)
+    }
+  }, [initialProgress, phase, userId])
   
   // Load XP data on mount for overview display
   useEffect(() => {
@@ -70,9 +120,24 @@ export default function PhasePageClient({
       })
     })
   }, [userId])
+  
+  // Load next challenge info if phase is completed
+  useEffect(() => {
+    if (isCompleted && phase) {
+      getNextPhase(userId, phase.id).then(next => {
+        setNextChallenge(next)
+      })
+    }
+  }, [isCompleted, phase, userId])
 
   const handleStartPhase = async () => {
     if (!phase) return
+    
+    // Prevent starting if already completed
+    if (isCompleted) {
+      setError('This phase has already been completed. You can view your submission but cannot edit it.')
+      return
+    }
 
     try {
       const result = await startPhase(userId, phase.id)
@@ -89,6 +154,12 @@ export default function PhasePageClient({
 
   const handleSaveResponses = async () => {
     if (!progressId || !phase) return
+    
+    // Prevent saving if already completed - responses are immutable
+    if (isCompleted) {
+      setError('This phase has already been completed. Responses cannot be changed.')
+      return
+    }
 
     const questions = phase.metadata?.questions || []
     const allAnswered = questions.every((q: any) => responses[q.id])
@@ -170,6 +241,12 @@ export default function PhasePageClient({
 
   const handleUpload = async (type: 'audio' | 'image' | 'text', fileOrText: File | string) => {
     if (!progressId) return
+    
+    // Prevent uploading if already completed
+    if (isCompleted) {
+      setError('This phase has already been completed. You cannot resubmit.')
+      return
+    }
 
     try {
       await uploadPhaseProof(progressId, userId, type, fileOrText)
@@ -217,6 +294,12 @@ export default function PhasePageClient({
 
   const handleSaveReflectionAndComplete = async () => {
     if (!progressId) return
+    
+    // Prevent completing if already completed
+    if (isCompleted) {
+      setError('This phase has already been completed. You cannot resubmit.')
+      return
+    }
 
     if (reflection.length < 50) {
       setError('Please write a reflection (at least 50 characters)')
@@ -270,6 +353,12 @@ export default function PhasePageClient({
 
   const handleCompletePhase = async () => {
     if (!progressId) return
+    
+    // Prevent completing if already completed
+    if (isCompleted) {
+      setError('This phase has already been completed. You cannot resubmit.')
+      return
+    }
 
     try {
       // Get current XP/level before completion
@@ -312,6 +401,20 @@ export default function PhasePageClient({
     } catch (err: any) {
       setError(err.message)
     }
+  }
+
+  // Safety check: ensure we always have phase and chapter data
+  if (!phase || !chapter) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="text-center py-12">
+          <p className="text-gray-600 mb-4">Loading phase data...</p>
+          <Button variant="secondary" onClick={() => router.push(`/student/chapter/${chapterId}`)}>
+            ← Back to Mission
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -480,16 +583,46 @@ export default function PhasePageClient({
               )
             })()}
 
-            {/* CTA Button */}
-            <div className="pt-4">
-              <Button 
-                size="lg" 
-                onClick={handleStartPhase}
-                className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-bold shadow-lg text-lg py-4"
-              >
-                Begin {getPhaseLabel(phaseType)}
-              </Button>
-            </div>
+            {/* CTA Button or Read-only Notice */}
+            {isCompleted ? (
+              <div className="pt-4 space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-green-800 flex items-center gap-2 mb-2">
+                    <span>✓</span>
+                    <span>Phase {phase.phase_number} Completed</span>
+                  </p>
+                  <p className="text-xs text-green-700 mb-4">
+                    This phase has been completed. You can view your submission or edit responses.
+                  </p>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setStep('content')}
+                      className="flex-1"
+                    >
+                      View My Submission
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setStep('complete')}
+                      className="flex-1"
+                    >
+                      View Completion Summary
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="pt-4">
+                <Button 
+                  size="lg" 
+                  onClick={handleStartPhase}
+                  className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-bold shadow-lg text-lg py-4"
+                >
+                  Begin {getPhaseLabel(phaseType)}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -561,6 +694,33 @@ export default function PhasePageClient({
                         ← Back
                       </Button>
                     </div>
+                  ) : isCompleted ? (
+                    <>
+                      {/* Read-only view for completed phase - no edit option */}
+                      <div className="space-y-6 mb-8">
+                        {questions.map((q: any) => (
+                          <div key={q.id} className="opacity-75">
+                            <SelfCheckScale
+                              questionId={q.id}
+                              question={q.question}
+                              value={responses[q.id] || 0}
+                              onChange={() => {}} // Disabled - read-only
+                              maxValue={5}
+                              scaleLabel={q.scale}
+                              disabled={true}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-between">
+                        <Button variant="secondary" onClick={() => router.push(`/student/chapter/${chapterId}`)}>
+                          ← Back to Mission
+                        </Button>
+                        <Button onClick={() => setStep('complete')}>
+                          View Completion Summary →
+                        </Button>
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div className="space-y-6 mb-8">
@@ -595,7 +755,7 @@ export default function PhasePageClient({
                 chunks={phase.metadata?.chunks}
                 dayNumber={chapter.legacy_day_number || chapter.chapter_number}
                 title={chapter.title}
-                onNext={() => handleCompletePhase()}
+                onNext={isCompleted ? () => setStep('complete') : () => handleCompletePhase()}
                 onBack={() => router.back()}
               />
             )}
@@ -614,7 +774,21 @@ export default function PhasePageClient({
                   <p className="text-gray-600 mb-6">
                     Visual content for this mission will be added soon.
                   </p>
-                  <Button onClick={handleCompletePhase}>Continue →</Button>
+                  {isCompleted ? (
+                    <div className="flex gap-3 justify-center">
+                      <Button 
+                        variant="secondary"
+                        onClick={() => router.push(`/student/chapter/${chapterId}`)}
+                      >
+                        ← Back to Mission
+                      </Button>
+                      <Button onClick={() => setStep('complete')}>
+                        View Completion Summary →
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button onClick={handleCompletePhase}>Continue →</Button>
+                  )}
                 </div>
               </Card>
             )}
@@ -633,9 +807,27 @@ export default function PhasePageClient({
                     {phase.content}
                   </div>
                 </div>
-                <Button fullWidth onClick={handleAcknowledgeTask}>
-                  I Understand - Continue to Upload
-                </Button>
+                {isCompleted ? (
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="secondary" 
+                      fullWidth 
+                      onClick={() => router.push(`/student/chapter/${chapterId}`)}
+                    >
+                      ← Back to Mission
+                    </Button>
+                    <Button 
+                      fullWidth 
+                      onClick={() => setStep('complete')}
+                    >
+                      View Completion Summary →
+                    </Button>
+                  </div>
+                ) : (
+                  <Button fullWidth onClick={handleAcknowledgeTask}>
+                    I Understand - Continue to Upload
+                  </Button>
+                )}
               </Card>
             )}
 
@@ -653,24 +845,45 @@ export default function PhasePageClient({
                 </p>
                 <div className="space-y-6 mb-8">
                   {(phase.metadata?.questions || []).map((q: any) => (
-                    <SelfCheckScale
-                      key={q.id}
-                      questionId={q.id}
-                      question={q.question}
-                      value={responses[q.id] || 0}
-                      onChange={(value) => setResponses({ ...responses, [q.id]: value })}
-                    />
+                    <div key={q.id} className={isCompleted ? 'opacity-75' : ''}>
+                      <SelfCheckScale
+                        questionId={q.id}
+                        question={q.question}
+                        value={responses[q.id] || 0}
+                        onChange={isCompleted ? () => {} : (value) => setResponses({ ...responses, [q.id]: value })}
+                        disabled={isCompleted}
+                      />
+                    </div>
                   ))}
                 </div>
                 <div className="mb-8">
                   <ReflectionInput
                     value={reflection}
-                    onChange={setReflection}
+                    onChange={isCompleted ? () => {} : setReflection}
+                    disabled={isCompleted}
                   />
                 </div>
-                <Button fullWidth onClick={handleSaveReflectionAndComplete}>
-                  Complete Challenge
-                </Button>
+                {isCompleted ? (
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="secondary" 
+                      fullWidth 
+                      onClick={() => router.push(`/student/chapter/${chapterId}`)}
+                    >
+                      ← Back to Mission
+                    </Button>
+                    <Button 
+                      fullWidth 
+                      onClick={() => setStep('complete')}
+                    >
+                      View Completion Summary →
+                    </Button>
+                  </div>
+                ) : (
+                  <Button fullWidth onClick={handleSaveReflectionAndComplete}>
+                    Complete Challenge
+                  </Button>
+                )}
               </Card>
             )}
           </>
@@ -680,20 +893,45 @@ export default function PhasePageClient({
         {step === 'action' && phaseType === 'field-mission' && (
           <Card>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Upload Your Proof</h2>
-            <UploadForm onUpload={handleUpload} />
+            {isCompleted ? (
+              <div className="space-y-4">
+                {uploaded && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <p className="text-sm text-gray-700">Your proof has been uploaded and submitted.</p>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <Button 
+                    variant="secondary" 
+                    fullWidth 
+                    onClick={() => router.push(`/student/chapter/${chapterId}`)}
+                  >
+                    ← Back to Mission
+                  </Button>
+                  <Button 
+                    fullWidth 
+                    onClick={() => setStep('complete')}
+                  >
+                    View Completion Summary →
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <UploadForm onUpload={handleUpload} />
+            )}
           </Card>
         )}
 
         {/* Step: Complete */}
-        {step === 'complete' && (
+        {step === 'complete' && phase && chapter && (
           <Card>
             <div className="text-center py-12">
               <PhaseIcon phase={phaseType} size="lg" />
               <h2 className="headline-xl text-[var(--color-charcoal)] mt-4 mb-2">
-                Challenge Complete!
+                Phase {phase.phase_number || 1} Complete!
               </h2>
-              <p className="text-xl text-gray-600 mb-4">
-                Great work on completing {getPhaseLabel(phaseType)}!
+              <p className="text-xl text-gray-600 mb-6 max-w-2xl mx-auto">
+                You have completed Phase {phase.phase_number || 1}! {nextChallenge && phase.phase_number ? 'Move to Phase ' + (phase.phase_number + 1) + ', ' : ''}gained XP, return to mission, or return to dashboard.
               </p>
               
               {/* XP Earned Display - Always show XP information */}
@@ -726,7 +964,7 @@ export default function PhasePageClient({
                     onClick={() => router.push(`/student/chapter/${nextChallenge.chapterId}/${nextChallenge.phaseType}`)}
                     className="w-full max-w-md bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-bold shadow-lg"
                   >
-                    🚀 Go to Next Challenge →
+                    🚀 Continue to Phase {phase.phase_number ? phase.phase_number + 1 : 2} →
                   </Button>
                 ) : (
                   <div className="text-gray-500 text-sm mb-2">
@@ -735,21 +973,33 @@ export default function PhasePageClient({
                 )}
                 
                 {/* Secondary Actions */}
-                <div className="flex gap-4 justify-center">
+                <div className="flex gap-4 justify-center flex-wrap">
                   <Button
                     variant="secondary"
                     onClick={() => router.push(`/student/chapter/${chapterId}`)}
                   >
-                    Back to Mission
+                    Return to Mission
                   </Button>
                   <Button
                     variant="secondary"
                     onClick={() => router.push('/student')}
                   >
-                    Back to Dashboard
+                    Return to Dashboard
                   </Button>
                 </div>
               </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Fallback: If step is complete but phase/chapter data is missing, show overview */}
+        {step === 'complete' && (!phase || !chapter) && (
+          <Card>
+            <div className="text-center py-12">
+              <p className="text-gray-600 mb-4">Phase completed! Loading details...</p>
+              <Button variant="secondary" onClick={() => router.push(`/student/chapter/${chapterId}`)}>
+                ← Back to Mission
+              </Button>
             </div>
           </Card>
         )}

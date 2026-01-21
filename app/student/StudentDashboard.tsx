@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { Shield, Zap } from 'lucide-react';
+import { Shield, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import styles from './JourneyMap.module.css';
 import XpBreakdown from '@/components/student/XpBreakdown';
 import AnimatedRedDot from '@/components/student/AnimatedRedDot';
@@ -54,6 +54,8 @@ export function StudentDashboard({
   nextMissionUrl,
   nextMissionNumber,
 }: Props) {
+  const [isXpBreakdownExpanded, setIsXpBreakdownExpanded] = useState(true);
+  
   const overallProgress =
     systemStatus.totalMissions === 0
       ? 0
@@ -88,16 +90,33 @@ export function StudentDashboard({
 
         {/* MAIN GRID */}
         <section className="grid gap-6 md:grid-cols-[2.2fr,1fr]">
-          {/* XP Breakdown */}
+          {/* XP Breakdown with Collapse */}
           {xpBreakdown && (
             <div className="col-span-full">
-              <XpBreakdown
-                {...xpBreakdown}
-                levelInfo={levelInfo}
-                systemStatus={systemStatus}
-                nextMissionUrl={nextMissionUrl}
-                nextMissionNumber={nextMissionNumber}
-              />
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <button
+                  onClick={() => setIsXpBreakdownExpanded(!isXpBreakdownExpanded)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                >
+                  <h2 className="text-lg font-semibold text-gray-900">XP Breakdown & Progress</h2>
+                  {isXpBreakdownExpanded ? (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  )}
+                </button>
+                {isXpBreakdownExpanded && (
+                  <div className="p-4 pt-0">
+                    <XpBreakdown
+                      {...xpBreakdown}
+                      levelInfo={levelInfo}
+                      systemStatus={systemStatus}
+                      nextMissionUrl={nextMissionUrl}
+                      nextMissionNumber={nextMissionNumber}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
           {/* JOURNEY MAP CARD - Full Width */}

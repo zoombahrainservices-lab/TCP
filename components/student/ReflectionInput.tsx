@@ -5,6 +5,7 @@ interface ReflectionInputProps {
   onChange: (value: string) => void
   minLength?: number
   maxLength?: number
+  disabled?: boolean
 }
 
 export default function ReflectionInput({
@@ -12,6 +13,7 @@ export default function ReflectionInput({
   onChange,
   minLength = 50,
   maxLength = 1000,
+  disabled = false,
 }: ReflectionInputProps) {
   const remaining = maxLength - value.length
   const isValid = value.length >= minLength && value.length <= maxLength
@@ -23,8 +25,11 @@ export default function ReflectionInput({
       </label>
       <textarea
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        onChange={(e) => !disabled && onChange(e.target.value)}
+        disabled={disabled}
+        className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+          disabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+        }`}
         rows={6}
         placeholder="What did you learn? How did this exercise help you? What will you do differently?"
       />

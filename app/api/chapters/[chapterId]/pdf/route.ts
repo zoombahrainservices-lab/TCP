@@ -6,25 +6,25 @@ import { join } from 'path'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ dayNumber: string }> | { dayNumber: string } }
+  { params }: { params: Promise<{ chapterId: string }> | { chapterId: string } }
 ) {
   try {
     // Handle both Promise and direct params (Next.js 14 vs 15)
     const resolvedParams = await Promise.resolve(params)
-    const dayNumberStr = resolvedParams.dayNumber
+    const chapterIdStr = resolvedParams.chapterId
     
-    if (!dayNumberStr) {
+    if (!chapterIdStr) {
       return NextResponse.json(
-        { error: 'Day number is required' },
+        { error: 'Chapter ID is required' },
         { status: 400 }
       )
     }
     
-    const dayNumber = parseInt(dayNumberStr, 10)
+    const chapterId = parseInt(chapterIdStr, 10)
     
-    if (isNaN(dayNumber) || dayNumber < 1 || dayNumber > 30) {
+    if (isNaN(chapterId)) {
       return NextResponse.json(
-        { error: 'Invalid day number' },
+        { error: 'Invalid chapter ID' },
         { status: 400 }
       )
     }
@@ -40,52 +40,12 @@ export async function GET(
       )
     }
     
-    // For Day 1, serve the static Foundation PDF from public directory
-    if (dayNumber === 1) {
-      try {
-        const pdfPath = join(process.cwd(), 'public', 'tcp-foundation-chapter1.pdf')
-        const pdfBytes = await readFile(pdfPath)
-        
-        return new NextResponse(pdfBytes, {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename="Day-1-From-Stage-Star-to-Silent-Struggles.pdf"',
-          },
-        })
-      } catch (error: any) {
-        console.error('Error reading Foundation PDF:', error)
-        // Fall through to generate PDF from database if file not found
-      }
-    }
-    
-    // Fetch chapter from database - try legacy_day_number first, then day_number
-    let chapter = null
-    let chapterError = null
-    
-    // Try legacy_day_number first (new system)
-    const { data: chapterByLegacy, error: legacyError } = await supabase
+    // Fetch chapter from database
+    const { data: chapter, error: chapterError } = await supabase
       .from('chapters')
       .select('*')
-      .eq('legacy_day_number', dayNumber)
+      .eq('id', chapterId)
       .single()
-    
-    if (!legacyError && chapterByLegacy) {
-      chapter = chapterByLegacy
-    } else {
-      // Fallback to day_number (old system)
-      const { data: chapterByDay, error: dayError } = await supabase
-        .from('chapters')
-        .select('*')
-        .eq('day_number', dayNumber)
-        .single()
-      
-      if (!dayError && chapterByDay) {
-        chapter = chapterByDay
-      } else {
-        chapterError = legacyError || dayError
-      }
-    }
     
     if (chapterError || !chapter) {
       return NextResponse.json(
@@ -94,9 +54,32 @@ export async function GET(
       )
     }
     
+    // For Day 1 (legacy_day_number = 1), serve the static Foundation PDF from public directory
+    if (chapter.legacy_day_number === 1 || chapter.day_number === 1) {
+      try {
+        const pdfPath = join(process.cwd(), 'public', 'tcp-foundation-chapter1.pdf')
+        const pdfBytes = await readFile(pdfPath)
+        
+        const dayNumber = chapter.legacy_day_number || chapter.day_number || 1
+        return new NextResponse(pdfBytes, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="Day-${dayNumber}-${chapter.title.replace(/[^a-zA-Z0-9]/g, '-')}.pdf"`,
+          },
+        })
+      } catch (error: any) {
+        console.error('Error reading Foundation PDF:', error)
+        // Fall through to generate PDF from database if file not found
+      }
+    }
+    
     // Generate PDF
     try {
       const pdfBytes = await generateChapterPdfBytes(chapter)
+      
+      // Use legacy_day_number or day_number for filename
+      const dayNumber = chapter.legacy_day_number || chapter.day_number || chapterId
       
       // Return PDF as download (convert Uint8Array to Buffer for NextResponse)
       return new NextResponse(Buffer.from(pdfBytes), {
@@ -109,6 +92,8 @@ export async function GET(
     } catch (pdfError: any) {
       console.error('Error generating chapter PDF:', pdfError)
       console.error('Chapter data:', {
+        id: chapter.id,
+        legacy_day_number: chapter.legacy_day_number,
         day_number: chapter.day_number,
         title: chapter.title,
         content_length: chapter.content?.length,

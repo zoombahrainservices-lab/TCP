@@ -46,13 +46,19 @@ export default async function PhasePage({ params }: PhasePageProps) {
     initialProgressId = progress.id
 
     if (progress.completed_at) {
-      initialStep = 'complete'
+      // For completed phases, show overview first so user can navigate to content or completion
+      initialStep = 'overview'
     } else if (phaseType === 'field-mission' && progress.task_acknowledged_at) {
       initialStep = 'action'
     } else if (phaseType === 'level-up' && progress.reflection_text) {
       initialStep = 'complete'
     } else if (Object.keys(progress.responses || {}).length > 0) {
-      initialStep = 'action'
+      // For power-scan, if responses exist, show content (not action)
+      if (phaseType === 'power-scan') {
+        initialStep = 'content'
+      } else {
+        initialStep = 'action'
+      }
     } else {
       // Progress exists but no responses yet - user has started, show content
       initialStep = 'content'

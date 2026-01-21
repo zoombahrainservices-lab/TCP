@@ -385,6 +385,52 @@ export async function savePhaseResponses(
 }
 
 /**
+ * Update responses for a phase (allows editing even if completed)
+ * This is for admin/editing purposes
+ */
+export async function updatePhaseResponses(
+  progressId: number,
+  responses: any
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  // Get current progress to merge responses
+  const { data: currentProgress, error: fetchError } = await supabase
+    .from('student_progress')
+    .select('responses')
+    .eq('id', progressId)
+    .single()
+
+  if (fetchError) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('updatePhaseResponses fetch error:', fetchError)
+    }
+    return { success: false, error: fetchError.message }
+  }
+
+  // Merge new responses with existing ones
+  const mergedResponses = {
+    ...(currentProgress?.responses || {}),
+    ...responses
+  }
+
+  const { error } = await supabase
+    .from('student_progress')
+    .update({ responses: mergedResponses })
+    .eq('id', progressId)
+
+  if (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('updatePhaseResponses error:', error)
+    }
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath('/student')
+  return { success: true }
+}
+
+/**
  * Acknowledge task (for field-mission phase)
  */
 export async function acknowledgeTask(

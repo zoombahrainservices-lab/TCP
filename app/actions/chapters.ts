@@ -196,6 +196,108 @@ export async function getChapterByNumber(
 }
 
 /**
+ * Get chapter by legacy day number (for 30-day program mapping)
+ */
+export async function getChapterByLegacyDay(legacyDayNumber: number): Promise<ChapterWithZone | null> {
+  const supabase = await createClient()
+
+  // Get chapter by legacy_day_number
+  const { data: chapter, error: chapterError } = await supabase
+    .from('chapters')
+    .select('*')
+    .eq('legacy_day_number', legacyDayNumber)
+    .single()
+
+  if (chapterError || !chapter) {
+    // Fallback to day_number if legacy_day_number doesn't exist
+    const { data: fallbackChapter, error: fallbackError } = await supabase
+      .from('chapters')
+      .select('*')
+      .eq('day_number', legacyDayNumber)
+      .single()
+
+    if (fallbackError || !fallbackChapter) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('getChapterByLegacyDay error:', chapterError?.message || fallbackError?.message || 'Chapter not found')
+      }
+      return null
+    }
+
+    // Get zone for fallback chapter
+    if (fallbackChapter.zone_id) {
+      const { data: zone } = await supabase
+        .from('zones')
+        .select('id, zone_number, name, icon, color')
+        .eq('id', fallbackChapter.zone_id)
+        .single()
+
+      return {
+        ...fallbackChapter,
+        zone: zone || {
+          id: fallbackChapter.zone_id,
+          zone_number: 0,
+          name: 'Unknown Zone',
+          icon: null,
+          color: null,
+        }
+      } as ChapterWithZone
+    }
+
+    return {
+      ...fallbackChapter,
+      zone: {
+        id: 0,
+        zone_number: 0,
+        name: 'Unknown Zone',
+        icon: null,
+        color: null,
+      }
+    } as ChapterWithZone
+  }
+
+  // Get zone
+  if (!chapter.zone_id) {
+    return {
+      ...chapter,
+      zone: {
+        id: 0,
+        zone_number: 0,
+        name: 'Unknown Zone',
+        icon: null,
+        color: null,
+      }
+    } as ChapterWithZone
+  }
+
+  const { data: zone, error: zoneError } = await supabase
+    .from('zones')
+    .select('id, zone_number, name, icon, color')
+    .eq('id', chapter.zone_id)
+    .single()
+
+  if (zoneError || !zone) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getChapterByLegacyDay zone error:', zoneError?.message || 'Zone not found')
+    }
+    return {
+      ...chapter,
+      zone: {
+        id: chapter.zone_id,
+        zone_number: 0,
+        name: 'Unknown Zone',
+        icon: null,
+        color: null,
+      }
+    } as ChapterWithZone
+  }
+
+  return {
+    ...chapter,
+    zone: zone
+  } as ChapterWithZone
+}
+
+/**
  * Check if a chapter is unlocked for a student
  * A chapter is unlocked if:
  * 1. Its zone is unlocked

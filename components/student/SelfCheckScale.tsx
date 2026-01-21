@@ -8,9 +8,10 @@ interface SelfCheckScaleProps {
   scale?: string // Optional scale string like "1=rarely, 7=constantly"
   scaleLabel?: string // Optional scale label to display
   maxValue?: number // Optional max value (default 5, or 7 for Day 1)
+  disabled?: boolean // Optional disabled state for read-only mode
 }
 
-export default function SelfCheckScale({ question, questionId, value, onChange, scale, scaleLabel, maxValue }: SelfCheckScaleProps) {
+export default function SelfCheckScale({ question, questionId, value, onChange, scale, scaleLabel, maxValue, disabled = false }: SelfCheckScaleProps) {
   // Determine max value: use provided, or parse from scale, or default to 5
   const max = maxValue || (scale ? parseInt(scale.split(',')[1]?.split('=')[1]?.trim()) || 7 : 5)
   const options = Array.from({ length: max }, (_, i) => i + 1)
@@ -40,8 +41,13 @@ export default function SelfCheckScale({ question, questionId, value, onChange, 
           <button
             key={option}
             type="button"
-            onClick={() => onChange(option)}
+            onClick={() => !disabled && onChange(option)}
+            disabled={disabled}
             className={`w-10 h-10 md:w-12 md:h-12 rounded-full border-2 font-bold text-sm md:text-base transition-all ${
+              disabled 
+                ? 'cursor-not-allowed opacity-60'
+                : 'cursor-pointer'
+            } ${
               value === option
                 ? 'border-[var(--color-blue)] bg-[var(--color-blue)] text-white scale-110'
                 : 'border-gray-300 bg-white text-[var(--color-charcoal)] hover:border-[var(--color-blue)]'
