@@ -91,7 +91,13 @@ export function StudentDashboard({
           {/* XP Breakdown */}
           {xpBreakdown && (
             <div className="col-span-full">
-              <XpBreakdown {...xpBreakdown} />
+              <XpBreakdown
+                {...xpBreakdown}
+                levelInfo={levelInfo}
+                systemStatus={systemStatus}
+                nextMissionUrl={nextMissionUrl}
+                nextMissionNumber={nextMissionNumber}
+              />
             </div>
           )}
           {/* JOURNEY MAP CARD - Full Width */}
@@ -141,14 +147,14 @@ export function StudentDashboard({
                 };
 
                 // Get zone neon color
-                const zoneNeonColor = isLocked 
-                  ? '#d8dff0' 
+                const zoneNeonColor = isLocked
+                  ? '#d8dff0'
                   : (ZONE_NEON_COLORS[zone.zoneNumber]?.core || '#d8dff0');
-                
-                const nextZoneNeonColor = nextZone 
-                  ? (nextZone.status === 'locked' 
-                      ? '#d8dff0' 
-                      : (ZONE_NEON_COLORS[nextZone.zoneNumber]?.core || '#d8dff0'))
+
+                const nextZoneNeonColor = nextZone
+                  ? (nextZone.status === 'locked'
+                    ? '#d8dff0'
+                    : (ZONE_NEON_COLORS[nextZone.zoneNumber]?.core || '#d8dff0'))
                   : '#d8dff0';
 
                 // Get icon for connector small circles
@@ -160,23 +166,22 @@ export function StudentDashboard({
 
                 // Zone 1 should be active by default if unlocked
                 const isActive = isCurrent || (!isLocked && zone.zoneNumber === 1);
-                
+
                 // Check if previous zone is complete (for activating next zone)
                 const prevZone = index > 0 ? zones[index - 1] : null;
                 const prevZoneComplete = prevZone && prevZone.completionPercentage === 100;
-                
+
                 // Zone 2+ becomes active when previous zone completes (100% progress)
                 const isActivatedByProgress = !isLocked && zone.zoneNumber > 1 && prevZoneComplete;
-                
+
                 return (
                   <React.Fragment key={zone.id}>
                     {/* Zone */}
                     {!isLocked ? (
                       <Link
                         href={`/student/zone/${zone.id}`}
-                        className={`${styles.zone} ${getColorClass()} ${
-                          isCurrent ? styles.zoneCurrent : ''
-                        } ${isActive || isActivatedByProgress ? styles.zoneActive : ''}`}
+                        className={`${styles.zone} ${getColorClass()} ${isCurrent ? styles.zoneCurrent : ''
+                          } ${isActive || isActivatedByProgress ? styles.zoneActive : ''}`}
                         style={{ textDecoration: 'none', display: 'block', cursor: 'pointer' }}
                       >
                         {/* Big zone circle */}
@@ -203,9 +208,8 @@ export function StudentDashboard({
                       </Link>
                     ) : (
                       <div
-                        className={`${styles.zone} ${getColorClass()} ${
-                          isCurrent ? styles.zoneCurrent : ''
-                        } ${isActive || isActivatedByProgress ? styles.zoneActive : ''}`}
+                        className={`${styles.zone} ${getColorClass()} ${isCurrent ? styles.zoneCurrent : ''
+                          } ${isActive || isActivatedByProgress ? styles.zoneActive : ''}`}
                       >
                         {/* Big zone circle */}
                         <div className={styles.zoneCircle}>
@@ -233,7 +237,7 @@ export function StudentDashboard({
 
                     {/* Diamond connector between zones */}
                     {!isLast && nextZone && (
-                      <div 
+                      <div
                         className={styles.zoneConnector}
                         style={{
                           '--light-delay': `${index * 4}s`, /* 4s cycle per zone */
@@ -246,13 +250,13 @@ export function StudentDashboard({
                       >
                         {/* Diamond shape - colored and wider */}
                         <div className={styles.diamondConnector} />
-                        
+
                         {/* Progress line - connects Zone 1 to Zone 2, shows Zone 1 progress */}
                         <div className={styles.diamondProgress} />
-                        
+
                         {/* Running light overlay - travels from Zone 1 to bottom lock */}
                         <div className={styles.diamondLight} />
-                        
+
                         {/* Top small circle - red dot for first, lightning for second, signal tower for third, icon for others */}
                         <div className={styles.smallCircleTop}>
                           {index === 0 ? (
@@ -293,62 +297,7 @@ export function StudentDashboard({
             </div>
           </div>
 
-          {/* SYSTEM STATUS CARD */}
-          <aside className="bg-white rounded-xl shadow-lg p-6 w-full max-w-xs animate-slide-in-right">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 tracking-wide">
-              SYSTEM STATUS
-            </h3>
 
-            {/* Agent Level */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-[#5BC0DE]" />
-                <span className="text-sm text-gray-600">AGENT LEVEL:</span>
-                <span className="font-bold text-gray-800">{levelInfo.level}</span>
-              </div>
-              <span className="font-bold text-gray-800">{levelInfo.xp}</span>
-            </div>
-
-            {/* XP Earned */}
-            <div className="mb-3">
-              <span className="text-sm text-gray-600">XP EARNED</span>
-            </div>
-
-            {/* Overall Progress */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-600">OVERALL PROGRESS:</span>
-                <span className="font-bold text-gray-800">
-                  {systemStatus.completedMissions}/{systemStatus.totalMissions}
-                </span>
-              </div>
-              <div className="flex gap-1">
-                {Array.from({ length: progressBlocks }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-2 flex-1 rounded-sm ${
-                      i < filledBlocks ? 'bg-gray-800' : 'bg-gray-200'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* CTA Button */}
-            <Link href={nextMissionUrl} className="block">
-              <button
-                className="w-full bg-[#5BC0DE] hover:bg-[#4AB0CE] text-white font-bold py-3 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-lg flex items-center justify-center gap-2"
-              >
-                <Zap className="w-4 h-4" />
-                <div className="text-left">
-                  <div className="text-sm">START TODAY&apos;S MISSION</div>
-                  {nextMissionNumber && (
-                    <div className="text-xs opacity-80">(MISSION #{nextMissionNumber})</div>
-                  )}
-                </div>
-              </button>
-            </Link>
-          </aside>
         </section>
       </main>
     </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   startPhase,
@@ -9,9 +9,11 @@ import {
   uploadPhaseProof,
   saveReflection,
   completePhase,
+  getNextPhase,
   type PhaseType
 } from '@/app/actions/phases'
 import { getStudentXP } from '@/app/actions/xp'
+import { XP_CONFIG } from '@/config/xp'
 import PhaseIcon, { getPhaseLabel } from '@/components/student/PhaseIcon'
 import SelfCheckScale from '@/components/student/SelfCheckScale'
 import ChapterReader from '@/components/student/ChapterReader'
@@ -55,6 +57,19 @@ export default function PhasePageClient({
   const [levelUpData, setLevelUpData] = useState<{ oldLevel: number; newLevel: number; totalXP: number } | null>(null)
   const [xpEarned, setXpEarned] = useState<number>(0)
   const [xpBonuses, setXpBonuses] = useState<{ chapter?: number; zone?: number; perfect?: number } | null>(null)
+  const [nextChallenge, setNextChallenge] = useState<{ chapterId: number; phaseType: PhaseType } | null>(null)
+  const [xpData, setXpData] = useState<{ level: number; xp: number; nextLevelXp: number } | null>(null)
+  
+  // Load XP data on mount for overview display
+  useEffect(() => {
+    getStudentXP(userId).then(data => {
+      setXpData({
+        level: data.level,
+        xp: data.xp,
+        nextLevelXp: data.levelProgress.nextLevelXp
+      })
+    })
+  }, [userId])
 
   const handleStartPhase = async () => {
     if (!phase) return
@@ -91,7 +106,50 @@ export default function PhasePageClient({
       }))
 
       await savePhaseResponses(progressId, { answers })
-      setStep('action')
+      
+      // For power-scan, complete the phase immediately after saving responses
+      // Other phases may have additional steps (like field-mission uploads)
+      if (phaseType === 'power-scan') {
+        // Get current XP/level before completion
+        const currentXP = await getStudentXP(userId)
+        const oldLevel = currentXP.level
+
+        const result = await completePhase(progressId)
+        
+        // Store XP earned - always set, even if 0 (means already awarded)
+        if (result.xpResult) {
+          // Use totalXP from result, or calculate from base + bonuses
+          const totalXP = result.xpResult.totalXP || 
+            (XP_CONFIG.XP_PER_PHASE + 
+             (result.xpResult.bonuses?.chapter || 0) +
+             (result.xpResult.bonuses?.zone || 0) +
+             (result.xpResult.bonuses?.perfect || 0))
+          setXpEarned(totalXP)
+          setXpBonuses(result.xpResult.bonuses || null)
+        } else {
+          // Fallback: if no xpResult, assume base XP was earned
+          setXpEarned(XP_CONFIG.XP_PER_PHASE)
+        }
+        
+        // Check for level up
+        if (result.xpResult?.leveledUp) {
+          setLevelUpData({
+            oldLevel: result.xpResult.oldLevel || oldLevel,
+            newLevel: result.xpResult.newLevel,
+            totalXP: result.xpResult.totalXP || XP_CONFIG.XP_PER_PHASE,
+          })
+          setShowLevelUp(true)
+        }
+        
+        // Get next challenge
+        const next = await getNextPhase(userId, phase.id)
+        setNextChallenge(next)
+        
+        setStep('complete')
+      } else {
+        // For other phases, go to action step (e.g., field-mission uploads)
+        setStep('action')
+      }
       setError('')
     } catch (err: any) {
       setError(err.message)
@@ -116,6 +174,41 @@ export default function PhasePageClient({
     try {
       await uploadPhaseProof(progressId, userId, type, fileOrText)
       setUploaded(true)
+      
+      // Complete the phase after upload
+      const currentXP = await getStudentXP(userId)
+      const oldLevel = currentXP.level
+      
+      const result = await completePhase(progressId)
+      
+      // Store XP earned
+      if (result.xpResult) {
+        const totalXP = result.xpResult.totalXP > 0 
+          ? result.xpResult.totalXP 
+          : (XP_CONFIG.XP_PER_PHASE + 
+             (result.xpResult.bonuses?.chapter || 0) +
+             (result.xpResult.bonuses?.zone || 0) +
+             (result.xpResult.bonuses?.perfect || 0))
+        setXpEarned(totalXP)
+        setXpBonuses(result.xpResult.bonuses || null)
+      } else {
+        setXpEarned(XP_CONFIG.XP_PER_PHASE)
+      }
+      
+      // Check for level up
+      if (result.xpResult?.leveledUp) {
+        setLevelUpData({
+          oldLevel: result.xpResult.oldLevel || oldLevel,
+          newLevel: result.xpResult.newLevel,
+          totalXP: result.xpResult.totalXP || XP_CONFIG.XP_PER_PHASE,
+        })
+        setShowLevelUp(true)
+      }
+      
+      // Get next challenge
+      const next = await getNextPhase(userId, phase.id)
+      setNextChallenge(next)
+      
       setStep('complete')
     } catch (err: any) {
       throw new Error('Upload failed')
@@ -138,10 +231,20 @@ export default function PhasePageClient({
       await saveReflection(progressId, reflection)
       const result = await completePhase(progressId)
       
-      // Store XP earned
+      // Store XP earned - use totalXP from result, or fallback to base XP
       if (result.xpResult) {
-        setXpEarned(result.xpResult.totalXP)
+        // If totalXP is 0, it means XP was already awarded (idempotent), but we still show base XP
+        const totalXP = result.xpResult.totalXP > 0 
+          ? result.xpResult.totalXP 
+          : (XP_CONFIG.XP_PER_PHASE + 
+             (result.xpResult.bonuses?.chapter || 0) +
+             (result.xpResult.bonuses?.zone || 0) +
+             (result.xpResult.bonuses?.perfect || 0))
+        setXpEarned(totalXP)
         setXpBonuses(result.xpResult.bonuses || null)
+      } else {
+        // Fallback: if no xpResult, assume base XP was earned
+        setXpEarned(XP_CONFIG.XP_PER_PHASE)
       }
       
       // Check for level up
@@ -149,10 +252,14 @@ export default function PhasePageClient({
         setLevelUpData({
           oldLevel: result.xpResult.oldLevel || oldLevel,
           newLevel: result.xpResult.newLevel,
-          totalXP: result.xpResult.totalXP,
+          totalXP: result.xpResult.totalXP || XP_CONFIG.XP_PER_PHASE,
         })
         setShowLevelUp(true)
       }
+      
+      // Get next challenge
+      const next = await getNextPhase(userId, phase.id)
+      setNextChallenge(next)
       
       setStep('complete')
       setError('')
@@ -171,10 +278,20 @@ export default function PhasePageClient({
 
       const result = await completePhase(progressId)
       
-      // Store XP earned
+      // Store XP earned - use totalXP from result, or fallback to base XP
       if (result.xpResult) {
-        setXpEarned(result.xpResult.totalXP)
+        // If totalXP is 0, it means XP was already awarded (idempotent), but we still show base XP
+        const totalXP = result.xpResult.totalXP > 0 
+          ? result.xpResult.totalXP 
+          : (XP_CONFIG.XP_PER_PHASE + 
+             (result.xpResult.bonuses?.chapter || 0) +
+             (result.xpResult.bonuses?.zone || 0) +
+             (result.xpResult.bonuses?.perfect || 0))
+        setXpEarned(totalXP)
         setXpBonuses(result.xpResult.bonuses || null)
+      } else {
+        // Fallback: if no xpResult, assume base XP was earned
+        setXpEarned(XP_CONFIG.XP_PER_PHASE)
       }
       
       // Check for level up
@@ -182,10 +299,14 @@ export default function PhasePageClient({
         setLevelUpData({
           oldLevel: result.xpResult.oldLevel || oldLevel,
           newLevel: result.xpResult.newLevel,
-          totalXP: result.xpResult.totalXP,
+          totalXP: result.xpResult.totalXP || XP_CONFIG.XP_PER_PHASE,
         })
         setShowLevelUp(true)
       }
+      
+      // Get next challenge
+      const next = await getNextPhase(userId, phase.id)
+      setNextChallenge(next)
       
       setStep('complete')
     } catch (err: any) {
@@ -239,30 +360,137 @@ export default function PhasePageClient({
           </div>
         )}
 
-        {/* Step: Overview */}
+        {/* Step: Overview - Redesigned with gamified UI */}
         {step === 'overview' && (
-          <Card>
-            <div className="text-center py-8">
+          <div className="space-y-10">
+            {/* Breadcrumb */}
+            <div className="text-sm text-gray-500">
+              Zone {chapter.zone.zone_number} • Mission {chapter.chapter_number}
+            </div>
+
+            {/* Title with Icon */}
+            <div className="flex items-center gap-3">
               <PhaseIcon phase={phaseType} size="lg" />
-              <h1 className="headline-xl mb-2 text-[var(--color-charcoal)] mt-4">
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
                 {phase.title || getPhaseLabel(phaseType)}
               </h1>
-              {phase.content && (
-                <p className="text-lg text-gray-600 mb-6 max-w-2xl mx-auto">
-                  {phase.content}
-                </p>
-              )}
-              {!phase.content && phaseType === 'power-scan' && (
-                <p className="text-lg text-gray-600 mb-6 max-w-2xl mx-auto">
-                  Before you begin this mission, let's assess your current communication skills. 
-                  You'll read the mission story and then answer a few questions about yourself.
-                </p>
-              )}
-              <Button size="lg" onClick={handleStartPhase}>
+            </div>
+
+            {/* XP / Level Indicator */}
+            {xpData && (
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs uppercase text-gray-600 font-semibold mb-1">Agent Level</div>
+                    <div className="text-2xl font-bold text-gray-900">Level {xpData.level}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs uppercase text-gray-600 font-semibold mb-1">XP Progress</div>
+                    <div className="text-lg font-bold text-blue-600">{xpData.xp} / {xpData.nextLevelXp} XP</div>
+                  </div>
+                </div>
+                <div className="mt-3 w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min((xpData.xp / xpData.nextLevelXp) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Mission Brief Card */}
+            <Card className="bg-white">
+              <div className="space-y-3">
+                <h2 className="text-lg font-semibold text-gray-900">Mission Brief</h2>
+                {phase.content ? (
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {phase.content}
+                  </p>
+                ) : phaseType === 'power-scan' ? (
+                  <p className="text-gray-700 leading-relaxed">
+                    Ready to scan your current power levels for this mission?
+                    Be honest — this is just data. No judgment.
+                  </p>
+                ) : (
+                  <p className="text-gray-700 leading-relaxed">
+                    Complete this challenge to progress in your mission.
+                  </p>
+                )}
+              </div>
+            </Card>
+
+            {/* Power Meter (for power-scan) */}
+            {phaseType === 'power-scan' && (() => {
+              const powerMeter = phase.metadata?.powerMeter || {
+                '1': '⚡ Glitching (struggling hard)',
+                '2': '🔋 Low Battery (need serious help)',
+                '3': '⚙️ Powering Up (working on it)',
+                '4': '🔥 High Performance (pretty strong)',
+                '5': '💎 Maximum Power (absolute mastery)'
+              }
+
+              return (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold uppercase text-gray-600">
+                    Power Meter (1–5)
+                  </h3>
+                  <div className="grid grid-cols-5 gap-3">
+                    {Object.entries(powerMeter).map(([value, label]) => (
+                      <div 
+                        key={value}
+                        className="border-2 border-gray-200 rounded-lg p-3 text-center hover:bg-gray-50 hover:border-blue-300 transition-all cursor-pointer"
+                      >
+                        <div className="text-2xl mb-1">{String(label).split(' ')[0]}</div>
+                        <div className="font-bold text-lg text-gray-900">{value}</div>
+                        <div className="text-xs text-gray-600 mt-1">{String(label).substring(String(label).indexOf(' ') + 1)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Questions Preview (for power-scan) */}
+            {phaseType === 'power-scan' && (() => {
+              const questions = phase.metadata?.questions && phase.metadata.questions.length > 0
+                ? phase.metadata.questions
+                : []
+
+              if (questions.length === 0) return null
+
+              return (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold uppercase text-gray-600">
+                    Mission Questions
+                  </h3>
+                  {questions.slice(0, 3).map((q: any, i: number) => (
+                    <div key={q.id || i} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                      <div className="flex gap-2">
+                        <span className="text-blue-500 font-semibold">{i + 1}.</span>
+                        <p className="text-gray-800">{q.question}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {questions.length > 3 && (
+                    <p className="text-sm text-gray-500 text-center">
+                      +{questions.length - 3} more questions...
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* CTA Button */}
+            <div className="pt-4">
+              <Button 
+                size="lg" 
+                onClick={handleStartPhase}
+                className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-bold shadow-lg text-lg py-4"
+              >
                 Begin {getPhaseLabel(phaseType)}
               </Button>
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Step: Content */}
@@ -468,15 +696,15 @@ export default function PhasePageClient({
                 Great work on completing {getPhaseLabel(phaseType)}!
               </p>
               
-              {/* XP Earned Display */}
-              {xpEarned > 0 && (
-                <div className="inline-block bg-gradient-to-r from-green-500 to-cyan-500 text-white px-6 py-3 rounded-full mb-8">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">⚡</span>
-                    <span className="text-xl font-bold">+{xpEarned} XP Earned!</span>
-                  </div>
+              {/* XP Earned Display - Always show XP information */}
+              <div className="inline-block bg-gradient-to-r from-green-500 to-cyan-500 text-white px-6 py-3 rounded-full mb-8">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">⚡</span>
+                  <span className="text-xl font-bold">
+                    {xpEarned > 0 ? `+${xpEarned} XP Earned!` : `+${XP_CONFIG.XP_PER_PHASE} XP (already awarded)`}
+                  </span>
                 </div>
-              )}
+              </div>
 
               {/* Bonus breakdown */}
               {xpEarned > 0 && xpBonuses && (xpBonuses.chapter || xpBonuses.zone || xpBonuses.perfect) && (
@@ -490,18 +718,37 @@ export default function PhasePageClient({
                 </div>
               )}
               
-              <div className="flex gap-4 justify-center mt-8">
-                <Button
-                  variant="secondary"
-                  onClick={() => router.push(`/student/chapter/${chapterId}`)}
-                >
-                  Back to Mission
-                </Button>
-                <Button
-                  onClick={() => router.push('/student')}
-                >
-                  Back to Dashboard
-                </Button>
+              <div className="flex flex-col gap-3 items-center mt-8">
+                {/* Next Challenge Button - Primary CTA */}
+                {nextChallenge ? (
+                  <Button
+                    size="lg"
+                    onClick={() => router.push(`/student/chapter/${nextChallenge.chapterId}/${nextChallenge.phaseType}`)}
+                    className="w-full max-w-md bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-bold shadow-lg"
+                  >
+                    🚀 Go to Next Challenge →
+                  </Button>
+                ) : (
+                  <div className="text-gray-500 text-sm mb-2">
+                    All challenges completed! 🎉
+                  </div>
+                )}
+                
+                {/* Secondary Actions */}
+                <div className="flex gap-4 justify-center">
+                  <Button
+                    variant="secondary"
+                    onClick={() => router.push(`/student/chapter/${chapterId}`)}
+                  >
+                    Back to Mission
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => router.push('/student')}
+                  >
+                    Back to Dashboard
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>

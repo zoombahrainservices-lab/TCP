@@ -328,12 +328,14 @@ export async function awardXpForPhaseCompletion(
   }
 
   const oldLevel = existingProfile?.level ?? getLevelFromXp(totalFromEvents)
-
+  const newLevel = getLevelFromXp(totalFromEvents)
+  
   const { data: updatedProfile, error: updateProfileError } = await admin
     .from('profiles')
     .update({
       xp: totalFromEvents,
       total_xp_earned: totalFromEvents,
+      level: newLevel,
     })
     .eq('id', studentId)
     .select('xp, level, total_xp_earned')
@@ -343,19 +345,21 @@ export async function awardXpForPhaseCompletion(
     throw new Error('Failed to update profile XP from events')
   }
 
-  const leveledUp = (updatedProfile.level ?? 1) > oldLevel
+  const leveledUp = newLevel > oldLevel
 
   if (leveledUp) {
-    await createLevelUpNotification(studentId, updatedProfile.level ?? 1)
+    await createLevelUpNotification(studentId, newLevel)
   }
 
+  // Revalidate all pages that show XP
   revalidatePath('/student')
+  revalidatePath('/student/zone')
 
   return {
     xpAwarded,
     profile: {
       xp: updatedProfile.xp ?? totalFromEvents,
-      level: updatedProfile.level ?? getLevelFromXp(totalFromEvents),
+      level: newLevel,
       totalXpEarned: updatedProfile.total_xp_earned ?? totalFromEvents,
       leveledUp,
       oldLevel,

@@ -1,7 +1,6 @@
 'use server'
 
 import { cache } from 'react'
-import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -29,34 +28,32 @@ export interface ZoneProgress {
 
 /**
  * Get all zones
- * Cached with 1-hour revalidation since zones are static/semi-static data
+ * Cached to avoid duplicate queries within the same request
+ * Note: Cannot use unstable_cache here because createClient() uses cookies() which is dynamic
  */
-export const getZones = unstable_cache(
-  async (): Promise<Zone[]> => {
-    const supabase = await createClient()
+export const getZones = cache(async (): Promise<Zone[]> => {
+  const supabase = await createClient()
 
-    const { data: zones, error } = await supabase
-      .from('zones')
-      .select('*')
-      .order('zone_number', { ascending: true })
+  const { data: zones, error } = await supabase
+    .from('zones')
+    .select('*')
+    .order('zone_number', { ascending: true })
 
-    if (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('getZones error:', error)
-      }
-      throw new Error('Failed to fetch zones')
+  if (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('getZones error:', error)
     }
+    throw new Error('Failed to fetch zones')
+  }
 
-    return zones || []
-  },
-  ['zones'],
-  { revalidate: 3600 } // 1 hour
-)
+  return zones || []
+})
 
 /**
  * Get a single zone by ID
+ * Cached to avoid duplicate queries within the same request
  */
-export async function getZone(zoneId: number): Promise<Zone | null> {
+export const getZone = cache(async (zoneId: number): Promise<Zone | null> => {
   const supabase = await createClient()
 
   const { data: zone, error } = await supabase

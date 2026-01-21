@@ -1,0 +1,390 @@
+/* XP Breakdown Component Styles */
+
+.xp-breakdown-container {
+    position: relative;
+    overflow: visible;
+}
+
+/* Keyframes */
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes borderPulse {
+    0% {
+        box-shadow:
+            0 0 0 0px rgba(0, 255, 255, 0.4),
+            0 0 0 2px rgba(0, 255, 255, 0.3),
+            0 0 0 4px rgba(0, 255, 255, 0.2);
+    }
+
+    25% {
+        box-shadow:
+            0 0 0 2px rgba(0, 255, 255, 0.2),
+            0 0 0 0px rgba(0, 255, 255, 0.4),
+            0 0 0 2px rgba(0, 255, 255, 0.3);
+    }
+
+    50% {
+        box-shadow:
+            0 0 0 4px rgba(0, 255, 255, 0.1),
+            0 0 0 2px rgba(0, 255, 255, 0.2),
+            0 0 0 0px rgba(0, 255, 255, 0.4);
+    }
+
+    75% {
+        box-shadow:
+            0 0 0 2px rgba(0, 255, 255, 0.3),
+            0 0 0 4px rgba(0, 255, 255, 0.2),
+            0 0 0 2px rgba(0, 255, 255, 0.1);
+    }
+
+    100% {
+        box-shadow:
+            0 0 0 0px rgba(0, 255, 255, 0.4),
+            0 0 0 2px rgba(0, 255, 255, 0.3),
+            0 0 0 4px rgba(0, 255, 255, 0.2);
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.02);
+        opacity: 0.95;
+    }
+}
+
+/* Header Banner */
+.neon-header-banner {
+    background: linear-gradient(135deg, #00ffff, #00d4ff, #00a8ff, #00d4ff, #00ffff);
+    background-size: 200% 200%;
+    animation: gradientShift 3s ease infinite;
+    box-shadow: 0 4px 20px rgba(0, 212, 255, 0.1);
+    padding: 0.75rem 1.5rem;
+    text-align: center;
+    border-radius: 0.5rem;
+}
+
+/* Neon Card Wrapper - provides the outline border space */
+.neon-card-wrapper {
+    position: relative;
+    padding: 6px;
+    border-radius: 0.5rem;
+}
+
+.neon-card-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 0.5rem;
+    padding: 2px;
+    background: transparent;
+    animation: borderPulse 3s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Main Card */
+.neon-card {
+    position: relative;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.05), rgba(0, 212, 255, 0.05));
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    border-radius: 0.5rem;
+    padding: 1.5rem 2rem;
+    box-shadow: 0 8px 30px rgba(0, 255, 255, 0.03);
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+.neon-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(0, 255, 255, 0.6);
+    box-shadow: 0 8px 30px rgba(0, 255, 255, 0.1),
+        0 0 20px rgba(0, 255, 255, 0.05);
+}
+
+/* Total XP Wrapper - for background glow */
+.total-xp-wrapper {
+    position: relative;
+    display: inline-block;
+    margin-top: 1rem;
+}
+
+.total-xp-wrapper::before {
+    content: attr(data-text);
+    position: absolute;
+    inset: 0;
+    filter: none;
+    opacity: 0;
+    color: #00faff;
+    z-index: 0;
+    font-size: clamp(2rem, 5vw, 3.75rem);
+    font-weight: 900;
+    letter-spacing: -0.025em;
+}
+
+/* Total XP Text - crisp and clean */
+.total-xp-text {
+    position: relative;
+    z-index: 1;
+    font-size: clamp(2rem, 5vw, 3.75rem);
+    font-weight: 900;
+    color: #00faff;
+    text-shadow: none;
+    animation: none;
+    letter-spacing: -0.025em;
+    filter: none;
+}
+
+/* Rank Badge */
+.rank-badge {
+    transition: all 0.3s ease;
+}
+
+.rank-badge:hover {
+    color: #00ffff;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.1);
+}
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+    .neon-card {
+        padding: 2rem;
+    }
+}
+
+/* ===== BADGES SECTION STYLES ===== */
+.badge-card {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fadeInUp 0.5s ease-out backwards;
+}
+
+.badge-card.earned {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    animation: subtleGlow 3s ease-in-out infinite, fadeInUp 0.5s ease-out backwards;
+}
+
+.badge-card.earned:hover {
+    transform: scale(1.1) translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 250, 255, 0.3),
+        0 0 15px rgba(0, 250, 255, 0.2);
+    z-index: 10;
+}
+
+.badge-card.earned::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg,
+            transparent,
+            rgba(255, 255, 255, 0.3),
+            transparent);
+    transform: rotate(45deg);
+    animation: shimmer 3s infinite;
+    pointer-events: none;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+
+    100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+}
+
+@keyframes subtleGlow {
+
+    0%,
+    100% {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    50% {
+        box-shadow: 0 4px 12px rgba(0, 250, 255, 0.2),
+            0 0 10px rgba(0, 250, 255, 0.1);
+    }
+}
+
+.badge-card.locked {
+    opacity: 0.6;
+    transition: all 0.3s ease;
+}
+
+.badge-card.locked:hover {
+    opacity: 0.8;
+    transform: scale(1.05);
+}
+
+/* Badge Icon Animation */
+.badge-icon {
+    transition: transform 0.3s ease;
+    display: inline-block;
+}
+
+.badge-card.earned:hover .badge-icon {
+    transform: scale(1.2) rotate(10deg);
+    animation: iconBounce 0.6s ease;
+}
+
+@keyframes iconBounce {
+
+    0%,
+    100% {
+        transform: scale(1.2) rotate(10deg);
+    }
+
+    50% {
+        transform: scale(1.35) rotate(15deg);
+    }
+}
+
+/* Stagger animation for badges on load */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.badge-card:nth-child(1) {
+    animation-delay: 0.05s;
+}
+
+.badge-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.badge-card:nth-child(3) {
+    animation-delay: 0.15s;
+}
+
+.badge-card:nth-child(4) {
+    animation-delay: 0.2s;
+}
+
+.badge-card:nth-child(5) {
+    animation-delay: 0.25s;
+}
+
+.badge-card:nth-child(6) {
+    animation-delay: 0.3s;
+}
+
+.badge-card:nth-child(7) {
+    animation-delay: 0.35s;
+}
+
+.badge-card:nth-child(8) {
+    animation-delay: 0.4s;
+}
+
+/* ===== SUPERPOWERS SECTION STYLES ===== */
+.superpower-card {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid transparent;
+}
+
+.superpower-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(135deg,
+            rgba(0, 250, 255, 0.3),
+            rgba(0, 212, 255, 0.2),
+            rgba(0, 168, 255, 0.3));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+}
+
+.superpower-card:hover::before {
+    opacity: 1;
+}
+
+.superpower-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 12px 40px rgba(0, 250, 255, 0.15),
+        0 0 30px rgba(0, 250, 255, 0.1);
+    border-color: rgba(0, 250, 255, 0.3);
+}
+
+.icon-wrapper {
+    transition: all 0.4s ease;
+}
+
+.superpower-card:hover .icon-wrapper {
+    transform: scale(1.1) rotate(5deg);
+    filter: drop-shadow(0 0 15px rgba(0, 250, 255, 0.4));
+}
+
+/* Section Headers with Neon Accent */
+.section-header {
+    position: relative;
+    display: inline-block;
+}
+
+.section-header::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(0, 250, 255, 0.6),
+            transparent);
+    border-radius: 2px;
+    animation: underlineGlow 2s ease-in-out infinite;
+}
+
+@keyframes underlineGlow {
+
+    0%,
+    100% {
+        opacity: 0.4;
+        box-shadow: 0 0 5px rgba(0, 250, 255, 0.3);
+    }
+
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 15px rgba(0, 250, 255, 0.6);
+    }
+}

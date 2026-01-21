@@ -55,8 +55,9 @@ export interface PhaseProgress {
 
 /**
  * Get all phases for a chapter
+ * Cached to avoid duplicate queries within the same request
  */
-export async function getPhasesByChapter(chapterId: number): Promise<Phase[]> {
+export const getPhasesByChapter = cache(async (chapterId: number): Promise<Phase[]> => {
   const supabase = await createClient()
 
   const { data: phases, error } = await supabase
@@ -77,8 +78,9 @@ export async function getPhasesByChapter(chapterId: number): Promise<Phase[]> {
 
 /**
  * Get a single phase by ID
+ * Cached to avoid duplicate queries within the same request
  */
-export async function getPhase(phaseId: number): Promise<PhaseWithChapter | null> {
+export const getPhase = cache(async (phaseId: number): Promise<PhaseWithChapter | null> => {
   const supabase = await createClient()
 
   const { data: phase, error } = await supabase
@@ -162,6 +164,79 @@ export async function getPhaseByType(
     console.log('[getPhaseByType] Found phase:', phase)
   }
   return phase
+}
+
+/**
+ * Get the next phase after completing a phase
+ * Returns the next phase in the same chapter, or first phase of next chapter, or null if no next phase
+ */
+export async function getNextPhase(
+  studentId: string,
+  currentPhaseId: number
+): Promise<{ chapterId: number; phaseType: PhaseType } | null> {
+  const supabase = await createClient()
+  
+  // Get current phase info
+  const currentPhase = await getPhase(currentPhaseId)
+  if (!currentPhase) return null
+  
+  const currentChapterId = currentPhase.chapter_id
+  const currentPhaseNumber = currentPhase.phase_number
+  
+  // Check if there's a next phase in the same chapter
+  const { data: nextPhaseInChapter } = await supabase
+    .from('phases')
+    .select('id, phase_type')
+    .eq('chapter_id', currentChapterId)
+    .eq('phase_number', currentPhaseNumber + 1)
+    .single()
+  
+  if (nextPhaseInChapter) {
+    // Check if it's unlocked
+    const unlocked = await isPhaseUnlocked(studentId, nextPhaseInChapter.id)
+    if (unlocked) {
+      return { chapterId: currentChapterId, phaseType: nextPhaseInChapter.phase_type as PhaseType }
+    }
+  }
+  
+  // No next phase in chapter, check next chapter
+  const { data: currentChapter } = await supabase
+    .from('chapters')
+    .select('zone_id, chapter_number')
+    .eq('id', currentChapterId)
+    .single()
+  
+  if (!currentChapter) return null
+  
+  // Get next chapter in same zone
+  const { data: nextChapter } = await supabase
+    .from('chapters')
+    .select('id')
+    .eq('zone_id', currentChapter.zone_id)
+    .eq('chapter_number', currentChapter.chapter_number + 1)
+    .single()
+  
+  if (nextChapter) {
+    // Check if next chapter is unlocked
+    const { isChapterUnlocked } = await import('./chapters')
+    const chapterUnlocked = await isChapterUnlocked(studentId, nextChapter.id)
+    
+    if (chapterUnlocked) {
+      // Get first phase of next chapter
+      const { data: firstPhase } = await supabase
+        .from('phases')
+        .select('id, phase_type')
+        .eq('chapter_id', nextChapter.id)
+        .eq('phase_number', 1)
+        .single()
+      
+      if (firstPhase) {
+        return { chapterId: nextChapter.id, phaseType: firstPhase.phase_type as PhaseType }
+      }
+    }
+  }
+  
+  return null
 }
 
 /**
@@ -515,7 +590,13 @@ export async function completePhase(
           : `XP already awarded for this completion.`,
     }
 
+    // Revalidate all relevant paths
     revalidatePath('/student')
+    revalidatePath('/student/zone')
+    // Revalidate the specific zone page if we have zone info
+    if (progress?.phase?.chapter?.zone_id) {
+      revalidatePath(`/student/zone/${progress.phase.chapter.zone_id}`)
+    }
     return { success: true, xpResult }
   } catch (xpError) {
     if (process.env.NODE_ENV === 'development') {
@@ -523,6 +604,27 @@ export async function completePhase(
     }
     // Still return success since phase was completed, just XP failed
     revalidatePath('/student')
+    revalidatePath('/student/zone')
+    // Try to revalidate zone page if we can get zone info
+    try {
+      const { data: progressData } = await supabase
+        .from('student_progress')
+        .select(`
+          phase:phases (
+            chapter:chapters (
+              zone_id
+            )
+          )
+        `)
+        .eq('id', progressId)
+        .single()
+      
+      if (progressData?.phase?.chapter?.zone_id) {
+        revalidatePath(`/student/zone/${progressData.phase.chapter.zone_id}`)
+      }
+    } catch {
+      // Ignore errors in revalidation
+    }
     return { success: true, error: 'Phase completed but XP award failed' }
   }
 }

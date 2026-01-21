@@ -149,7 +149,7 @@ export const getChapter = cache(async (chapterId: number): Promise<ChapterWithZo
     ...chapter,
     zone: zone
   } as ChapterWithZone
-}
+})
 
 /**
  * Get chapter by zone and chapter number
