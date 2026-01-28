@@ -53,14 +53,6 @@ export async function GET(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // DEBUG: Log OAuth callback success
-    console.log('Callback - User from OAuth:', { 
-      userId: user?.id, 
-      email: user?.email,
-      hasUser: !!user,
-      provider: user?.app_metadata?.provider
-    })
-
     if (!user) {
       console.log('Callback - No user returned after exchangeCodeForSession')
       return NextResponse.redirect(
@@ -72,12 +64,11 @@ export async function GET(request: NextRequest) {
 
     const { data: profile } = await adminClient
       .from('profiles')
-      .select('role')
+      .select('id')
       .eq('id', user.id)
       .single()
 
-    let redirectPath = '/parent'
-
+    // Create profile if it doesn't exist
     if (!profile) {
       const fullName =
         user.user_metadata?.full_name ||
@@ -86,21 +77,13 @@ export async function GET(request: NextRequest) {
 
       await adminClient.from('profiles').insert({
         id: user.id,
+        email: user.email,
         full_name: fullName,
-        role: 'parent',
       })
-    } else {
-      const redirectMap: Record<string, string> = {
-        student: '/student',
-        parent: '/parent',
-        mentor: '/mentor',
-        admin: '/admin',
-      }
-      redirectPath = redirectMap[profile.role] || '/parent'
     }
 
-    // Cookies were set via cookies() → attached automatically
-    return NextResponse.redirect(new URL(redirectPath, requestUrl.origin))
+    // Always redirect to dashboard
+    return NextResponse.redirect(new URL('/dashboard', requestUrl.origin))
   } catch (_err) {
     return NextResponse.redirect(
       new URL('/auth/login?error=callback_error', requestUrl.origin),

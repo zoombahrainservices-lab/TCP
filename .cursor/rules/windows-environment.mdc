@@ -1,0 +1,17 @@
+---
+description: Always treat the project as running in a Windows environment and avoid Linux-specific shell commands.
+alwaysApply: true
+---
+
+# Windows Environment & Shell Rules
+
+- Always assume the user is on **Windows** (PowerShell) unless explicitly stated otherwise.
+- **Do not use Linux-specific shell commands** like `ls`, `rm`, `cat`, `touch`, `grep`, `chmod`, etc.
+- When commands are necessary, prefer **cross-platform** ones such as:
+  - `npm install`
+  - `npm run dev`
+  - `npm run test`
+- For **file operations** (read, write, delete, search, list), use the Cursor tools (`Read`, `ApplyPatch`, `LS`, `Grep`, etc.), *not* OS commands.
+- Never assume a Unix-style file system layout or paths. When showing paths, use the ones from the user's workspace (e.g. `c:\\Users\\Farzeen\\Desktop\\TCP\\tcp-platform`).
+- If a shell command might behave differently on Windows, explain it briefly and avoid running it unless the user explicitly asks for it.
+

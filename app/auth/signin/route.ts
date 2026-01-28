@@ -36,13 +36,6 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // DEBUG: Log signin success
-  console.log('Signin - User logged in:', { 
-    userId: user?.id, 
-    email: user?.email,
-    hasUser: !!user 
-  })
-
   if (!user) {
     console.log('Signin - No user returned after signInWithPassword')
     return NextResponse.json({ error: 'Login failed' }, { status: 400 })
@@ -50,12 +43,13 @@ export async function POST(request: NextRequest) {
 
   const adminClient = createAdminClient()
 
-  let { data: profile } = await adminClient
+  const { data: profile } = await adminClient
     .from('profiles')
-    .select('role')
+    .select('id')
     .eq('id', user.id)
     .single()
 
+  // Create profile if it doesn't exist
   if (!profile) {
     const fullName =
       user.user_metadata?.full_name ||
@@ -64,22 +58,11 @@ export async function POST(request: NextRequest) {
 
     await adminClient.from('profiles').insert({
       id: user.id,
+      email: user.email,
       full_name: fullName,
-      role: 'parent',
     })
-
-    profile = { role: 'parent' }
   }
 
-  const redirectMap: Record<string, string> = {
-    student: '/student',
-    parent: '/parent',
-    mentor: '/mentor',
-    admin: '/admin',
-  }
-
-  const redirectPath = redirectMap[profile.role] || '/parent'
-
-  // Important: no manual cookie copying – Next.js will attach cookies()
-  return NextResponse.json({ success: true, redirectTo: redirectPath })
+  // Always redirect to dashboard
+  return NextResponse.json({ success: true, redirectTo: '/dashboard' })
 }

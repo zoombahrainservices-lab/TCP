@@ -22,48 +22,34 @@ export async function signInWithEmail(email: string, password: string) {
     return { error: error.message }
   }
 
-  // Get user profile to determine redirect
   const { data: { user } } = await supabase.auth.getUser()
   
   if (user) {
     const adminClient = createAdminClient()
-    let { data: profile } = await adminClient
+    const { data: profile } = await adminClient
       .from('profiles')
-      .select('role')
+      .select('id')
       .eq('id', user.id)
       .single()
 
-    // If no profile exists, create one (for users who signed up before fix)
+    // If no profile exists, create one
     if (!profile) {
       const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
       await adminClient.from('profiles').insert({
         id: user.id,
+        email: user.email,
         full_name: fullName,
-        role: 'parent',
       })
-      profile = { role: 'parent' }
     }
 
     revalidatePath('/', 'layout')
-    
-    switch (profile.role) {
-      case 'student':
-        redirect('/student')
-      case 'parent':
-        redirect('/parent')
-      case 'mentor':
-        redirect('/mentor')
-      case 'admin':
-        redirect('/admin')
-      default:
-        redirect('/parent')
-    }
+    redirect('/dashboard')
   }
 
   return { error: 'Login failed - please try again' }
 }
 
-export async function signUpParent(email: string, password: string, fullName: string) {
+export async function signUp(email: string, password: string, fullName: string) {
   if (!validateEmail(email)) {
     return { error: 'Invalid email format' }
   }
@@ -94,14 +80,14 @@ export async function signUpParent(email: string, password: string, fullName: st
   }
 
   if (data.user) {
-    // Create profile with parent role using admin client to bypass RLS
+    // Create profile using admin client to bypass RLS
     const adminClient = createAdminClient()
     const { error: profileError } = await adminClient
       .from('profiles')
       .insert({
         id: data.user.id,
+        email: data.user.email,
         full_name: fullName,
-        role: 'parent',
       })
 
     if (profileError) {
@@ -112,7 +98,7 @@ export async function signUpParent(email: string, password: string, fullName: st
     }
 
     revalidatePath('/', 'layout')
-    redirect('/parent')
+    redirect('/dashboard')
   }
 
   return { error: 'Signup failed' }
@@ -120,12 +106,14 @@ export async function signUpParent(email: string, password: string, fullName: st
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : null)
+  const redirectTo = appUrl ? `${appUrl}/auth/callback` : undefined
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
-    },
+    options: redirectTo ? { redirectTo } : {},
   })
 
   if (error) {
@@ -157,18 +145,13 @@ export async function getSession() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name')
+    .select('full_name')
     .eq('id', user.id)
     .single()
-
-  if (!profile) {
-    return null
-  }
 
   return {
     id: user.id,
     email: user.email!,
-    role: profile.role,
-    fullName: profile.full_name,
+    fullName: profile?.full_name || user.email?.split('@')[0] || 'User',
   }
 }
