@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { signUp, signInWithGoogle } from '@/app/actions/auth'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { getOnboardingData, getCategoryName, clearOnboardingData } from '@/lib/onboarding/storage'
 
 export default function RegisterForm() {
   const [fullName, setFullName] = useState('')
@@ -14,6 +16,16 @@ export default function RegisterForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [onboardingData, setOnboardingData] = useState<ReturnType<typeof getOnboardingData>>(null)
+
+  useEffect(() => {
+    // Check if user came from onboarding flow
+    const data = getOnboardingData()
+    if (data) {
+      console.log('Onboarding data retrieved:', data)
+    }
+    setOnboardingData(data)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,11 +38,17 @@ export default function RegisterForm() {
 
     setLoading(true)
 
+    // TODO: Pass onboarding data to signUp function to save in user profile
+    // const focusArea = onboardingData?.focusArea
+    
     const result = await signUp(email, password, fullName)
     
     if (result?.error) {
       setError(result.error)
       setLoading(false)
+    } else {
+      // Clear onboarding data after successful registration
+      clearOnboardingData()
     }
     // If successful, the action will redirect
   }
@@ -51,6 +69,47 @@ export default function RegisterForm() {
 
   return (
     <div className="w-full max-w-md space-y-6">
+      {/* Show onboarding data if available with animation */}
+      <AnimatePresence>
+        {onboardingData && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.4, type: "spring", stiffness: 150 }}
+            className="bg-gradient-to-r from-[#0073ba]/10 to-[#4bc4dc]/10 dark:from-[#0073ba]/20 dark:to-[#4bc4dc]/20 border-2 border-[#0073ba]/30 dark:border-[#4bc4dc]/30 rounded-xl p-4 shadow-lg"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-[#0073ba] to-[#4bc4dc] rounded-full flex items-center justify-center text-white font-bold shadow-md">
+                ✓
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">
+                  Your focus area:
+                </p>
+                <p className="text-base font-bold text-[#0073ba] dark:text-[#4bc4dc]">
+                  {getCategoryName(onboardingData.category)}
+                </p>
+              </div>
+            </div>
+            {onboardingData.specificIssue && (
+              <div className="pl-13 mb-2">
+                <p className="text-xs text-gray-700 dark:text-gray-300">
+                  {onboardingData.specificIssue}
+                </p>
+              </div>
+            )}
+            {onboardingData.dailyCommitment > 0 && (
+              <div className="pl-13">
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Daily commitment: <span className="font-semibold">{onboardingData.dailyCommitment} min/day</span>
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
           label="Full Name"
@@ -73,7 +132,7 @@ export default function RegisterForm() {
         />
         
         <div className="w-full">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Password
           </label>
           <div className="relative">
@@ -85,14 +144,14 @@ export default function RegisterForm() {
               placeholder="••••••••"
               required
               disabled={loading}
-              className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                error ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 pr-10 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0770C4] dark:focus:ring-[#51BFE3] focus:border-transparent transition-colors ${
+                error ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
               }`}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none"
               disabled={loading}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
@@ -108,11 +167,11 @@ export default function RegisterForm() {
               )}
             </button>
           </div>
-          <p className="mt-1 text-sm text-gray-500">At least 8 characters</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">At least 8 characters</p>
         </div>
         
         <div className="w-full">
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Confirm Password
           </label>
           <div className="relative">
@@ -124,14 +183,14 @@ export default function RegisterForm() {
               placeholder="••••••••"
               required
               disabled={loading}
-              className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                error ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 pr-10 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0770C4] dark:focus:ring-[#51BFE3] focus:border-transparent transition-colors ${
+                error ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
               }`}
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none"
               disabled={loading}
               aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
             >
@@ -150,20 +209,20 @@ export default function RegisterForm() {
         </div>
 
         {error && (
-          <div className="text-red-600 text-sm">{error}</div>
+          <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
         )}
 
-        <Button type="submit" fullWidth disabled={loading}>
+        <Button type="submit" variant="calm" fullWidth disabled={loading}>
           {loading ? 'Creating Account...' : 'Create Account'}
         </Button>
       </form>
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300" />
+          <div className="w-full border-t border-gray-300 dark:border-gray-600" />
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-gray-500">Or sign up with</span>
+          <span className="px-2 bg-gray-50 dark:bg-[#142A4A] text-gray-500 dark:text-gray-400">Or sign up with</span>
         </div>
       </div>
 

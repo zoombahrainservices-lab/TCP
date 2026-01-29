@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Configure dark mode to use class strategy */
+@custom-variant dark (&&:where(.dark, .dark *));
+
 :root {
   /* TCP Color Palette */
   --color-charcoal: #111111;      /* Primary background, headings, serious text */
@@ -13,6 +16,12 @@
   --font-headline: 'Bebas Neue', 'Oswald', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  
+  /* TCP Brand Fonts */
+  --font-montserrat: var(--font-montserrat), sans-serif;
+  --font-lexend: var(--font-lexend), sans-serif;
+  --font-roboto: var(--font-roboto), sans-serif;
+  --font-open-sans: var(--font-open-sans), sans-serif;
   
   /* Usage rule: ~70% Off-White + Gray, 20% Charcoal, 10% Accent */
   --background: var(--color-offwhite);
@@ -44,6 +53,10 @@ html {
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
+  /* Fix for iOS Safari viewport height */
+  height: 100%;
+  /* Smooth scrolling */
+  scroll-behavior: smooth;
 }
 
 body {
@@ -54,6 +67,16 @@ body {
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
+  /* Fix for iOS Safari viewport height */
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* iOS Safari bottom padding fix */
+@supports (padding: max(0px)) {
+  .pb-safe {
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
 }
 
 /* Headline utility classes */

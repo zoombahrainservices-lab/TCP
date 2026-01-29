@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 731.68 749.76">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: url(#linear-gradient-2);
+      }
+
+      .cls-2 {
+        mask: url(#mask-1);
+      }
+
+      .cls-3 {
+        mask: url(#mask);
+      }
+
+      .cls-4 {
+        fill: url(#linear-gradient-4);
+      }
+
+      .cls-5 {
+        fill: url(#linear-gradient-3);
+      }
+
+      .cls-6 {
+        clip-path: url(#clippath-1);
+      }
+
+      .cls-7 {
+        fill: url(#linear-gradient-5);
+      }
+
+      .cls-8 {
+        clip-rule: evenodd;
+        fill: none;
+      }
+
+      .cls-9 {
+        fill: #a1dbea;
+        fill-rule: evenodd;
+      }
+
+      .cls-10 {
+        clip-path: url(#clippath-2);
+      }
+
+      .cls-11 {
+        fill: url(#linear-gradient);
+      }
+
+      .cls-12 {
+        clip-path: url(#clippath);
+      }
+    </style>
+    <clipPath id="clippath">
+      <path class="cls-8" d="M162.51,142.89l277.64,1.42-245.33,281.93,153.47.29-244.83,319.83-.91-133.78-.08-.94c-56.85-2.86-102.47-50.24-102.47-107.77v-253.11c0-59.35,48.56-107.91,107.91-107.91h54.6v.03Z"/>
+    </clipPath>
+    <linearGradient id="linear-gradient" x1="235.12" y1="567.3" x2="189.02" y2="191.36" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0073ba"/>
+      <stop offset="1" stop-color="#4bc4dc"/>
+    </linearGradient>
+    <clipPath id="clippath-1">
+      <path class="cls-8" d="M621.53,655.75c.09,6.74.6,16.59.6,31.48,0,20.7.47,41.88-.1,62.53l-101.02-82.71c-10.41-8.86-12.34-12.87-17.34-12.92l-278.81-3.19,273.53-304.6-149.71-5.77L593.27,0c.8,3.19-47.44,158.56-48.54,187.87h59.17c70.28,0,127.78,48.56,127.78,107.91v253.11c0,54.3-48.14,99.56-110.15,106.87"/>
+    </clipPath>
+    <linearGradient id="linear-gradient-2" x1="623.09" y1="99.09" x2="332.97" y2="651.58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f7b418"/>
+      <stop offset="1" stop-color="#da1f26"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-3" x1="125.96" y1="301.06" x2="448.23" y2="213.25" gradientTransform="translate(20.15 -40.34)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="1" stop-color="#231f20"/>
+    </linearGradient>
+    <mask id="mask" x="35.58" y="176.85" width="303.18" height="145.34" maskUnits="userSpaceOnUse">
+      <rect class="cls-5" x="35.58" y="176.85" width="303.18" height="145.34"/>
+    </mask>
+    <clipPath id="clippath-2">
+      <path class="cls-8" d="M701.04,468.92c-20.99,145.81-300.56,97.68-325.46,144.79l11.5.1,38.97.33c50.46.44,159-.43,209.45-.43,36.05,0,65.54-48.56,65.54-107.91v-36.89Z"/>
+    </clipPath>
+    <linearGradient id="linear-gradient-4" x1="536.23" y1="547.18" x2="193.89" y2="647.34" gradientTransform="translate(45.75 -18.36)" xlink:href="#linear-gradient-3"/>
+    <mask id="mask-1" x="375.58" y="468.92" width="325.46" height="145.81" maskUnits="userSpaceOnUse">
+      <rect class="cls-4" x="375.58" y="468.92" width="325.46" height="145.34"/>
+    </mask>
+    <linearGradient id="linear-gradient-5" x1="1005.94" y1="533.57" x2="290.99" y2="546.19" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e8584a"/>
+      <stop offset="1" stop-color="#f7b418"/>
+    </linearGradient>
+  </defs>
+  <g class="cls-12">
+    <rect class="cls-11" y="142.86" width="440.15" height="603.5"/>
+  </g>
+  <g class="cls-6">
+    <rect class="cls-1" x="224.86" width="506.82" height="749.76"/>
+  </g>
+  <g class="cls-3">
+    <path class="cls-9" d="M35.58,322.2c19.55-145.81,279.98-97.68,303.18-144.79l-10.72-.1-36.3-.33c-47-.44-148.11.43-195.11.43-33.58,0-61.06,48.56-61.06,107.91v36.88Z"/>
+  </g>
+  <g class="cls-10">
+    <g class="cls-2">
+      <rect class="cls-7" x="375.58" y="468.92" width="325.46" height="145.81"/>
+    </g>
+  </g>
+</svg>

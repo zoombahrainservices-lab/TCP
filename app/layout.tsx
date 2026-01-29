@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import { Bebas_Neue } from "next/font/google";
-import { JetBrains_Mono } from "next/font/google";
+import { Inter, Bebas_Neue, JetBrains_Mono, Montserrat, Lexend, Roboto, Open_Sans } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -23,9 +21,44 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: 'swap',
+});
+
+const lexend = Lexend({
+  variable: "--font-lexend",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: 'swap',
+});
+
+const roboto = Roboto({
+  variable: "--font-roboto",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
+  display: 'swap',
+});
+
+const openSans = Open_Sans({
+  variable: "--font-open-sans",
+  subsets: ["latin"],
+  weight: ["300", "400", "600", "700"],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: "The Communication Protocol",
   description: "30-Day Learning Challenge",
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: 'cover',
+  },
 };
 
 export default function RootLayout({
@@ -53,7 +86,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${bebasNeue.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${inter.variable} ${bebasNeue.variable} ${jetbrainsMono.variable} ${montserrat.variable} ${lexend.variable} ${roboto.variable} ${openSans.variable} antialiased`}
       >
         {children}
       </body>

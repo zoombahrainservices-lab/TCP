@@ -17,7 +17,7 @@ export default function Card({ children, className = '', padding = 'md', style }
   
   return (
     <div 
-      className={`bg-white rounded-lg shadow-md border border-gray-200 ${paddingStyles[padding]} ${className}`}
+      className={`bg-white dark:bg-[#142A4A] rounded-lg shadow-md border border-gray-200 dark:border-gray-700 transition-colors duration-300 ${paddingStyles[padding]} ${className}`}
       style={style}
     >
       {children}

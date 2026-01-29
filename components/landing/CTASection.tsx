@@ -9,7 +9,7 @@ export function CTASection() {
   const isInView = useInView(ref, { once: true })
 
   return (
-    <section ref={ref} className="py-20 bg-gradient-to-br from-[#0770C4] to-[#51BFE3] text-white relative overflow-hidden">
+    <section ref={ref} className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-[#0770C4] to-[#51BFE3] text-white relative overflow-hidden py-12">
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
@@ -34,11 +34,11 @@ export function CTASection() {
           
           <Link href="/auth/register">
             <motion.button
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="px-10 py-5 bg-white text-[#0770C4] rounded-xl font-bold text-xl shadow-2xl hover:shadow-3xl transition-shadow"
+              className="px-12 py-5 bg-[#ff6a38] hover:bg-[#ff5520] text-white rounded-2xl font-bold text-xl shadow-2xl hover:shadow-3xl transition-all uppercase tracking-wide"
             >
-              Start Your Journey Now
+              GET STARTED
             </motion.button>
           </Link>
 

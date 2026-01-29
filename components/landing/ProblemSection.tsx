@@ -32,7 +32,7 @@ export function ProblemSection() {
   const isInView = useInView(ref, { once: true, margin: '-100px' })
 
   return (
-    <section ref={ref} className="py-20 bg-white dark:bg-[#000000] transition-colors duration-300">
+    <section id="problem-section" ref={ref} className="min-h-screen w-full flex items-center justify-center bg-white dark:bg-[#000000] transition-colors duration-300 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

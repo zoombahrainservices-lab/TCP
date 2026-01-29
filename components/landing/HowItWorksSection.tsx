@@ -39,7 +39,7 @@ export function HowItWorksSection() {
   const isInView = useInView(ref, { once: true, margin: '-100px' })
 
   return (
-    <section id="how-it-works" ref={ref} className="py-20 bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300">
+    <section id="how-it-works" ref={ref} className="min-h-screen w-full flex items-center justify-center bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
