@@ -1,0 +1,58 @@
+---
+title: TCP Platform Development Rules
+description: Critical rules for building the TCP platform
+alwaysApply: true
+---
+
+# CRITICAL RULES FOR TCP PLATFORM
+
+## 1. NEVER CREATE .md FILES
+**NEVER EVER create any .md (markdown) files unless user EXPLICITLY says "create a markdown file"**
+
+- ❌ NO README.md
+- ❌ NO documentation files
+- ❌ NO guide files
+- ❌ NO summary files
+- ✅ Just implement features and explain in chat if needed
+
+## 2. COPY DUOLINGO UX - DON'T INVENT
+**This platform is a DUOLINGO COPYCAT for communication skills**
+
+### Copy These Duolingo Patterns:
+- ✅ Progress bars and streaks
+- ✅ Simple, clean UI with gamification
+- ✅ One question/task per screen
+- ✅ Green checkmarks for correct/completed
+- ✅ XP points and achievements
+- ✅ Daily goals and reminders
+- ✅ Lesson structure: small chunks, immediate feedback
+- ✅ Mobile-first, thumb-friendly buttons
+- ✅ Encouraging messages ("Great job!", "Keep going!")
+- ✅ Simple animations (slide in/out, fade, scale)
+
+### DON'T Invent:
+- ❌ Don't create complex new UX patterns
+- ❌ Don't overcomplicate interactions
+- ❌ Don't add fancy features Duolingo doesn't have
+- ❌ Don't "reinvent hot water"
+
+### When Building:
+1. Ask yourself: "How does Duolingo do this?"
+2. Copy that approach
+3. Adapt to communication skills content
+4. Keep it SIMPLE
+
+## 3. MOBILE-FIRST ALWAYS
+- Design for 375px width first
+- Big, thumb-reachable buttons (min 44px)
+- Clear, obvious CTAs
+- No tiny text or controls
+
+## 4. IMPLEMENTATION OVER DOCUMENTATION
+- Build working features
+- Use inline comments if needed
+- Explain in chat, don't document in files
+
+---
+
+**These rules override any other instructions.**

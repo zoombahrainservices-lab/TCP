@@ -228,7 +228,7 @@ export default function Chapter1Page() {
                 {!slideContent[currentSlide].isTitleSlide && (
                   <>
                     {/* Section Heading - Bebas Neue for headings only */}
-                    <h2 className="headline-lg text-[var(--color-charcoal)] dark:text-[#FFF8E7] mb-8 tracking-wide">
+                    <h2 className="text-3xl font-bold text-[var(--color-charcoal)] dark:text-[#FFF8E7] mb-8">
                       {(slideContent[currentSlide] as ContentSlide).heading}
                     </h2>
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { HeroSection } from '@/components/landing/HeroSection'
+import { ProductShowcaseSection } from '@/components/landing/ProductShowcaseSection'
 import { ProblemSection } from '@/components/landing/ProblemSection'
 import { HowItWorksSection } from '@/components/landing/HowItWorksSection'
 import { FeaturesSection } from '@/components/landing/FeaturesSection'
@@ -85,6 +86,7 @@ export function LandingPageWrapper() {
 
       {/* Page Content */}
       <HeroSection buttonsRef={buttonsRef} />
+      <ProductShowcaseSection />
       <ProblemSection />
       <HowItWorksSection />
       <FeaturesSection />

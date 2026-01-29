@@ -1,0 +1,78 @@
+---
+title: Duolingo UX Pattern Reference
+description: Quick reference for copying Duolingo's proven UX patterns
+alwaysApply: true
+---
+
+# DUOLINGO UX PATTERNS TO COPY
+
+## Lesson Flow
+```
+Screen 1: Intro/Question
+  ↓
+User answers
+  ↓
+Immediate feedback (correct/incorrect)
+  ↓
+Next screen
+```
+
+## Color System
+- ✅ Green: Correct, success, completed
+- ❌ Red: Incorrect, danger, warning
+- 🟡 Yellow: In progress, highlight
+- ⚪ Gray: Not started, disabled
+
+## Button Styles
+- **Primary CTA**: Big, bright, bottom of screen
+- **Secondary**: Smaller, outline style
+- **Disabled**: Gray, non-interactive
+- **States**: Normal → Hover → Active → Disabled
+
+## Progress Indicators
+- Linear progress bar at top
+- Percentage or X/Y steps
+- Celebrations on completion
+- XP/points counter
+
+## Screen Layouts
+```
+┌─────────────────┐
+│  Progress Bar   │
+├─────────────────┤
+│                 │
+│   Illustration  │
+│                 │
+│   Question      │
+│   or Content    │
+│                 │
+│   Answer Area   │
+│                 │
+├─────────────────┤
+│   [CTA Button]  │
+└─────────────────┘
+```
+
+## Animations (Keep Simple)
+- Slide: Screen transitions
+- Fade: Content changes
+- Scale: Button press feedback
+- Shake: Error feedback
+- Pop: Success celebrations
+
+## Feedback Messages
+- Short and encouraging
+- Immediate (not delayed)
+- Visual + optional sound
+- Clear what to do next
+
+## Gamification
+- Daily streaks
+- XP points per task
+- Achievements/badges
+- Leaderboards (optional)
+- Progress tracking
+
+---
+
+**When in doubt: Open Duolingo and copy what they do.**

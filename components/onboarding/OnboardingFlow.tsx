@@ -243,8 +243,8 @@ export function OnboardingFlow() {
                 className="text-center"
               >
                 <div className="flex flex-col items-center mb-6">
-                  <h1 className="headline-xl text-[var(--color-charcoal)] dark:text-white mb-2">
-                    I WANT TO WORK ON...
+                  <h1 className="text-4xl font-bold text-[var(--color-charcoal)] dark:text-white mb-2">
+                    I want to work on...
                   </h1>
                   <p className="text-sm text-[var(--color-gray)]">
                     Choose your focus area
@@ -446,8 +446,8 @@ export function OnboardingFlow() {
 
                 {/* Centered content with background */}
                 <div className="relative z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
-                  <h2 className="headline-lg text-center text-[var(--color-charcoal)] dark:text-white mb-4">
-                    {currentIssues.question.toUpperCase()}
+                  <h2 className="text-3xl font-bold text-center text-[var(--color-charcoal)] dark:text-white mb-4">
+                    {currentIssues.question}
                   </h2>
                   
                   <div className="bg-[var(--color-blue)]/10 border-l-4 border-[var(--color-blue)] p-4 mb-6 rounded">
@@ -495,8 +495,8 @@ export function OnboardingFlow() {
                 transition={{ duration: 0.3 }}
                 className="max-w-4xl mx-auto"
               >
-                <h2 className="headline-lg text-center text-[var(--color-charcoal)] dark:text-white mb-10">
-                  HERE'S WHAT YOU'LL BUILD WITH TCP:
+                <h2 className="text-3xl font-bold text-center text-[var(--color-charcoal)] dark:text-white mb-10">
+                  Here's what you'll build with TCP:
                 </h2>
                 
                 <div className="grid gap-6">
@@ -577,8 +577,8 @@ export function OnboardingFlow() {
                 transition={{ duration: 0.3 }}
                 className="max-w-md mx-auto"
               >
-                <h2 className="headline-lg text-center text-[var(--color-charcoal)] dark:text-white mb-8">
-                  HOW MUCH TIME CAN YOU GIVE PER DAY?
+                <h2 className="text-3xl font-bold text-center text-[var(--color-charcoal)] dark:text-white mb-8">
+                  How much time can you give per day?
                 </h2>
                 <div className="space-y-2">
                   {commitmentOptions.map((option) => (
@@ -609,8 +609,8 @@ export function OnboardingFlow() {
                 transition={{ duration: 0.3 }}
                 className="max-w-4xl mx-auto"
               >
-                <h2 className="headline-lg text-center text-[var(--color-charcoal)] dark:text-white mb-10">
-                  READY TO START?
+                <h2 className="text-3xl font-bold text-center text-[var(--color-charcoal)] dark:text-white mb-10">
+                  Ready to start?
                 </h2>
                 
                 <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto scale-90">
