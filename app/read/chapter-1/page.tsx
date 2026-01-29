@@ -6,7 +6,22 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import Image from 'next/image'
 
-const slideContent = [
+type TitleSlide = {
+  isTitleSlide: true
+  title: string
+  chapterNumber: number
+}
+
+type ContentSlide = {
+  isTitleSlide?: false
+  image: string
+  heading: string
+  text: string
+}
+
+type Slide = TitleSlide | ContentSlide
+
+const slideContent: Slide[] = [
   {
     isTitleSlide: true,
     title: 'FROM STAGE STAR TO SILENT STRUGGLES',
@@ -185,14 +200,16 @@ export default function Chapter1Page() {
               transition={{ duration: 0.5 }}
               className="w-full h-full"
             >
-              <Image 
-                src={slideContent[currentSlide].image}
-                alt={slideContent[currentSlide].heading}
-                fill
-                quality={100}
-                priority
-                className="object-cover"
-              />
+              {!slideContent[currentSlide].isTitleSlide && (
+                <Image 
+                  src={(slideContent[currentSlide] as ContentSlide).image}
+                  alt={(slideContent[currentSlide] as ContentSlide).heading}
+                  fill
+                  quality={100}
+                  priority
+                  className="object-cover"
+                />
+              )}
             </motion.div>
           </div>
 
@@ -208,18 +225,22 @@ export default function Chapter1Page() {
                 transition={{ duration: 0.3 }}
                 className="max-w-3xl w-full"
               >
-                {/* Section Heading - Bebas Neue for headings only */}
-                <h2 className="headline-lg text-[var(--color-charcoal)] dark:text-[#FFF8E7] mb-8 tracking-wide">
-                  {slideContent[currentSlide].heading}
-                </h2>
+                {!slideContent[currentSlide].isTitleSlide && (
+                  <>
+                    {/* Section Heading - Bebas Neue for headings only */}
+                    <h2 className="headline-lg text-[var(--color-charcoal)] dark:text-[#FFF8E7] mb-8 tracking-wide">
+                      {(slideContent[currentSlide] as ContentSlide).heading}
+                    </h2>
 
-                {/* Body Text - Inter font, larger size */}
-                <div 
-                  className="text-xl leading-loose text-gray-800 dark:text-gray-200 whitespace-pre-line"
-                  style={{ fontFamily: 'var(--font-body)' }}
-                >
-                  {slideContent[currentSlide].text}
-                </div>
+                    {/* Body Text - Inter font, larger size */}
+                    <div 
+                      className="text-xl leading-loose text-gray-800 dark:text-gray-200 whitespace-pre-line"
+                      style={{ fontFamily: 'var(--font-body)' }}
+                    >
+                      {(slideContent[currentSlide] as ContentSlide).text}
+                    </div>
+                  </>
+                )}
               </motion.div>
             </div>
 

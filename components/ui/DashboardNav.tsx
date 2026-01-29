@@ -15,8 +15,8 @@ export function DashboardNav() {
 
   const menuItems = [
     {
-      id: 'learn',
-      label: 'Learn',
+      id: 'read',
+      label: 'Read',
       href: '/read/chapter-1',
       icon: (
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

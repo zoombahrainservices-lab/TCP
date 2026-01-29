@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react'
 import Typed from 'typed.js'
 
 interface HeroSectionProps {
-  buttonsRef?: React.RefObject<HTMLDivElement>
+  buttonsRef?: React.RefObject<HTMLDivElement | null>
 }
 
 export function HeroSection({ buttonsRef }: HeroSectionProps) {
