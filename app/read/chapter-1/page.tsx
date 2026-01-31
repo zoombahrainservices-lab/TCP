@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
@@ -81,6 +81,8 @@ But you can still win.`
 export default function Chapter1Page() {
   const router = useRouter()
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false) // Check if user is logged in
   const totalSlides = slideContent.length || 5
 
   const handleNext = () => {
@@ -103,11 +105,69 @@ export default function Chapter1Page() {
   }
 
   const progress = (currentSlide / totalSlides) * 100
+  const contentRef = useRef<HTMLDivElement>(null)
+  const readingContentRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to top when changing slides
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+    readingContentRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [currentSlide])
 
   return (
-    <div className="fixed inset-0 bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden">
-      {/* Top Progress Bar - Empty/Outline Style */}
-      <div className="absolute top-0 left-0 right-0 h-2 bg-gray-200 dark:bg-gray-700 z-20">
+    <div className="fixed inset-0 bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden flex flex-col">
+      {/* Navbar - Logo and Close/Menu */}
+      <header className="flex-shrink-0 bg-white/95 dark:bg-[#0a1628]/95 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+          {/* Logo */}
+          <div className="relative h-10 sm:h-12 w-auto">
+            <Image
+              src="/TCP-logo.png"
+              alt="The Communication Protocol"
+              width={180}
+              height={40}
+              className="object-contain h-10 sm:h-12 w-auto dark:hidden"
+              priority
+            />
+            <Image
+              src="/TCP-logo-white.png"
+              alt="The Communication Protocol"
+              width={180}
+              height={40}
+              className="object-contain h-10 sm:h-12 w-auto hidden dark:block"
+              priority
+            />
+          </div>
+          
+          {/* Close button (always) or Hamburger (if logged in on mobile) */}
+          <div className="flex items-center gap-2">
+            {isLoggedIn && (
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+              >
+                <svg className="w-6 h-6 text-gray-700 dark:text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {mobileMenuOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={handleClose}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+            >
+              <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Progress bar - below navbar */}
+      <div className="flex-shrink-0 h-2 bg-gray-200 dark:bg-gray-700 z-20">
         <motion.div
           className="h-full bg-[var(--color-blue)]"
           animate={{ width: `${progress}%` }}
@@ -115,168 +175,151 @@ export default function Chapter1Page() {
         />
       </div>
 
-      {/* Top Header - Close Button Only */}
-      <div className="absolute top-6 right-6 z-20">
-        <button
-          onClick={handleClose}
-          className="p-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-700 transition-all"
-        >
-          <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-        </button>
-      </div>
-
-      {/* Split Screen Layout */}
-      {slideContent[currentSlide].isTitleSlide ? (
-        // TITLE SLIDE - Full Screen with Dark Background and Hollow Dots
-        <motion.div
-          key="title-slide"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
-          className="h-full w-full bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a] flex flex-col relative overflow-hidden"
-        >
-          {/* Decorative Hollow Dots Pattern */}
-          <div className="absolute inset-0 opacity-20">
-            {Array.from({ length: 20 }).map((_, i) => (
-              <div
-                key={i}
-                className="absolute rounded-full border-2 border-gray-600"
-                style={{
-                  width: `${Math.random() * 100 + 50}px`,
-                  height: `${Math.random() * 100 + 50}px`,
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  opacity: Math.random() * 0.5 + 0.2
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Title Content - Centered */}
-          <div className="flex-1 flex items-center justify-center relative z-10">
-            <div className="text-center px-12 max-w-6xl">
-              <div className="mb-8">
-                <span className="headline text-[var(--color-amber)] text-4xl tracking-widest">
-                  CHAPTER {slideContent[currentSlide].chapterNumber}
-                </span>
-              </div>
-              <h1 className="headline text-white mb-12" style={{ fontSize: '5rem', lineHeight: '1.1' }}>
-                {slideContent[currentSlide].title}
-              </h1>
-              <div className="flex items-center justify-center gap-3 mt-16">
-                <div className="w-3 h-3 rounded-full bg-[var(--color-amber)]"></div>
-                <div className="w-3 h-3 rounded-full bg-gray-600"></div>
-                <div className="w-3 h-3 rounded-full bg-gray-600"></div>
-                <div className="w-3 h-3 rounded-full bg-gray-600"></div>
-                <div className="w-3 h-3 rounded-full bg-gray-600"></div>
-                <div className="w-3 h-3 rounded-full bg-gray-600"></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation Buttons - Exact same as onboarding */}
-          <div className="p-8 border-t border-gray-700 bg-[#1a1a1a] relative z-10">
-            <div className="flex items-center justify-center gap-4">
-              <button
-                onClick={handleNext}
-                className="px-8 py-3 rounded-2xl font-bold text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </motion.div>
-      ) : (
-        // REGULAR CONTENT SLIDES
-        <div className="h-full flex">
-          {/* LEFT SIDE - 50% Image - Full Box Fill */}
-          <div className="w-1/2 h-full relative bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
-            <motion.div
-              key={currentSlide}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="w-full h-full"
-            >
-              {!slideContent[currentSlide].isTitleSlide && (
-                <Image 
-                  src={(slideContent[currentSlide] as ContentSlide).image}
-                  alt={(slideContent[currentSlide] as ContentSlide).heading}
-                  fill
-                  quality={100}
-                  priority
-                  className="object-cover"
+      {/* Content */}
+      <div ref={contentRef} className="flex-1 overflow-y-auto">
+        {slideContent[currentSlide].isTitleSlide ? (
+          // TITLE SLIDE - Full Screen with Dark Background
+          <motion.div
+            key="title-slide"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="min-h-full w-full bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a] flex flex-col relative overflow-hidden"
+          >
+            {/* Decorative Hollow Dots Pattern */}
+            <div className="absolute inset-0 opacity-20">
+              {Array.from({ length: 20 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute rounded-full border-2 border-gray-600"
+                  style={{
+                    width: `${Math.random() * 100 + 50}px`,
+                    height: `${Math.random() * 100 + 50}px`,
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    opacity: Math.random() * 0.5 + 0.2
+                  }}
                 />
-              )}
-            </motion.div>
-          </div>
+              ))}
+            </div>
 
-          {/* RIGHT SIDE - 50% Reading & Interactions - Paper Background */}
-          <div className="w-1/2 h-full bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col">
-            {/* Reading Content Area - No Scrolling */}
-            <div className="flex-1 flex items-center justify-center p-12 overflow-hidden">
+            {/* Title Content - Centered */}
+            <div className="flex-1 flex items-center justify-center relative z-10 py-12">
+              <div className="text-center px-6 sm:px-12 max-w-4xl">
+                <div className="mb-6 sm:mb-8">
+                  <span className="text-[var(--color-amber)] text-2xl sm:text-4xl font-bold tracking-widest">
+                    CHAPTER {slideContent[currentSlide].chapterNumber}
+                  </span>
+                </div>
+                <h1 className="text-white font-bold text-4xl sm:text-6xl lg:text-7xl leading-tight mb-8 sm:mb-12">
+                  {slideContent[currentSlide].title}
+                </h1>
+                <div className="flex items-center justify-center gap-3 mt-8 sm:mt-16">
+                  {[...Array(6)].map((_, i) => (
+                    <div 
+                      key={i}
+                      className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${
+                        i === 0 ? 'bg-[var(--color-amber)]' : 'bg-gray-600'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation Buttons */}
+            <div className="p-6 sm:p-8 border-t border-gray-700 bg-[#1a1a1a] relative z-10">
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  onClick={handleNext}
+                  className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          // REGULAR CONTENT SLIDES - Mobile: Image on top, Text below
+          <div className="min-h-full flex flex-col lg:flex-row">
+            {/* Image Section - Top on mobile, Left on desktop */}
+            <div className="w-full lg:w-1/2 h-64 sm:h-96 lg:h-full relative bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
               <motion.div
                 key={currentSlide}
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={{ duration: 0.3 }}
-                className="max-w-3xl w-full"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5 }}
+                className="w-full h-full"
               >
                 {!slideContent[currentSlide].isTitleSlide && (
-                  <>
-                    {/* Section Heading - Bebas Neue for headings only */}
-                    <h2 className="text-3xl font-bold text-[var(--color-charcoal)] dark:text-[#FFF8E7] mb-8">
-                      {(slideContent[currentSlide] as ContentSlide).heading}
-                    </h2>
-
-                    {/* Body Text - Inter font, larger size */}
-                    <div 
-                      className="text-xl leading-loose text-gray-800 dark:text-gray-200 whitespace-pre-line"
-                      style={{ fontFamily: 'var(--font-body)' }}
-                    >
-                      {(slideContent[currentSlide] as ContentSlide).text}
-                    </div>
-                  </>
+                  <Image 
+                    src={(slideContent[currentSlide] as ContentSlide).image}
+                    alt={(slideContent[currentSlide] as ContentSlide).heading}
+                    fill
+                    quality={100}
+                    priority
+                    className="object-cover"
+                  />
                 )}
               </motion.div>
             </div>
 
-            {/* Navigation Buttons - Exact same as onboarding */}
-            <div className="p-8 border-t border-[#E8D9B8] dark:border-gray-700 bg-[#FFF8E7] dark:bg-[#2A2416]">
-              <div className="flex items-center justify-center gap-4">
-                {currentSlide > 0 && (
-                  <button
-                    onClick={handlePrev}
-                    className="px-6 py-3 rounded-2xl font-bold text-sm uppercase tracking-wide transition-all bg-white dark:bg-gray-800 text-[var(--color-gray)] border-2 border-[var(--color-gray)] hover:border-[var(--color-charcoal)] shadow-md hover:shadow-lg"
-                  >
-                    Back
-                  </button>
-                )}
-
-                <button
-                  onClick={handleNext}
-                  className="px-8 py-3 rounded-2xl font-bold text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+            {/* Text Content Section - Below on mobile, Right on desktop */}
+            <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col">
+              {/* Reading Content Area */}
+              <div ref={readingContentRef} className="flex-1 p-6 sm:p-8 lg:p-12 overflow-auto">
+                <motion.div
+                  key={currentSlide}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="max-w-3xl mx-auto"
                 >
-                  {currentSlide === totalSlides - 1 ? 'Your Turn' : 'Continue'}
-                </button>
+                  {!slideContent[currentSlide].isTitleSlide && (
+                    <>
+                      {/* Section Heading */}
+                      <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-charcoal)] dark:text-[#FFF8E7] mb-6 sm:mb-8">
+                        {(slideContent[currentSlide] as ContentSlide).heading}
+                      </h2>
+
+                      {/* Body Text */}
+                      <div 
+                        className="text-base sm:text-lg lg:text-xl leading-relaxed sm:leading-loose text-gray-800 dark:text-gray-200 whitespace-pre-line"
+                        style={{ fontFamily: "'Inter', sans-serif" }}
+                      >
+                        {(slideContent[currentSlide] as ContentSlide).text}
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              </div>
+
+              {/* Navigation Buttons */}
+              <div className="p-4 sm:p-6 lg:p-8 border-t border-[#E8D9B8] dark:border-gray-700 bg-[#FFF8E7] dark:bg-[#2A2416]">
+                <div className="flex items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto">
+                  {currentSlide > 0 && (
+                    <button
+                      onClick={handlePrev}
+                      className="px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-white dark:bg-gray-800 text-[var(--color-gray)] border-2 border-[var(--color-gray)] hover:border-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+                    >
+                      Back
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleNext}
+                    className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+                  >
+                    {currentSlide === totalSlides - 1 ? 'Your Turn' : 'Continue'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* TCP Logo Watermark - Over Left Side */}
-      <div className="absolute bottom-6 left-6 opacity-20 z-10">
-        <Image 
-          src="/TCP-Logo.svg" 
-          alt="TCP" 
-          width={150} 
-          height={45} 
-          className="w-36 h-auto"
-        />
+        )}
       </div>
     </div>
   )

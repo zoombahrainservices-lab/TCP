@@ -44,38 +44,39 @@ export function LandingPageWrapper() {
           showNav ? 'translate-y-0' : '-translate-y-full'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-3">
           <div className="flex justify-between items-center">
             <Link href="/" className="hover:opacity-80 transition-opacity">
-              <div className="relative h-16 w-auto">
+              <div className="relative h-10 sm:h-14 w-auto">
                 {/* Light mode logo */}
                 <Image
                   src="/TCP-logo.png"
                   alt="The Communication Protocol"
-                  width={300}
-                  height={64}
-                  className="object-contain h-16 w-auto dark:hidden"
+                  width={200}
+                  height={40}
+                  className="object-contain h-10 sm:h-14 w-auto dark:hidden"
                   priority
                 />
                 {/* Dark mode logo */}
                 <Image
                   src="/TCP-logo-white.png"
                   alt="The Communication Protocol"
-                  width={300}
-                  height={64}
-                  className="object-contain h-16 w-auto hidden dark:block"
+                  width={200}
+                  height={40}
+                  className="object-contain h-10 sm:h-14 w-auto hidden dark:block"
                   priority
                 />
               </div>
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Link href="/auth/login">
-                <button className="px-6 py-3 bg-white dark:bg-transparent border-2 border-[#0073ba] dark:border-[#4bc4dc] text-[#0073ba] dark:text-[#4bc4dc] rounded-2xl font-bold text-sm hover:bg-[#0073ba] hover:text-white dark:hover:bg-[#4bc4dc] dark:hover:text-gray-900 transition-all uppercase tracking-wide">
-                  I already have an account
+                <button className="px-4 py-[8px] sm:px-6 sm:py-[10px] bg-white dark:bg-transparent border-2 border-[#0073ba] dark:border-[#4bc4dc] text-[#0073ba] dark:text-[#4bc4dc] rounded-2xl font-bold text-xs sm:text-sm hover:bg-[#0073ba] hover:text-white dark:hover:bg-[#4bc4dc] dark:hover:text-gray-900 transition-all uppercase tracking-wide">
+                  <span className="hidden sm:inline">I already have an account</span>
+                  <span className="sm:hidden">Login</span>
                 </button>
               </Link>
               <Link href="/onboarding">
-                <button className="px-6 py-3 bg-[#ff6a38] hover:bg-[#ff5520] text-white rounded-2xl font-bold text-sm shadow-md hover:shadow-lg transition-all uppercase tracking-wide">
+                <button className="px-4 py-2.5 sm:px-6 sm:py-3 bg-[#ff6a38] hover:bg-[#ff5520] text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all uppercase tracking-wide">
                   GET STARTED
                 </button>
               </Link>
