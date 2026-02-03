@@ -427,18 +427,20 @@ export function OnboardingFlow() {
                 
                 <div className="flex flex-col gap-4 sm:gap-6">
                   {/* Sentence 1: Issue → Solution */}
-                  <div className="w-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <div className="w-full aspect-[2/1] sm:aspect-[3/1] flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 p-6">
+                  <div className="w-full flex flex-col lg:flex-row bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden lg:overflow-visible">
+                    {/* Image section - Top on mobile, Left icon on desktop */}
+                    <div className="w-full lg:w-auto aspect-[2/1] sm:aspect-[3/1] lg:aspect-auto flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 p-6 lg:p-0 lg:pt-6 lg:pl-6 lg:pb-6 lg:bg-transparent">
                       <Image 
                         src="/slider-work-on-quizz/1.png" 
                         alt="Solution"
                         width={160}
                         height={120}
                         quality={100}
-                        className="w-24 h-24 sm:w-32 sm:h-32 object-contain"
+                        className="w-24 h-24 sm:w-32 sm:h-32 lg:w-20 lg:h-20 object-contain"
                       />
                     </div>
-                    <div className="p-5 sm:p-6">
+                    {/* Text section */}
+                    <div className="p-5 sm:p-6 lg:flex-1">
                       <p className="text-sm sm:text-base text-gray-800 dark:text-gray-200 leading-relaxed">
                         {generatedPromises.sentence1}
                       </p>
@@ -446,18 +448,20 @@ export function OnboardingFlow() {
                   </div>
 
                   {/* Sentence 2: Techniques */}
-                  <div className="w-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <div className="w-full aspect-[2/1] sm:aspect-[3/1] flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 p-6">
+                  <div className="w-full flex flex-col lg:flex-row bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden lg:overflow-visible">
+                    {/* Image section - Top on mobile, Left icon on desktop */}
+                    <div className="w-full lg:w-auto aspect-[2/1] sm:aspect-[3/1] lg:aspect-auto flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 p-6 lg:p-0 lg:pt-6 lg:pl-6 lg:pb-6 lg:bg-transparent">
                       <Image 
                         src="/slider-work-on-quizz/2.png" 
                         alt="Training"
                         width={160}
                         height={120}
                         quality={100}
-                        className="w-24 h-24 sm:w-32 sm:h-32 object-contain"
+                        className="w-24 h-24 sm:w-32 sm:h-32 lg:w-20 lg:h-20 object-contain"
                       />
                     </div>
-                    <div className="p-5 sm:p-6">
+                    {/* Text section */}
+                    <div className="p-5 sm:p-6 lg:flex-1">
                       <p className="text-sm sm:text-base text-gray-800 dark:text-gray-200 leading-relaxed">
                         {generatedPromises.sentence2}
                       </p>
@@ -465,18 +469,20 @@ export function OnboardingFlow() {
                   </div>
 
                   {/* Sentence 3: Consistency + Team */}
-                  <div className="w-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <div className="w-full aspect-[2/1] sm:aspect-[3/1] flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 p-6">
+                  <div className="w-full flex flex-col lg:flex-row bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden lg:overflow-visible">
+                    {/* Image section - Top on mobile, Left icon on desktop */}
+                    <div className="w-full lg:w-auto aspect-[2/1] sm:aspect-[3/1] lg:aspect-auto flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 p-6 lg:p-0 lg:pt-6 lg:pl-6 lg:pb-6 lg:bg-transparent">
                       <Image 
                         src="/slider-work-on-quizz/3.png" 
                         alt="Progress"
                         width={160}
                         height={120}
                         quality={100}
-                        className="w-24 h-24 sm:w-32 sm:h-32 object-contain"
+                        className="w-24 h-24 sm:w-32 sm:h-32 lg:w-20 lg:h-20 object-contain"
                       />
                     </div>
-                    <div className="p-5 sm:p-6">
+                    {/* Text section */}
+                    <div className="p-5 sm:p-6 lg:flex-1">
                       <p className="text-sm sm:text-base text-gray-800 dark:text-gray-200 leading-relaxed">
                         {generatedPromises.sentence3}{" "}
                         <a 

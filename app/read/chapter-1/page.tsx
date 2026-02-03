@@ -89,8 +89,8 @@ export default function Chapter1Page() {
     if (currentSlide < totalSlides - 1) {
       setCurrentSlide(currentSlide + 1)
     } else {
-      // Last slide - prompt to register
-      router.push('/auth/register?from=chapter-1')
+      // Chapter complete - go to Self-Check (Chapter 1 assessment)
+      router.push('/chapter/1/assessment')
     }
   }
 
@@ -241,23 +241,24 @@ export default function Chapter1Page() {
             </div>
           </motion.div>
         ) : (
-          // REGULAR CONTENT SLIDES - Mobile: Image on top, Text below
-          <div className="min-h-full flex flex-col lg:flex-row">
+          // REGULAR CONTENT SLIDES - Mobile: Image on top, Text below | Desktop: Image left, Text right
+          <div className="min-h-full flex flex-col lg:flex-row lg:h-full">
             {/* Image Section - Top on mobile, Left on desktop */}
-            <div className="w-full lg:w-1/2 h-64 sm:h-96 lg:h-full relative bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
+            <div className="w-full lg:w-1/2 h-64 sm:h-96 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden">
               <motion.div
                 key={currentSlide}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.5 }}
-                className="w-full h-full"
+                className="absolute inset-0 w-full h-full"
               >
                 {!slideContent[currentSlide].isTitleSlide && (
                   <Image 
                     src={(slideContent[currentSlide] as ContentSlide).image}
                     alt={(slideContent[currentSlide] as ContentSlide).heading}
                     fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                     quality={100}
                     priority
                     className="object-cover"
