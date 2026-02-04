@@ -1,28 +1,15 @@
 import Link from 'next/link'
 import Image from 'next/image'
 
-// Shared card shadow: soft, wide, low-contrast (Duolingo principle)
-const CARD_SHADOW = '0 8px 24px rgba(0,0,0,0.06)'
-
-// Base padding: horizontal 24-32px, vertical 20-28px
-const CARD_PADDING = 'px-6 sm:px-8 py-5 sm:py-7'
-// Border radius: 16-20px
-const CARD_RADIUS = 'rounded-[18px]'
-// Progress bar: 6-8px height, rounded ends
-const PROGRESS_BAR_HEIGHT = 'h-2' // 8px
-// Typography: Level 1 = 20-24px bold, Level 2 = 14-16px muted, Level 3 = micro
-const TEXT_TITLE = 'text-xl sm:text-2xl font-bold text-[var(--color-charcoal)] dark:text-white'
-const TEXT_SUPPORT = 'text-sm sm:text-base text-gray-500 dark:text-gray-400'
-const TEXT_MICRO = 'text-xs text-gray-500 dark:text-gray-400'
-
 export default function DashboardPage() {
+  // TODO: Replace with real user progress data from database
   const userProgress = {
     currentChapter: 1,
     currentChapterTitle: 'From Stage Star to Silent Struggles',
     currentChapterSubtitle: "You'll learn why habits feel impossible",
     readTime: 7,
     streakDays: 3,
-    progress: 20,
+    progress: 20, // percentage
     sectionsCompleted: 1,
     totalSections: 5,
     chapterImage: '/slider-work-on-quizz/chapter1/chaper1-1.jpeg',
@@ -30,63 +17,49 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-full bg-[var(--color-offwhite)] dark:bg-[#0f172a]">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+    <div className="min-h-full bg-[var(--color-offwhite)] dark:bg-[#142A4A]">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         
-        {/* Header — 24px to first card */}
-        <div className="mb-6">
-          <h1 className={`${TEXT_TITLE} text-[20px] sm:text-[22px]`}>
-            You&apos;re making progress. Keep going.
-          </h1>
-          <p className={`${TEXT_SUPPORT} mt-1`}>
-            Pick up where you left off.
-          </p>
-        </div>
-
-        {/* Spacing: card → card 32–40px */}
-        <div className="space-y-8 sm:space-y-9">
-          
-          {/* ——— Card 1: Today's Focus (Primary action) ——— */}
-          <div
-            className={`${CARD_RADIUS} ${CARD_PADDING} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6`}
-            style={{
-              boxShadow: CARD_SHADOW,
-              background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.08), rgba(251, 191, 36, 0.04))'
-            }}
-          >
-            <div className="flex items-start gap-4 flex-1 min-w-0">
-              {/* Anchor icon: one per card, rounded blob */}
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-[rgba(249,115,22,0.15)]">
-                <svg className="w-6 h-6 text-[#f97316]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        {/* Today's Focus Card */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3 sm:gap-4 flex-1">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[var(--color-amber)]/10 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--color-amber)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <div className="flex-1 min-w-0 space-y-3">
-                <h2 className={`${TEXT_TITLE} leading-tight`}>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl sm:text-2xl font-black text-[var(--color-charcoal)] dark:text-white mb-1">
                   Today&apos;s Focus
                 </h2>
-                <p className={TEXT_SUPPORT}>
-                  Chapter {userProgress.currentChapter} · {userProgress.readTime} min read
-                </p>
-                <div className="flex items-center gap-3">
-                  <span className="text-base" aria-hidden>🔥</span>
-                  <span className={`${TEXT_MICRO} font-semibold text-[#f97316]`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-400">
+                    Chapter {userProgress.currentChapter}
+                  </p>
+                  <span className="text-[var(--color-gray)] dark:text-gray-500">·</span>
+                  <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-400">
+                    {userProgress.readTime} min read
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-base sm:text-lg">🔥</span>
+                  <span className="text-xs sm:text-sm font-bold text-[var(--color-amber)]">
                     Day {userProgress.streakDays} streak
                   </span>
-                  <div className="flex-1 max-w-[100px] bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className={`${PROGRESS_BAR_HEIGHT} bg-[#f97316] rounded-full transition-all`}
-                      style={{ width: `${Math.min(userProgress.streakDays * 15, 100)}%` }}
+                  <div className="flex-1 max-w-[120px] h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-[var(--color-amber)] rounded-full transition-all"
+                      style={{ width: `${Math.min(userProgress.streakDays * 10, 100)}%` }}
                     />
                   </div>
                 </div>
               </div>
             </div>
-            {/* Primary CTA: only one per page, largest, strongest color */}
+            
             <Link
               href={userProgress.continueUrl}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold text-base rounded-xl transition whitespace-nowrap"
-              style={{ boxShadow: '0 2px 8px rgba(249,115,22,0.3)' }}
+              className="w-full sm:w-auto px-5 py-2.5 sm:px-6 sm:py-3 bg-[var(--color-amber)] hover:bg-[#e5a616] text-[var(--color-charcoal)] rounded-xl font-bold text-sm sm:text-base transition shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
             >
               Continue Chapter {userProgress.currentChapter}
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -94,113 +67,109 @@ export default function DashboardPage() {
               </svg>
             </Link>
           </div>
+        </div>
 
-          {/* ——— Card 2: Chapter Progress (Content + progress) ——— */}
-          <div
-            className={`${CARD_RADIUS} overflow-hidden`}
-            style={{
-              boxShadow: CARD_SHADOW,
-              background: 'linear-gradient(135deg, rgba(0,0,0,0.03), rgba(0,0,0,0.01))'
-            }}
-          >
-            <div className={`${CARD_PADDING} flex flex-col sm:flex-row gap-5 sm:gap-6`}>
-              {/* Image thumbnail */}
-              <div className="relative w-full sm:w-44 h-44 sm:h-52 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-800">
-                <Image
-                  src={userProgress.chapterImage}
-                  alt={`Chapter ${userProgress.currentChapter}`}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 100vw, 176px"
-                />
-                {/* Status pill: 999px radius, soft orange, uppercase */}
-                <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f97316]/90 text-white rounded-full text-[10px] font-bold uppercase tracking-wide">
+        {/* Progress Message */}
+        <div className="space-y-1">
+          <h3 className="text-base sm:text-lg font-bold text-[var(--color-charcoal)] dark:text-white">
+            You&apos;re making progress. Keep going.
+          </h3>
+          <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-400">
+            Pick up where you left off.
+          </p>
+        </div>
+
+        {/* Chapter Progress Card */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 p-4 sm:p-6">
+            {/* Chapter Image */}
+            <div className="relative w-full sm:w-48 h-48 sm:h-56 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-800">
+              <Image
+                src={userProgress.chapterImage}
+                alt={`Chapter ${userProgress.currentChapter}`}
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 100vw, 192px"
+              />
+              <div className="absolute top-3 left-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-amber)] text-[var(--color-charcoal)] rounded-lg text-xs font-bold uppercase tracking-wide">
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                  </svg>
                   In Progress
                 </span>
               </div>
+              <div className="absolute top-3 right-3">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-lg text-xs font-semibold text-[var(--color-gray)] dark:text-gray-300">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {userProgress.readTime} min
+                </span>
+              </div>
+            </div>
 
-              <div className="flex-1 min-w-0 space-y-3">
-                {/* Top info: pill + clock + bookmark */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#f97316]/90 text-white rounded-full text-[10px] font-bold uppercase">
-                    In Progress
-                  </span>
-                  <span className={`${TEXT_MICRO} flex items-center gap-1`}>
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {userProgress.readTime} min
-                  </span>
-                  <span className={`${TEXT_MICRO} flex items-center gap-1`}>
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                    </svg>
-                    {userProgress.readTime} min
-                  </span>
-                </div>
-
-                <h3 className={`${TEXT_TITLE} leading-tight`}>
+            {/* Chapter Info */}
+            <div className="flex-1 flex flex-col justify-between min-w-0">
+              <div>
+                <h3 className="text-lg sm:text-xl font-black text-[var(--color-charcoal)] dark:text-white mb-2 leading-tight">
                   Chapter {userProgress.currentChapter}: {userProgress.currentChapterTitle}
                 </h3>
-                <p className={TEXT_SUPPORT}>
+                <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-400 mb-4">
                   {userProgress.currentChapterSubtitle}
                 </p>
 
-                {/* Progress: visual bar + numeric reinforcement */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className={`${TEXT_MICRO} font-semibold text-[var(--color-charcoal)] dark:text-white`}>
-                      Progress
-                    </span>
-                    <span className={TEXT_MICRO}>
-                      {userProgress.progress}% · {userProgress.sectionsCompleted} / {userProgress.totalSections} sections completed
+                {/* Progress Bar */}
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center justify-between text-xs sm:text-sm">
+                    <span className="font-bold text-[var(--color-charcoal)] dark:text-white">Progress</span>
+                    <span className="text-[var(--color-gray)] dark:text-gray-400">
+                      {userProgress.progress}% · {userProgress.sectionsCompleted}/{userProgress.totalSections} sections completed
                     </span>
                   </div>
-                  <div className={`${PROGRESS_BAR_HEIGHT} bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden`}>
-                    <div
-                      className="h-full bg-[#f97316] rounded-full transition-all"
+                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-[var(--color-amber)] rounded-full transition-all"
                       style={{ width: `${userProgress.progress}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Key takeaway: document icon + support text */}
-                <div className="flex items-start gap-2 pt-1">
-                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                {/* Learning Objective */}
+                <div className="flex items-start gap-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                  <svg className="w-4 h-4 text-[var(--color-gray)] dark:text-gray-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <p className={TEXT_SUPPORT}>
+                  <p className="text-xs sm:text-sm text-[var(--color-gray)] dark:text-gray-300">
                     {userProgress.currentChapterSubtitle}
                   </p>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* ——— Card 3: What's Next (Anticipation) ——— */}
-          <div
-            className={`${CARD_RADIUS} ${CARD_PADDING} flex items-start gap-4`}
-            style={{
-              boxShadow: CARD_SHADOW,
-              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(147, 197, 253, 0.04))'
-            }}
-          >
-            {/* Icon: lightbulb, soft blue blob */}
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-[rgba(59,130,246,0.15)]">
-              <span className="text-2xl" aria-hidden>💡</span>
+        {/* What's Next Section */}
+        <div className="bg-[#E8F4F8] dark:bg-[#1a3a4a] rounded-2xl p-5 sm:p-6 border border-[#b8dce8] dark:border-[#2a4a5a]">
+          <h3 className="text-base sm:text-lg font-bold text-[var(--color-charcoal)] dark:text-white mb-4">
+            What&apos;s Next?
+          </h3>
+          
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#ffd93d]/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl sm:text-3xl">💡</span>
             </div>
             <div className="flex-1 min-w-0">
-              {/* Accent blue for this card's title */}
-              <h3 className="text-xl sm:text-2xl font-bold text-[#2563eb] dark:text-[#93c5fd] leading-tight">
+              <h4 className="text-base sm:text-lg font-bold text-[var(--color-charcoal)] dark:text-white mb-1">
                 Unlock Milestone Mindsets
-              </h3>
-              <p className={`${TEXT_SUPPORT} mt-2`}>
+              </h4>
+              <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-300">
                 Tomorrow, discover how small habit shifts can lead to big changes.
               </p>
             </div>
           </div>
-
         </div>
+
       </div>
     </div>
   )

@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { ReactNode } from 'react'
 
-export interface DuoButtonProps {
+interface DuoButtonProps {
   children: ReactNode
   variant?: 'primary' | 'secondary' | 'outline' | 'success' | 'danger'
   size?: 'sm' | 'md' | 'lg'
