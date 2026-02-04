@@ -11,7 +11,7 @@ export { ProgressCircle } from '../ProgressCircle'
 export { DuoCharacter } from '../DuoCharacter'
 
 // Export types if needed
-export type { default as DuoCardProps } from '../DuoCard'
-export type { default as DuoButtonProps } from '../DuoButton'
-export type { default as ProgressCircleProps } from '../ProgressCircle'
-export type { default as DuoCharacterProps } from '../DuoCharacter'
+export type { DuoCardProps } from '../DuoCard'
+export type { DuoButtonProps } from '../DuoButton'
+export type { ProgressCircleProps } from '../ProgressCircle'
+export type { DuoCharacterProps } from '../DuoCharacter'

@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 
-interface DuoCharacterProps {
+export interface DuoCharacterProps {
   variant?: 'happy' | 'thinking' | 'celebrating' | 'working' | 'reading'
   size?: 'sm' | 'md' | 'lg' | 'xl'
   animate?: boolean
@@ -50,7 +50,7 @@ export function DuoCharacter({
     transition: {
       duration: 2,
       repeat: Infinity,
-      ease: 'easeInOut'
+      ease: [0.42, 0, 0.58, 1] as const
     }
   } : {}
 

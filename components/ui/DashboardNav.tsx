@@ -8,12 +8,23 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import Button from '@/components/ui/Button'
 import { signOut } from '@/app/actions/auth'
 
+type NavDividerItem = { type: 'divider' }
+type NavSocialItem = { type: 'social-media' }
+type NavLinkItem = {
+  id: string
+  label: string
+  href: string
+  icon: React.ReactNode
+  color: string
+}
+type NavItem = NavLinkItem | NavDividerItem | NavSocialItem
+
 export function DashboardNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const pathname = usePathname()
 
-  const menuItems = [
+  const menuItems: NavItem[] = [
     // Map - Main Navigation (at the very top)
     {
       id: 'map',
@@ -216,10 +227,10 @@ export function DashboardNav() {
           {/* All Menu Items with Dividers */}
           <ul className="space-y-2">
             {menuItems.map((item, index) => {
-              if (item.type === 'divider') {
+              if ('type' in item && item.type === 'divider') {
                 return <li key={`divider-${index}`} className="my-3 border-t border-gray-200 dark:border-gray-700"></li>
               }
-              if (item.type === 'social-media') {
+              if ('type' in item && item.type === 'social-media') {
                 return null // Handle social media separately below
               }
               return (
@@ -332,10 +343,10 @@ export function DashboardNav() {
           {/* All Menu Items with Dividers */}
           <ul className="space-y-2">
             {menuItems.map((item, index) => {
-              if (item.type === 'divider') {
+              if ('type' in item && item.type === 'divider') {
                 return <li key={`divider-mobile-${index}`} className="my-3 border-t border-gray-200 dark:border-gray-700"></li>
               }
-              if (item.type === 'social-media') {
+              if ('type' in item && item.type === 'social-media') {
                 return null // Handle social media separately below
               }
               return (

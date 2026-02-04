@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 
-interface ProgressCircleProps {
+export interface ProgressCircleProps {
   progress: number // 0-100
   size?: number // diameter in pixels
   strokeWidth?: number

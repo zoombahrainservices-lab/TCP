@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { ReactNode } from 'react'
 
-interface DuoCardProps {
+export interface DuoCardProps {
   children: ReactNode
   className?: string
   delay?: number
