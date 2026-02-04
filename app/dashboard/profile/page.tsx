@@ -59,7 +59,7 @@ export default async function ProfilePage() {
   const longestStreak = Number(gamificationData.longest_streak) || 0
   const levelThreshold = getLevelThreshold(level + 1)
 
-  const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+  const fullName = user.fullName || user.email?.split('@')[0] || 'User'
   const nameParts = fullName.trim().split(' ')
   const firstName = nameParts[0]?.toUpperCase() || 'USER'
   const lastInitial =

@@ -23,7 +23,7 @@ export default async function DashboardPage() {
   const longestStreak = gamificationData?.longest_streak ?? 0
 
   // Format name as "FIRST L." (first name + last initial) like "TOM H."
-  const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+  const fullName = user.fullName || user.email?.split('@')[0] || 'User'
   const nameParts = fullName.trim().split(' ')
   const firstName = nameParts[0]?.toUpperCase() || 'USER'
   const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1]?.[0]?.toUpperCase() + '.' : ''

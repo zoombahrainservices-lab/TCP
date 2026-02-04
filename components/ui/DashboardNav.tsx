@@ -225,15 +225,15 @@ export function DashboardNav() {
               return (
                 <li key={item.id}>
                   <Link
-                    href={item.href}
+                    href={item.href ?? '/'}
                     className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                      isActive(item.href)
+                      isActive(item.href ?? '')
                         ? 'bg-[#0073ba] text-white dark:bg-[#4bc4dc] dark:text-gray-900'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                     style={{ fontFamily: "'Open Sans', sans-serif" }}
                   >
-                    <span style={{ color: isActive(item.href) ? 'currentColor' : item.color }}>
+                    <span style={{ color: isActive(item.href ?? '') ? 'currentColor' : item.color }}>
                       {item.icon}
                     </span>
                     <span className="font-semibold">{item.label}</span>
@@ -341,16 +341,16 @@ export function DashboardNav() {
               return (
                 <li key={item.id}>
                   <Link
-                    href={item.href}
+                    href={item.href ?? '/'}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                      isActive(item.href)
+                      isActive(item.href ?? '')
                         ? 'bg-[#0073ba] text-white dark:bg-[#4bc4dc] dark:text-gray-900'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                     style={{ fontFamily: "'Open Sans', sans-serif" }}
                   >
-                    <span style={{ color: isActive(item.href) ? 'currentColor' : item.color }}>
+                    <span style={{ color: isActive(item.href ?? '') ? 'currentColor' : item.color }}>
                       {item.icon}
                     </span>
                     <span className="font-semibold">{item.label}</span>
