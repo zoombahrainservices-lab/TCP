@@ -1,6 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { completeSectionBlock } from '@/app/actions/chapters'
+import { showXPNotification } from '@/components/gamification/XPNotification'
 
 type ResolutionType = 'text' | 'image' | 'audio' | 'video'
 
@@ -14,6 +17,7 @@ type ProofDraft = {
 }
 
 export default function ResolutionPage() {
+  const router = useRouter()
   const [drafts, setDrafts] = useState<ProofDraft[]>([
     {
       id: 1,
@@ -24,6 +28,7 @@ export default function ResolutionPage() {
   ])
 
   const [nextId, setNextId] = useState(2)
+  const [isProcessing, setIsProcessing] = useState(false)
 
   const handleTypeChange = (id: number, type: ResolutionType) => {
     setDrafts(prev =>
@@ -78,6 +83,35 @@ export default function ResolutionPage() {
     if (type === 'audio') return 'audio/*'
     if (type === 'video') return 'video/*'
     return undefined
+  }
+
+  const handleCompleteResolution = async () => {
+    if (isProcessing) return
+    
+    setIsProcessing(true)
+    try {
+      // Complete resolution/proof section
+      const result = await completeSectionBlock(1, 'proof')
+      
+      console.log('[XP] Resolution section completion result:', result)
+      
+      if (result.success) {
+        const xp = result.xpResult?.xpAwarded ?? 0
+        if (xp > 0) {
+          showXPNotification(xp, 'Resolution Complete!', { reasonCode: result.reasonCode })
+        } else if (result.reasonCode === 'repeat_completion') {
+          showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+        }
+      }
+      
+      // Navigate to follow-through
+      router.push('/chapter/1/follow-through')
+    } catch (error) {
+      console.error('[XP] Error completing resolution:', error)
+      router.push('/chapter/1/follow-through')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   return (
@@ -289,6 +323,17 @@ export default function ResolutionPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Save & Continue Button */}
+          <div className="flex justify-end pt-4">
+            <button
+              onClick={handleCompleteResolution}
+              disabled={isProcessing}
+              className="px-8 py-4 bg-[#673067] hover:bg-[#573057] text-white rounded-xl font-bold text-lg transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isProcessing ? 'Saving...' : 'Save & Continue to Follow-through →'}
+            </button>
           </div>
         </div>
       </div>

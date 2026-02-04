@@ -6,10 +6,13 @@ import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { frameworkScreens } from './framework-screens'
+import { completeSectionBlock } from '@/app/actions/chapters'
+import { showXPNotification } from '@/components/gamification/XPNotification'
 
 export default function FrameworkFullScreenPage() {
   const router = useRouter()
   const [currentScreen, setCurrentScreen] = useState(0)
+  const [isProcessing, setIsProcessing] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const textContentRef = useRef<HTMLDivElement>(null)
   const totalScreens = frameworkScreens.length
@@ -21,11 +24,35 @@ export default function FrameworkFullScreenPage() {
     textContentRef.current?.scrollTo({ top: 0, behavior: 'auto' })
   }, [currentScreen])
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (isProcessing) return
+    
     if (currentScreen < totalScreens - 1) {
       setCurrentScreen(currentScreen + 1)
     } else {
-      router.push('/read/chapter-1/techniques')
+      // Last screen - complete framework section
+      setIsProcessing(true)
+      try {
+        const result = await completeSectionBlock(1, 'framework')
+        
+        console.log('[XP] Framework section completion result:', result)
+        
+        if (result.success) {
+          const xp = result.xpResult?.xpAwarded ?? 0
+          if (xp > 0) {
+            showXPNotification(xp, 'Framework Complete!', { reasonCode: result.reasonCode })
+          } else if (result.reasonCode === 'repeat_completion') {
+            showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+          }
+        }
+        
+        router.push('/read/chapter-1/techniques')
+      } catch (error) {
+        console.error('[XP] Error completing framework:', error)
+        router.push('/read/chapter-1/techniques')
+      } finally {
+        setIsProcessing(false)
+      }
     }
   }
 

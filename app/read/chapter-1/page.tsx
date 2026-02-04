@@ -5,6 +5,8 @@ import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import Image from 'next/image'
+import { completeStep, completeSectionBlock } from '@/app/actions/chapters'
+import { showXPNotification } from '@/components/gamification/XPNotification'
 
 type TitleSlide = {
   isTitleSlide: true
@@ -83,14 +85,66 @@ export default function Chapter1Page() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false) // Check if user is logged in
+  const [isProcessing, setIsProcessing] = useState(false)
   const totalSlides = slideContent.length || 5
 
-  const handleNext = () => {
-    if (currentSlide < totalSlides - 1) {
-      setCurrentSlide(currentSlide + 1)
-    } else {
-      // Chapter complete - go to Self-Check (Chapter 1 assessment)
-      router.push('/chapter/1/assessment')
+  const handleNext = async () => {
+    if (isProcessing) return
+    
+    setIsProcessing(true)
+    
+    try {
+      // Award XP for completing each step
+      const stepId = `CH1-READING-${currentSlide + 1}`
+      
+      // Call completeStep server action (awards daily/streak XP on first activity today)
+      const result = await completeStep(stepId, 1)
+      
+      console.log('[XP] Step completion result:', result)
+
+      // Show streak/daily XP feedback when awarded (first activity of day)
+      if (result.success && result.streakResult?.xpAwarded && result.streakResult.xpAwarded > 0) {
+        const codes = result.streakResult.reasonCodes || []
+        const xp = result.streakResult.xpAwarded
+        if (codes.includes('milestone')) {
+          showXPNotification(xp, `${result.streakResult.milestoneReached}-day streak bonus!`, { reasonCode: 'milestone' })
+        } else {
+          showXPNotification(xp, codes.includes('streak_continued') ? 'Streak continued!' : 'Daily activity')
+        }
+      }
+      if (result.error && 'details' in result) {
+        console.error('[XP] Error:', result.error, '| Step:', (result as { step?: string }).step, '| Details:', result.details, '| Code:', result.code)
+        if (typeof result.details === 'string' && result.details.toLowerCase().includes('does not exist')) {
+          console.error('[XP] FIX: Run supabase/migrations/20260204_chapter_system.sql in Supabase SQL Editor')
+        }
+      }
+      
+      // Check if we just finished the last slide
+      if (currentSlide === totalSlides - 1) {
+        // Complete the reading section
+        const sectionResult = await completeSectionBlock(1, 'reading')
+        console.log('Section completion result:', sectionResult)
+        
+        // Show XP notification (including "Already completed" feedback)
+        if (sectionResult.success) {
+          const xp = sectionResult.xpResult?.xpAwarded ?? 0
+          if (xp > 0) {
+            showXPNotification(xp, 'Reading complete!', { reasonCode: sectionResult.reasonCode })
+          } else if (sectionResult.reasonCode === 'repeat_completion') {
+            showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+          }
+        }
+        
+        // Navigate to assessment
+        router.push('/chapter/1/assessment')
+      } else {
+        // Move to next slide
+        setCurrentSlide(currentSlide + 1)
+      }
+    } catch (error) {
+      console.error('Error completing step:', error)
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -187,21 +241,29 @@ export default function Chapter1Page() {
             transition={{ duration: 0.5 }}
             className="min-h-full w-full bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a] flex flex-col relative overflow-hidden"
           >
-            {/* Decorative Hollow Dots Pattern */}
+            {/* Decorative Hollow Dots Pattern - deterministic to avoid hydration mismatch */}
             <div className="absolute inset-0 opacity-20">
-              {Array.from({ length: 20 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute rounded-full border-2 border-gray-600"
-                  style={{
-                    width: `${Math.random() * 100 + 50}px`,
-                    height: `${Math.random() * 100 + 50}px`,
-                    left: `${Math.random() * 100}%`,
-                    top: `${Math.random() * 100}%`,
-                    opacity: Math.random() * 0.5 + 0.2
-                  }}
-                />
-              ))}
+              {Array.from({ length: 20 }).map((_, i) => {
+                const seed = (i + 1) * 7919
+                const w = 50 + (seed % 100)
+                const h = 50 + ((seed * 31) % 100)
+                const left = seed % 100
+                const top = (seed * 17) % 100
+                const opacity = 0.2 + ((seed % 30) / 100)
+                return (
+                  <div
+                    key={i}
+                    className="absolute rounded-full border-2 border-gray-600"
+                    style={{
+                      width: `${w}px`,
+                      height: `${h}px`,
+                      left: `${left}%`,
+                      top: `${top}%`,
+                      opacity
+                    }}
+                  />
+                )
+              })}
             </div>
 
             {/* Title Content - Centered */}

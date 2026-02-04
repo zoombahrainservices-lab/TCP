@@ -44,6 +44,23 @@
   
   --font-body: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
+  
+  /* Dashboard card styling (match image) */
+  --shadow-soft: 0 10px 35px rgba(15, 23, 42, 0.10);
+  --shadow-card: 0 14px 40px rgba(2, 6, 23, 0.12);
+  --radius-xl2: 22px;
+  --radius-2xl: 26px;
+  --color-brand-50: #F4F9FF;
+  --color-brand-100: #EAF3FF;
+  --color-brand-200: #D8E9FF;
+  --color-brand-300: #B9D6FF;
+  --color-brand-400: #8EBBFF;
+  --color-brand-500: #5C97FF;
+  --color-brand-600: #2E6BFF;
+  --color-brand-700: #1F4ED8;
+  --color-brand-800: #1E3FA8;
+  --color-brand-900: #1B347D;
+  --color-page-bg: #f6f8fc;
 }
 
 /* Remove dark mode override for TCP design */

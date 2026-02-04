@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { submitAssessment, completeSectionBlock } from '@/app/actions/chapters'
+import { showXPNotification } from '@/components/gamification/XPNotification'
 
 interface AssessmentQuestion {
   id: number
@@ -34,9 +37,11 @@ const QUESTIONS_PER_PAGE = 3
 const SHOW_CHAPTER_SIDEBAR = false // Hide Chapter 1 sidebar (Back, milestones, Progress) for now
 
 export default function AssessmentPage() {
+  const router = useRouter()
   const [step, setStep] = useState<'intro' | 'questions' | 'results'>('intro')
   const [questionPage, setQuestionPage] = useState(0)
   const [responses, setResponses] = useState<Record<number, number>>({})
+  const [isProcessing, setIsProcessing] = useState(false)
   const totalQuestionPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE)
   const currentQuestions = questions.slice(
     questionPage * QUESTIONS_PER_PAGE,
@@ -45,6 +50,47 @@ export default function AssessmentPage() {
   
   const handleSliderChange = (questionId: number, value: number) => {
     setResponses(prev => ({ ...prev, [questionId]: value }))
+  }
+
+  const handleCompleteAssessment = async () => {
+    if (isProcessing) return
+    
+    setIsProcessing(true)
+    try {
+      // Submit assessment to database
+      const assessmentResult = await submitAssessment(
+        1, // chapterId
+        'baseline', // assessmentType
+        responses,
+        totalScore
+      )
+      
+      console.log('[XP] Assessment submission result:', assessmentResult)
+      
+      // Complete assessment section
+      const sectionResult = await completeSectionBlock(1, 'assessment')
+      
+      console.log('[XP] Assessment section completion result:', sectionResult)
+      
+      // Show XP notification (including "Already completed" feedback)
+      if (sectionResult.success) {
+        const xp = sectionResult.xpResult?.xpAwarded ?? 0
+        if (xp > 0) {
+          showXPNotification(xp, 'Self-Check Complete!', { reasonCode: sectionResult.reasonCode })
+        } else if (sectionResult.reasonCode === 'repeat_completion') {
+          showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+        }
+      }
+      
+      // Navigate to framework
+      router.push('/read/chapter-1/framework')
+    } catch (error) {
+      console.error('[XP] Error completing assessment:', error)
+      // Still navigate even if XP fails
+      router.push('/read/chapter-1/framework')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const allQuestionsAnswered = questions.every(q => responses[q.id] !== undefined)
@@ -385,15 +431,17 @@ export default function AssessmentPage() {
               <button
                 onClick={() => setStep('questions')}
                 className="py-4 px-6 bg-gray-200 text-[var(--color-charcoal)] rounded-xl font-bold text-lg hover:bg-gray-300 transition"
+                disabled={isProcessing}
               >
                 ← Retake
               </button>
-              <Link
-                href="/read/chapter-1/framework"
-                className="flex-1 py-4 px-6 bg-[#ff6a38] text-white rounded-xl font-bold text-lg hover:bg-[#ff5a28] transition text-center"
+              <button
+                onClick={handleCompleteAssessment}
+                disabled={isProcessing}
+                className="flex-1 py-4 px-6 bg-[#ff6a38] text-white rounded-xl font-bold text-lg hover:bg-[#ff5a28] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Continue to Framework →
-              </Link>
+                {isProcessing ? 'Saving...' : 'Continue to Framework →'}
+              </button>
             </div>
           </motion.div>
         )}

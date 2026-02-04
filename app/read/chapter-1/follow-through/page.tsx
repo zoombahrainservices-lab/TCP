@@ -6,10 +6,13 @@ import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { followThroughScreens } from './follow-through-screens'
+import { completeSectionBlock, completeChapter } from '@/app/actions/chapters'
+import { showXPNotification } from '@/components/gamification/XPNotification'
 
 export default function FollowThroughFullScreenPage() {
   const router = useRouter()
   const [currentScreen, setCurrentScreen] = useState(0)
+  const [isProcessing, setIsProcessing] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const textContentRef = useRef<HTMLDivElement>(null)
   const totalScreens = followThroughScreens.length
@@ -21,11 +24,47 @@ export default function FollowThroughFullScreenPage() {
     textContentRef.current?.scrollTo({ top: 0, behavior: 'auto' })
   }, [currentScreen])
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (isProcessing) return
+    
     if (currentScreen < totalScreens - 1) {
       setCurrentScreen(currentScreen + 1)
     } else {
-      router.push('/dashboard')
+      // Last screen - complete follow-through section AND entire chapter
+      setIsProcessing(true)
+      try {
+        // Complete follow-through section
+        const sectionResult = await completeSectionBlock(1, 'follow_through')
+        
+        console.log('[XP] Follow-through section completion result:', sectionResult)
+        
+        // Complete entire chapter (awards chapter bonus)
+        const chapterResult = await completeChapter(1)
+        
+        console.log('[XP] Chapter completion result:', chapterResult)
+        
+        // Show XP notification with total and reason feedback
+        let totalXP = 0
+        const sectionXP = sectionResult.success && sectionResult.xpResult ? sectionResult.xpResult.xpAwarded : 0
+        const chapterXP = chapterResult.success && chapterResult.xpResult ? chapterResult.xpResult.xpAwarded : 0
+        totalXP = sectionXP + chapterXP
+
+        if (totalXP > 0) {
+          showXPNotification(totalXP, 'Chapter 1 Complete! 🎉', {
+            reasonCode: chapterResult.reasonCode as 'first_time' | 'repeat_completion',
+          })
+        } else if (sectionResult.reasonCode === 'repeat_completion' || chapterResult.reasonCode === 'repeat_completion') {
+          showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+        }
+        
+        // Navigate to dashboard
+        router.push('/dashboard')
+      } catch (error) {
+        console.error('[XP] Error completing follow-through:', error)
+        router.push('/dashboard')
+      } finally {
+        setIsProcessing(false)
+      }
     }
   }
 
