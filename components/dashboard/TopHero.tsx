@@ -25,9 +25,6 @@ function LevelAvatar({ level }: { level: number }) {
           className="rounded-full object-cover"
         />
       </div>
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2 py-[2px] shadow-md ring-1 ring-white">
-        <span className="text-[10px] font-black text-white leading-none">Level {level}</span>
-      </div>
     </div>
   )
 }
@@ -54,24 +51,24 @@ export default function TopHero({
   const filledSegments = Math.ceil((progressPercent / 100) * 5)
 
   return (
-    <section className="rounded-[26px] bg-white shadow-[0_10px_35px_rgba(15,23,42,0.08)] ring-1 ring-slate-100">
+    <section className="rounded-[26px] bg-white dark:bg-[#020617] shadow-[0_10px_35px_rgba(15,23,42,0.08)] ring-1 ring-slate-100 dark:ring-slate-800 transition-colors duration-300">
       <div className="relative overflow-hidden rounded-[26px] px-5 py-6">
-        {/* Pink/Blue gradient background wash - matches design */}
+        {/* Pink/Blue gradient background wash */}
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-20 -top-20 h-80 w-80 rounded-full bg-gradient-to-br from-pink-200/60 to-pink-100/40 blur-3xl" />
-          <div className="absolute left-1/3 top-0 h-60 w-60 rounded-full bg-blue-100/50 blur-3xl" />
-          <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-amber-100/40 blur-3xl" />
+          <div className="absolute -left-20 -top-20 h-80 w-80 rounded-full bg-gradient-to-br from-pink-200/60 to-pink-100/40 blur-3xl dark:opacity-20" />
+          <div className="absolute left-1/3 top-0 h-60 w-60 rounded-full bg-blue-100/50 blur-3xl dark:opacity-10" />
+          <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-amber-100/40 blur-3xl dark:opacity-10" />
         </div>
 
         <div className="relative flex flex-col lg:flex-row items-center gap-6">
           {/* Left: User XP Card with hero avatar */}
-          <div className="flex w-full lg:w-auto lg:min-w-[320px] items-center gap-3 rounded-2xl bg-white/80 backdrop-blur-sm px-4 py-3 shadow-sm ring-1 ring-slate-200/60">
+          <div className="flex w-full lg:w-auto lg:min-w-[320px] items-center gap-3 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-4 py-3 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-800 transition-colors duration-300">
             <LevelAvatar level={level} />
             <div className="flex-1 min-w-0">
-              <div className="text-xl font-black text-slate-800 tracking-tight">{userName}</div>
+              <div className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{userName}</div>
               <div className="mt-1.5 flex items-center gap-3">
-                <div className="text-sm font-bold text-slate-600">{totalXP} XP</div>
-                <div className="h-2.5 flex-1 min-w-[100px] overflow-hidden rounded-full bg-slate-200">
+                <div className="text-sm font-bold text-slate-600 dark:text-slate-300">{totalXP} XP</div>
+                <div className="h-2.5 flex-1 min-w-[100px] overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all"
                     style={{ width: `${progressPercent}%` }}
@@ -82,15 +79,15 @@ export default function TopHero({
           </div>
 
           {/* Right: Level Progress + CTA */}
-          <div className="flex w-full lg:w-auto lg:min-w-[340px] items-center justify-between gap-4 rounded-2xl bg-white/80 backdrop-blur-sm px-4 py-3 shadow-sm ring-1 ring-slate-200/60 lg:ml-auto">
+          <div className="flex w-full lg:w-auto lg:min-w-[340px] items-center justify-between gap-4 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-4 py-3 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-800 lg:ml-auto transition-colors duration-300">
             <div className="flex items-center gap-3">
               <PillIcon>
                 <span className="text-xl">🏆</span>
               </PillIcon>
               <div>
-                <div className="text-xl font-black text-slate-800">Level {level}</div>
+                <div className="text-xl font-black text-slate-800 dark:text-slate-100">Level {level}</div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-bold text-slate-600">{totalXP} / {nextThreshold}</span>
+                  <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{totalXP} / {nextThreshold}</span>
                   <div className="flex gap-1">
                     {[0, 1, 2, 3, 4].map((i) => (
                       <span

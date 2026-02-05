@@ -21,19 +21,15 @@ export function MainWithBackground({ children }: { children: React.ReactNode }) 
 
   return (
     <main
-      className="flex-1 overflow-y-auto w-full pb-safe relative"
-      style={
+      className={`flex-1 overflow-y-auto w-full pb-safe relative ${
         showBackground
-          ? {
-              backgroundImage: 'url(/BG.png)',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-            }
-          : undefined
-      }
+          ? "bg-[url('/BG.png')] dark:bg-[url('/dbg.png')] bg-cover bg-center bg-no-repeat"
+          : ''
+      }`}
     >
-      {children}
+      <div className="relative z-10">
+        {children}
+      </div>
     </main>
   )
 }

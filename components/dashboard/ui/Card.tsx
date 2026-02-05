@@ -9,7 +9,7 @@ export default function Card({
 }) {
   return (
     <div
-      className={`rounded-[22px] bg-white shadow-[0_10px_35px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/60 ${className}`}
+      className={`rounded-[22px] bg-white dark:bg-[#020617] shadow-[0_10px_35px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/60 dark:ring-slate-800 transition-colors duration-300 ${className}`}
     >
       {children}
     </div>

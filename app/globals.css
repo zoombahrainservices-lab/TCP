@@ -75,6 +75,7 @@ html {
 }
 
 body {
+  position: relative;
   background: var(--color-offwhite);
   color: var(--color-charcoal);
   font-family: var(--font-body);
@@ -85,6 +86,20 @@ body {
   /* Fix for iOS Safari viewport height */
   min-height: 100vh;
   min-height: -webkit-fill-available;
+}
+
+.dark body {
+  background: transparent;
+  color: #e5e7eb;
+}
+
+/* 50% dark tint over background image in dark mode */
+/* Make headings white in dark mode, regardless of text-slate-* classes */
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4 {
+  color: #f9fafb;
 }
 
 /* iOS Safari bottom padding fix */

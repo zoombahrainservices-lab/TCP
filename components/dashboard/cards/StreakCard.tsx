@@ -28,8 +28,8 @@ export default function StreakCard({
             <span className="text-2xl">🔥</span>
           </div>
           <div>
-            <h2 className="text-2xl font-black text-slate-800">Streak</h2>
-            <div className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-slate-500">
+            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Streak</h2>
+            <div className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-slate-500 dark:text-slate-300">
               <span>🔥</span>
               <span>Day {currentStreak} Streak</span>
             </div>
@@ -38,13 +38,13 @@ export default function StreakCard({
 
         {/* Stats boxes */}
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/60">
+          <div className="rounded-2xl bg-slate-50/80 dark:bg-slate-900/70 p-4 ring-1 ring-slate-200/60 dark:ring-slate-800">
             <div className="text-lg mb-1">🔥</div>
-            <div className="text-xl font-black text-slate-800">{currentStreak} Days</div>
+            <div className="text-xl font-black text-slate-800 dark:text-slate-100">{currentStreak} Days</div>
           </div>
-          <div className="rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/60">
+          <div className="rounded-2xl bg-slate-50/80 dark:bg-slate-900/70 p-4 ring-1 ring-slate-200/60 dark:ring-slate-800">
             <div className="text-lg mb-1">🔥</div>
-            <div className="text-xl font-black text-slate-800">{longestStreak} Days</div>
+            <div className="text-xl font-black text-slate-800 dark:text-slate-100">{longestStreak} Days</div>
           </div>
         </div>
       </div>
