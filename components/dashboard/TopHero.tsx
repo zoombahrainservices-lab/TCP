@@ -13,6 +13,25 @@ function PillIcon({ children }: { children: React.ReactNode }) {
   )
 }
 
+function LevelAvatar({ level }: { level: number }) {
+  return (
+    <div className="relative h-14 w-14 rounded-full bg-gradient-to-b from-amber-200 to-amber-400 p-[3px] shadow-md flex-shrink-0">
+      <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+        <Image
+          src="/slider-work-on-quizz/chapter1/chaper1-1.jpeg"
+          alt="Avatar"
+          width={52}
+          height={52}
+          className="rounded-full object-cover"
+        />
+      </div>
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2 py-[2px] shadow-md ring-1 ring-white">
+        <span className="text-[10px] font-black text-white leading-none">Level {level}</span>
+      </div>
+    </div>
+  )
+}
+
 export default function TopHero({
   userName,
   totalXP,
@@ -45,11 +64,9 @@ export default function TopHero({
         </div>
 
         <div className="relative flex flex-col lg:flex-row items-center gap-6">
-          {/* Left: User XP Card */}
-          <div className="flex w-full lg:w-auto lg:min-w-[280px] items-center gap-4 rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-sm ring-1 ring-slate-200/60">
-            <PillIcon>
-              <span className="text-xl">🏆</span>
-            </PillIcon>
+          {/* Left: User XP Card with hero avatar */}
+          <div className="flex w-full lg:w-auto lg:min-w-[320px] items-center gap-3 rounded-2xl bg-white/80 backdrop-blur-sm px-4 py-3 shadow-sm ring-1 ring-slate-200/60">
+            <LevelAvatar level={level} />
             <div className="flex-1 min-w-0">
               <div className="text-xl font-black text-slate-800 tracking-tight">{userName}</div>
               <div className="mt-1.5 flex items-center gap-3">
@@ -64,41 +81,15 @@ export default function TopHero({
             </div>
           </div>
 
-          {/* Center: Avatar with Level Badge */}
-          <div className="relative flex-1 flex justify-center py-2">
-            <div className="relative">
-              {/* Avatar circle with gradient border */}
-              <div className="relative h-[100px] w-[100px] rounded-full bg-gradient-to-b from-amber-200 to-amber-400 p-1 shadow-lg">
-                <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                  <Image
-                    src="/slider-work-on-quizz/chapter1/chaper1-1.jpeg"
-                    alt="Avatar"
-                    width={90}
-                    height={90}
-                    className="rounded-full object-cover"
-                  />
-                </div>
-                {/* Star badge */}
-                <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center shadow-md ring-2 ring-white">
-                  <span className="text-white text-sm">⭐</span>
-                </div>
-              </div>
-              {/* Level badge below avatar */}
-              <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-1.5 shadow-md">
-                <span className="text-sm font-black text-white whitespace-nowrap">Level {level}</span>
-              </div>
-            </div>
-          </div>
-
           {/* Right: Level Progress + CTA */}
-          <div className="flex w-full lg:w-auto lg:min-w-[340px] items-center justify-between gap-4 rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-sm ring-1 ring-slate-200/60">
-            <div className="flex items-center gap-4">
+          <div className="flex w-full lg:w-auto lg:min-w-[340px] items-center justify-between gap-4 rounded-2xl bg-white/80 backdrop-blur-sm px-4 py-3 shadow-sm ring-1 ring-slate-200/60 lg:ml-auto">
+            <div className="flex items-center gap-3">
               <PillIcon>
                 <span className="text-xl">🏆</span>
               </PillIcon>
               <div>
                 <div className="text-xl font-black text-slate-800">Level {level}</div>
-                <div className="mt-1.5 flex items-center gap-2">
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold text-slate-600">{totalXP} / {nextThreshold}</span>
                   <div className="flex gap-1">
                     {[0, 1, 2, 3, 4].map((i) => (
@@ -118,7 +109,7 @@ export default function TopHero({
 
             <Link
               href="/read/chapter-1"
-              className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-400 px-5 py-3 text-sm font-black text-white shadow-md hover:shadow-lg hover:brightness-105 transition-all"
+              className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-400 px-5 py-2.5 text-xs sm:text-sm font-black text-white shadow-md hover:brightness-105 transition-all"
             >
               Continue Chapter 1 →
             </Link>

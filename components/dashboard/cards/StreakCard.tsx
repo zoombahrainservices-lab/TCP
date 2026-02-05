@@ -10,7 +10,7 @@ export default function StreakCard({
   longestStreak?: number
 }) {
   return (
-    <Card className="relative overflow-hidden h-full">
+    <Card className="relative overflow-hidden">
       {/* Subtle gradient wash */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-amber-100/50 blur-2xl" />

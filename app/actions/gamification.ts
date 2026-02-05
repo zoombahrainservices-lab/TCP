@@ -274,7 +274,8 @@ export async function updateStreak(userId: string): Promise<StreakResult> {
   const newStreak = streakContinued ? userData.current_streak + 1 : 1
   const streakRunId = (userData.streak_run_id ?? 1) + (streakContinued ? 0 : 1)
   
-  const { error: updateErr } = await supabase
+  // Primary path: update including streak_run_id (requires 20260206_xp_quality.sql migration)
+  let { error: updateErr } = await supabase
     .from('user_gamification')
     .update({
       current_streak: newStreak,
@@ -284,6 +285,29 @@ export async function updateStreak(userId: string): Promise<StreakResult> {
       updated_at: new Date().toISOString()
     })
     .eq('user_id', userId)
+
+  // Fallback: if the column streak_run_id does not exist (migration not yet applied),
+  // retry without touching that column so streaks still work.
+  if (updateErr && typeof updateErr.message === 'string' && updateErr.message.includes('streak_run_id')) {
+    console.error(
+      '[XP] user_gamification.streak_run_id column missing. ' +
+      'Run supabase/migrations/20260206_xp_quality.sql to enable full streak features. ' +
+      'Falling back to update without streak_run_id.'
+    )
+
+    const fallback = await supabase
+      .from('user_gamification')
+      .update({
+        current_streak: newStreak,
+        longest_streak: Math.max(userData.longest_streak, newStreak),
+        last_active_date: today,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+
+    updateErr = fallback.error
+  }
+
   if (updateErr) {
     throw new Error(`user_gamification streak update failed: ${updateErr.message}`)
   }

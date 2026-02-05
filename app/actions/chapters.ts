@@ -46,24 +46,74 @@ export async function completeStep(
   
   try {
     const now = new Date().toISOString()
-    const { error: stepError } = await supabase
+    const payload = {
+      user_id: userId,
+      step_id: stepId,
+      status: 'completed' as const,
+      completed_at: now,
+    }
+
+    // Primary path: use upsert with ON CONFLICT on (user_id, step_id)
+    let stepErrorResult = await supabase
       .from('step_completions')
-      .upsert(
-        {
-          user_id: userId,
-          step_id: stepId,
-          status: 'completed',
-          completed_at: now,
-        },
-        { onConflict: 'user_id,step_id', ignoreDuplicates: false }
+      .upsert(payload, { onConflict: 'user_id,step_id', ignoreDuplicates: false })
+
+    // If the schema is missing the UNIQUE constraint (migration not run),
+    // Postgres returns 42P10: "there is no unique or exclusion constraint matching the ON CONFLICT specification".
+    if (stepErrorResult.error && stepErrorResult.error.code === '42P10') {
+      console.error(
+        '[XP] step_completions upsert failed due to missing UNIQUE constraint on (user_id, step_id).',
+        'Falling back to manual insert/update. Consider running supabase/migrations/20260206_xp_quality.sql.'
       )
-    
-    if (stepError) {
-      console.error('Error recording step completion:', stepError)
+
+      // Fallback path: emulate "insert or update" without relying on ON CONFLICT
+      const { data: existing, error: selectErr } = await supabase
+        .from('step_completions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('step_id', stepId)
+        .maybeSingle()
+
+      if (selectErr) {
+        console.error('Error querying step_completions during fallback:', selectErr)
+        return {
+          error: 'Failed to record step completion',
+          details: selectErr.message,
+          code: selectErr.code,
+        }
+      }
+
+      if (!existing) {
+        const { error: insertErr } = await supabase.from('step_completions').insert(payload)
+        if (insertErr) {
+          console.error('Error inserting step completion during fallback:', insertErr)
+          return {
+            error: 'Failed to record step completion',
+            details: insertErr.message,
+            code: insertErr.code,
+          }
+        }
+      } else {
+        const { error: updateErr } = await supabase
+          .from('step_completions')
+          .update({ status: 'completed', completed_at: now })
+          .eq('id', existing.id)
+
+        if (updateErr) {
+          console.error('Error updating step completion during fallback:', updateErr)
+          return {
+            error: 'Failed to record step completion',
+            details: updateErr.message,
+            code: updateErr.code,
+          }
+        }
+      }
+    } else if (stepErrorResult.error) {
+      console.error('Error recording step completion:', stepErrorResult.error)
       return { 
         error: 'Failed to record step completion', 
-        details: stepError.message,
-        code: stepError.code
+        details: stepErrorResult.error.message,
+        code: stepErrorResult.error.code,
       }
     }
     

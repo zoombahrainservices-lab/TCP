@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { completeSectionBlock } from '@/app/actions/chapters'
 import { showXPNotification } from '@/components/gamification/XPNotification'
+import { createClient } from '@/lib/supabase/client'
+import { saveIdentityResolutionForChapter1, type IdentityResolutionData } from '@/app/actions/identity'
 
 type ResolutionType = 'text' | 'image' | 'audio' | 'video'
 
@@ -14,10 +16,38 @@ type ProofDraft = {
   notes: string
   file?: File
   previewUrl?: string
+  durationMs?: number
+}
+
+function pickBestMimeType(): string | undefined {
+  if (typeof window === 'undefined') return undefined
+  if (typeof MediaRecorder === 'undefined') return undefined
+
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/ogg',
+    'audio/mp4', // Safari sometimes
+  ]
+
+  for (const t of candidates) {
+    if (typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(t)) return t
+  }
+  return undefined
+}
+
+function extForMime(mimeType: string): string {
+  const t = mimeType.toLowerCase()
+  if (t.includes('webm')) return 'webm'
+  if (t.includes('ogg')) return 'ogg'
+  if (t.includes('mp4')) return 'm4a'
+  return 'dat'
 }
 
 export default function ResolutionPage() {
   const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
   const [drafts, setDrafts] = useState<ProofDraft[]>([
     {
       id: 1,
@@ -29,12 +59,37 @@ export default function ResolutionPage() {
 
   const [nextId, setNextId] = useState(2)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const recordingDraftIdRef = useRef<number | null>(null)
+  const [recordingDraftId, setRecordingDraftId] = useState<number | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<BlobPart[]>([])
+  const streamRef = useRef<MediaStream | null>(null)
+  const startedAtRef = useRef<number>(0)
+
+  useEffect(() => {
+    return () => {
+      // Cleanup object URLs + mic stream on unmount
+      setDrafts(prev => {
+        prev.forEach(d => {
+          if (d.previewUrl && d.previewUrl.startsWith('blob:')) URL.revokeObjectURL(d.previewUrl)
+        })
+        return prev
+      })
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleTypeChange = (id: number, type: ResolutionType) => {
     setDrafts(prev =>
       prev.map(item =>
         item.id === id
-          ? { ...item, type, file: undefined, previewUrl: undefined }
+          ? (() => {
+              if (item.previewUrl && item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl)
+              return { ...item, type, file: undefined, previewUrl: undefined, durationMs: undefined }
+            })()
           : item
       )
     )
@@ -56,7 +111,12 @@ export default function ResolutionPage() {
 
     setDrafts(prev =>
       prev.map(item =>
-        item.id === id ? { ...item, file, previewUrl } : item
+        item.id === id
+          ? (() => {
+              if (item.previewUrl && item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl)
+              return { ...item, file, previewUrl, durationMs: undefined }
+            })()
+          : item
       )
     )
   }
@@ -85,11 +145,182 @@ export default function ResolutionPage() {
     return undefined
   }
 
+  const startAudioRecording = async (draftId: number) => {
+    setSaveError(null)
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setSaveError('Microphone recording is not supported in this browser.')
+      return
+    }
+    if (typeof MediaRecorder === 'undefined') {
+      setSaveError('MediaRecorder is not available in this browser.')
+      return
+    }
+    if (recordingDraftIdRef.current != null) return
+
+    // Stop any previous stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      chunksRef.current = []
+      startedAtRef.current = Date.now()
+      recordingDraftIdRef.current = draftId
+      setRecordingDraftId(draftId)
+
+      const mimeType = pickBestMimeType()
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
+      recorderRef.current = recorder
+
+      recorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data)
+      }
+
+      recorder.onstop = () => {
+        const stoppedAt = Date.now()
+        const durationMs = Math.max(0, stoppedAt - startedAtRef.current)
+        const blob = new Blob(chunksRef.current, {
+          type: recorder.mimeType || mimeType || 'application/octet-stream',
+        })
+
+        const blobUrl = URL.createObjectURL(blob)
+        const contentType = blob.type || recorder.mimeType || mimeType || 'application/octet-stream'
+        const ext = extForMime(contentType)
+        const file = new File([blob], `recording-${Date.now()}.${ext}`, { type: contentType })
+
+        const targetId = recordingDraftIdRef.current
+        recordingDraftIdRef.current = null
+        setRecordingDraftId(null)
+        recorderRef.current = null
+
+        // Release mic
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop())
+          streamRef.current = null
+        }
+
+        if (targetId == null) return
+
+        setDrafts(prev =>
+          prev.map(item => {
+            if (item.id !== targetId) return item
+            if (item.previewUrl && item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl)
+            return { ...item, file, previewUrl: blobUrl, durationMs }
+          })
+        )
+      }
+
+      recorder.start()
+    } catch (error: any) {
+      recordingDraftIdRef.current = null
+      setRecordingDraftId(null)
+      setSaveError(error?.message ?? 'Could not start microphone recording.')
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+      }
+    }
+  }
+
+  const stopAudioRecording = () => {
+    setSaveError(null)
+    try {
+      // Stop mic immediately so the browser tab recording icon turns off
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+      }
+      recorderRef.current?.stop()
+    } catch (error: any) {
+      setSaveError(error?.message ?? 'Could not stop recording.')
+      recordingDraftIdRef.current = null
+      setRecordingDraftId(null)
+      recorderRef.current = null
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+      }
+    }
+  }
+
   const handleCompleteResolution = async () => {
     if (isProcessing) return
+    if (recordingDraftIdRef.current != null) {
+      setSaveError('Stop recording before saving.')
+      return
+    }
     
     setIsProcessing(true)
+    setSaveError(null)
     try {
+      // Save identity resolution (chapter 1) using the first text proof, if present
+      const firstTextDraft = drafts.find(d => d.type === 'text' && d.notes.trim().length > 0)
+      if (firstTextDraft) {
+        const identityPayload: IdentityResolutionData = {
+          identity: firstTextDraft.notes.trim(),
+          value1: '',
+          value2: '',
+          value3: '',
+          commitment: '',
+          daily1: '',
+          daily2: '',
+          daily3: '',
+          noLonger: '',
+          why: '',
+        }
+        try {
+          await saveIdentityResolutionForChapter1(identityPayload)
+        } catch (err) {
+          console.error('[Identity] Failed to save identityResolution:', err)
+          // Don’t block the rest of the resolution flow if this fails
+        }
+      }
+
+      // Save audio proofs as artifacts (optional; does not block XP if none)
+      const audioDrafts = drafts.filter(d => d.type === 'audio' && d.file)
+      if (audioDrafts.length > 0) {
+        const { data: userData, error: userErr } = await supabase.auth.getUser()
+        if (userErr) throw userErr
+        const user = userData.user
+        if (!user) throw new Error('You must be signed in to save audio proof.')
+
+        for (const d of audioDrafts) {
+          const file = d.file!
+          const contentType = file.type || 'application/octet-stream'
+          const ext = extForMime(contentType)
+          const storagePath = `${user.id}/proof-${crypto.randomUUID()}.${ext}`
+
+          const { data: upData, error: upErr } = await supabase.storage
+            .from('voice-messages')
+            .upload(storagePath, file, { contentType, upsert: false })
+          if (upErr) throw upErr
+
+          const artifactPayload = {
+            user_id: user.id,
+            chapter_id: 1,
+            type: 'proof',
+            data: {
+              resolutionType: 'audio',
+              title: d.title,
+              notes: d.notes,
+              durationMs: d.durationMs ?? null,
+              storage: {
+                bucket: 'voice-messages',
+                path: upData.path,
+              },
+              contentType,
+            },
+          }
+
+          const { error: artErr } = await supabase.from('artifacts').insert(artifactPayload)
+          if (artErr) throw artErr
+        }
+      }
+
       // Complete resolution/proof section
       const result = await completeSectionBlock(1, 'proof')
       
@@ -108,7 +339,11 @@ export default function ResolutionPage() {
       router.push('/chapter/1/follow-through')
     } catch (error) {
       console.error('[XP] Error completing resolution:', error)
-      router.push('/chapter/1/follow-through')
+      // If the error is from saving proof, keep the user here to retry.
+      const msg = (error as any)?.message ?? 'Failed to save your proof. Please try again.'
+      setSaveError(msg)
+      setIsProcessing(false)
+      return
     } finally {
       setIsProcessing(false)
     }
@@ -117,96 +352,77 @@ export default function ResolutionPage() {
   return (
     <div className="min-h-full bg-[var(--color-offwhite)] dark:bg-[#142A4A]">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Header block (matches screenshot) */}
-        <div className="relative rounded-3xl bg-gradient-to-r from-white to-[#fff3d9] dark:from-[#0f2038] dark:to-[#142A4A] border border-gray-200/70 dark:border-gray-700/70 px-6 sm:px-8 py-6 sm:py-8 mb-6 overflow-hidden">
-          <div className="relative z-10 max-w-3xl">
-            <h1 className="text-4xl sm:text-5xl font-black text-[var(--color-charcoal)] dark:text-white mb-3">
-              Resolution
-            </h1>
-            <p className="text-[var(--color-gray)] dark:text-gray-300 text-base sm:text-lg leading-relaxed">
-              Show your real-life <span className="font-bold text-[var(--color-charcoal)] dark:text-white">comeback and progress</span> here!
-              Log conversations, tiny risks you took, screenshots of progress, and more. Each example is proof that you&apos;re living what you&apos;re learning.
-            </p>
-          </div>
-
-          {/* Right-side illustration (inline SVG so it always exists) */}
-          <div className="hidden sm:block absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 opacity-95">
-            <svg width="170" height="120" viewBox="0 0 170 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="78" y="18" width="78" height="92" rx="18" fill="#EAF6FF"/>
-              <rect x="86" y="26" width="62" height="76" rx="14" fill="#FFFFFF"/>
-              <rect x="92" y="38" width="50" height="6" rx="3" fill="#D8E7F4"/>
-              <rect x="92" y="52" width="42" height="6" rx="3" fill="#D8E7F4"/>
-              <rect x="92" y="66" width="48" height="6" rx="3" fill="#D8E7F4"/>
-              <rect x="92" y="80" width="36" height="6" rx="3" fill="#D8E7F4"/>
-              <path d="M67 88c8-18 22-27 41-27" stroke="#F7B418" strokeWidth="10" strokeLinecap="round"/>
-              <path d="M58 95l19-10" stroke="#FF6A38" strokeWidth="10" strokeLinecap="round"/>
-              <circle cx="63" cy="89" r="10" fill="#FFE6A6"/>
-            </svg>
-          </div>
+        {/* Page heading */}
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-3xl sm:text-4xl font-black text-[var(--color-charcoal)] dark:text-white">
+            Resolution
+          </h1>
+          <p className="mt-2 text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-300">
+            Show your real-life comeback and progress here. Use the identity example below, then log your proof.
+          </p>
         </div>
 
-        {/* Main card (Ready to Log Your Comeback?) */}
-        <div className="space-y-4">
+          {/* Identity + proof UI */}
+        <div className="space-y-6">
+          {saveError && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-5 sm:px-6 py-4 text-sm font-semibold text-red-800">
+              {saveError}
+            </div>
+          )}
+
+          {/* 1st card: Identity (heading: identityResolution) */}
+          <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-md overflow-hidden">
+            <div className="px-6 sm:px-8 py-6 bg-gradient-to-r from-[#E8F4F8] to-[#F3F8FF] dark:from-[#173748] dark:to-[#142A4A] border-b border-gray-200/70 dark:border-gray-700/70 flex items-start gap-3">
+              <div className="mt-0.5 w-10 h-10 rounded-xl bg-[#34d399]/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">🌱</span>
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-xl sm:text-2xl font-black text-[var(--color-charcoal)] dark:text-white leading-tight mb-1">
+                  identityResolution
+                </h2>
+                <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-300">
+                  This is your anchor statement for Chapter 1. Use it as inspiration for one of your proof entries
+                  below.
+                </p>
+                <div className="mt-3 rounded-2xl bg-white/90 dark:bg-gray-900/90 border border-amber-100/80 dark:border-amber-500/40 px-4 py-3 shadow-sm">
+                  <p className="text-sm sm:text-base text-[var(--color-charcoal)] dark:text-gray-100">
+                    <span className="font-bold">Example:&nbsp;</span>
+                    <span className="font-semibold">
+                      My focus is [MY GOAL] and I&apos;m committed to achieving it. I take responsibility for my progress
+                      by doing [SPECIFIC ACTION] consistently. I&apos;m removing [DISTRACTIONS / EXCUSES] and staying
+                      disciplined. I know results come from effort. I feel [DETERMINED / FOCUSED] moving forward.
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* 2nd card: Write your response */}
           {drafts.map((item, idx) => (
-            <div key={item.id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+            <div key={item.id} className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
               {/* Card header strip */}
-              <div className="px-5 sm:px-6 py-4 bg-gradient-to-r from-[#E8F4F8] to-[#F3F8FF] dark:from-[#173748] dark:to-[#142A4A] border-b border-gray-200/70 dark:border-gray-700/70 flex items-start gap-3">
-                <div className="mt-0.5 w-9 h-9 rounded-xl bg-[#ffd93d]/25 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xl">💡</span>
+              <div className="px-6 sm:px-8 py-6 bg-gradient-to-r from-[#FFFDF5] via-[#FFF8E7] to-[#FFEED0] dark:from-[#2A2416] dark:via-[#2A2416] dark:to-[#3A301A] border-b border-amber-100/70 dark:border-amber-500/40 flex items-start gap-3">
+                <div className="mt-0.5 w-10 h-10 rounded-xl bg-[#ffd93d]/25 flex items-center justify-center flex-shrink-0">
+                  <span className="text-2xl">💡</span>
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-lg sm:text-xl font-black text-[var(--color-charcoal)] dark:text-white leading-tight">
-                    Ready to Log Your Comeback?
+                  <h2 className="text-xl sm:text-2xl font-black text-[var(--color-charcoal)] dark:text-white leading-tight">
+                    Write your response here.
                   </h2>
-                  <p className="text-sm text-[var(--color-gray)] dark:text-gray-300">
-                    What proof do you want to show today?
+                  <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-300">
+                    Use this space to write what your identity actually looks like in real life.
                   </p>
                 </div>
               </div>
 
               {/* Form body */}
-              <div className="px-5 sm:px-6 py-5 bg-white dark:bg-gray-900">
-                <div className="grid grid-cols-1 gap-4">
-                  {/* Title row with select */}
-                  <div>
-                    <div className="flex items-center justify-between gap-3 mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-[#f7b418]/15 text-[#f7b418] flex items-center justify-center">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 20h9" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-                          </svg>
-                        </div>
-                        <span className="text-sm font-bold text-[var(--color-charcoal)] dark:text-white">
-                          Title
-                        </span>
-                      </div>
-
-                      <select
-                        value={item.type}
-                        onChange={(e) => handleTypeChange(item.id, e.target.value as ResolutionType)}
-                        className="text-xs sm:text-sm rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-[var(--color-charcoal)] dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#f7b418]"
-                      >
-                        <option value="text">Text note</option>
-                        <option value="image">Image</option>
-                        <option value="audio">Audio</option>
-                        <option value="video">Video</option>
-                      </select>
-                    </div>
-
-                    <input
-                      value={item.title}
-                      onChange={(e) => handleTitleChange(item.id, e.target.value)}
-                      placeholder="e.g. Talked to my debate coach about my phone habits"
-                      className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-[var(--color-charcoal)] dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#f7b418]"
-                    />
-                  </div>
-
-                  {/* What happened */}
+              <div className="px-6 sm:px-8 py-7 bg-[#FFFDF5] dark:bg-[#2A2416]">
+                <div className="grid grid-cols-1 gap-5">
+                  {/* Proof field */}
                   <div>
                     <div className="flex items-center justify-between gap-3 mb-2">
                       <span className="text-sm font-bold text-[var(--color-charcoal)] dark:text-white">
-                        What Happened?
+                        Proof
                       </span>
                       {drafts.length > 1 && (
                         <button
@@ -225,11 +441,37 @@ export default function ResolutionPage() {
                         value={item.notes}
                         onChange={(e) => handleNotesChange(item.id, e.target.value)}
                         rows={4}
-                        placeholder="Describe what you did, how it went, and what you learned"
+                        placeholder="Write your identity statement here"
                         className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-[var(--color-charcoal)] dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#f7b418] resize-none"
                       />
                     ) : (
                       <div className="space-y-3">
+                        {item.type === 'audio' && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {recordingDraftId === item.id ? (
+                              <button
+                                type="button"
+                                onClick={stopAudioRecording}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-sm shadow-sm transition"
+                              >
+                                <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+                                Stop recording
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => startAudioRecording(item.id)}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0073ba] hover:bg-[#0567a5] text-white font-black text-sm shadow-sm transition"
+                              >
+                                <span className="text-lg leading-none">🎙️</span>
+                                Record audio
+                              </button>
+                            )}
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              or upload an audio file below
+                            </span>
+                          </div>
+                        )}
                         <input
                           type="file"
                           accept={fileAccept(item.type)}
@@ -240,7 +482,7 @@ export default function ResolutionPage() {
                           value={item.notes}
                           onChange={(e) => handleNotesChange(item.id, e.target.value)}
                           rows={3}
-                          placeholder="Add a short note about what this shows"
+                          placeholder="Add a short note about what this proof shows"
                           className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-[var(--color-charcoal)] dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#f7b418] resize-none"
                         />
                         {item.previewUrl && item.type === 'image' && (
@@ -251,7 +493,14 @@ export default function ResolutionPage() {
                           />
                         )}
                         {item.previewUrl && item.type === 'audio' && (
-                          <audio controls src={item.previewUrl} className="w-full" />
+                          <div className="space-y-1">
+                            <audio controls src={item.previewUrl} className="w-full" />
+                            {item.durationMs != null && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                Duration: {Math.round(item.durationMs / 100) / 10}s
+                              </div>
+                            )}
+                          </div>
                         )}
                         {item.previewUrl && item.type === 'video' && (
                           <video controls src={item.previewUrl} className="w-full max-h-72 rounded-xl bg-black object-contain" />
@@ -290,46 +539,11 @@ export default function ResolutionPage() {
             Add Another Proof
           </button>
 
-          {/* Need Inspiration card */}
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gradient-to-r from-[#E8F4F8] to-[#F3F8FF] dark:from-[#173748] dark:to-[#142A4A] px-5 sm:px-6 py-5">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#ffd93d]/25 flex items-center justify-center flex-shrink-0">
-                <span className="text-2xl">💡</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg sm:text-xl font-black text-[var(--color-charcoal)] dark:text-white mb-1">
-                  Need Inspiration?
-                </h3>
-                <p className="text-sm text-[var(--color-gray)] dark:text-gray-300">
-                  Replay a conversation, try a small challenge, or share your reflections! Everything adds up.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 text-xs font-bold text-[var(--color-charcoal)] dark:text-white">
-                    <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
-                    Conversation Log
-                  </span>
-                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 text-xs font-bold text-[var(--color-charcoal)] dark:text-white">
-                    <span className="text-sm">✉️</span>
-                    Screenshot
-                  </span>
-                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 text-xs font-bold text-[var(--color-charcoal)] dark:text-white">
-                    <span className="text-sm">✏️</span>
-                    Start Small
-                  </span>
-                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 text-xs font-bold text-[var(--color-charcoal)] dark:text-white">
-                    <span className="text-sm">🏳️</span>
-                    Take a Risk
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Save & Continue Button */}
           <div className="flex justify-end pt-4">
             <button
               onClick={handleCompleteResolution}
-              disabled={isProcessing}
+              disabled={isProcessing || recordingDraftId != null}
               className="px-8 py-4 bg-[#673067] hover:bg-[#573057] text-white rounded-xl font-bold text-lg transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? 'Saving...' : 'Save & Continue to Follow-through →'}

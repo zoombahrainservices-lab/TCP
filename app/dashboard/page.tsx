@@ -1,6 +1,7 @@
 import { requireAuth } from '@/lib/auth/guards'
 import { getGamificationData, getWeeklyReportsData, getChapterReportsData } from '@/app/actions/gamification'
 import { getLevelThreshold } from '@/lib/gamification/math'
+import { getIdentityResolutionForChapter1 } from '@/app/actions/identity'
 import TopHero from '@/components/dashboard/TopHero'
 import TodaysFocusCard from '@/components/dashboard/cards/TodaysFocusCard'
 import StreakCard from '@/components/dashboard/cards/StreakCard'
@@ -8,13 +9,15 @@ import ReportsCard from '@/components/dashboard/cards/ReportsCard'
 import InProgressCard from '@/components/dashboard/cards/InProgressCard'
 import WhatsNextCard from '@/components/dashboard/cards/WhatsNextCard'
 import ChapterReportsCard from '@/components/dashboard/cards/ChapterReportsCard'
+import IdentityResolutionCard from '@/components/dashboard/cards/IdentityResolutionCard'
 
 export default async function DashboardPage() {
   const user = await requireAuth()
   const { data: gamificationData, error: gamificationError } = await getGamificationData(user.id)
-  const [reportsData, chapterReports] = await Promise.all([
+  const [reportsData, chapterReports, identityResolution] = await Promise.all([
     getWeeklyReportsData(user.id),
     getChapterReportsData(user.id),
+    getIdentityResolutionForChapter1(),
   ])
 
   const totalXP = gamificationData?.total_xp ?? 0
@@ -65,52 +68,41 @@ export default async function DashboardPage() {
         />
 
         <div className="mt-6 grid grid-cols-12 gap-6">
-          {/* Row 1 */}
+          {/* Left column: main chapter cards */}
           <div className="col-span-12 lg:col-span-8">
-            <TodaysFocusCard
-              chapterNumber={userProgress.currentChapter}
-              readTime={userProgress.readTime}
-              progress={55}
-              xpAward={70}
-            />
-          </div>
-          <div className="col-span-12 lg:col-span-4">
-            <StreakCard currentStreak={currentStreak} longestStreak={longestStreak} />
-          </div>
-
-          {/* Row 2 */}
-          <div className="col-span-12 lg:col-span-8">
-            <div className="mb-4 px-1">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">
-                You&apos;re making progress. Keep going.
-              </h3>
-              <p className="text-slate-500 dark:text-slate-400">Pick up where you left off.</p>
+            <div className="space-y-6">
+              <TodaysFocusCard
+                chapterNumber={userProgress.currentChapter}
+                readTime={userProgress.readTime}
+                progress={55}
+                xpAward={70}
+              />
+              <IdentityResolutionCard identity={identityResolution} />
+              <InProgressCard
+                chapterNumber={userProgress.currentChapter}
+                title={userProgress.currentChapterTitle}
+                subtitle={userProgress.currentChapterSubtitle}
+                readTime={userProgress.readTime}
+                xpAward={userProgress.xpAward}
+                progress={userProgress.progress}
+                chapterImage={userProgress.chapterImage}
+              />
+              <WhatsNextCard />
             </div>
-            <InProgressCard
-              chapterNumber={userProgress.currentChapter}
-              title={userProgress.currentChapterTitle}
-              subtitle={userProgress.currentChapterSubtitle}
-              readTime={userProgress.readTime}
-              xpAward={userProgress.xpAward}
-              progress={userProgress.progress}
-              chapterImage={userProgress.chapterImage}
-            />
-          </div>
-          <div className="col-span-12 lg:col-span-4">
-            <ReportsCard
-              xpThisWeek={reportsData.xpThisWeek}
-              skillImprovement={reportsData.skillImprovement}
-              totalXP={totalXP}
-              weeklyXPData={reportsData.weeklyXPData}
-            />
           </div>
 
-          {/* Row 3 */}
-          <div className="col-span-12 lg:col-span-8">
-            <WhatsNextCard />
-          </div>
+          {/* Right column: streak + reports */}
           <div className="col-span-12 lg:col-span-4">
-            <ChapterReportsCard chapters={chapterReports} />
+            <div className="space-y-6">
+              <StreakCard currentStreak={currentStreak} longestStreak={longestStreak} />
+              <ReportsCard
+                xpThisWeek={reportsData.xpThisWeek}
+                skillImprovement={reportsData.skillImprovement}
+                totalXP={totalXP}
+                weeklyXPData={reportsData.weeklyXPData}
+              />
+              <ChapterReportsCard chapters={chapterReports} />
+            </div>
           </div>
         </div>
       </div>
