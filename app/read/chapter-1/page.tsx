@@ -93,7 +93,7 @@ export default function Chapter1Page() {
   
   // Optimistic UI: buffer step completions and batch-save in background
   const pendingStepsRef = useRef<string[]>([])
-  const syncTimeoutRef = useRef<NodeJS.Timeout>()
+  const syncTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const BATCH_SIZE = 5
   const BATCH_DELAY_MS = 2000
 
