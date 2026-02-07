@@ -81,6 +81,11 @@ export default function ResolutionPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  
+  // Prefetch next page (follow-through)
+  useEffect(() => {
+    router.prefetch('/chapter/1/follow-through')
+  }, [router])
 
   const handleTypeChange = (id: number, type: ResolutionType) => {
     setDrafts(prev =>
@@ -322,21 +327,38 @@ export default function ResolutionPage() {
       }
 
       // Complete resolution/proof section
-      const result = await completeSectionBlock(1, 'proof')
-      
-      console.log('[XP] Resolution section completion result:', result)
-      
-      if (result.success) {
-        const xp = result.xpResult?.xpAwarded ?? 0
-        if (xp > 0) {
-          showXPNotification(xp, 'Resolution Complete!', { reasonCode: result.reasonCode })
-        } else if (result.reasonCode === 'repeat_completion') {
-          showXPNotification(0, '', { reasonCode: 'repeat_completion' })
-        }
-      }
-      
-      // Navigate to follow-through
       router.push('/chapter/1/follow-through')
+      
+      // Complete section in background
+      setImmediate(async () => {
+        try {
+          const result = await completeSectionBlock(1, 'proof')
+          
+          console.log('[XP] Resolution section completion result:', result)
+          
+          if (result.success) {
+            // Show streak/daily XP feedback when awarded
+            if (result.streakResult?.xpAwarded && result.streakResult.xpAwarded > 0) {
+              const codes = result.streakResult.reasonCodes || []
+              const streakXp = result.streakResult.xpAwarded
+              if (codes.includes('milestone')) {
+                showXPNotification(streakXp, `${result.streakResult.milestoneReached}-day streak bonus!`, { reasonCode: 'milestone' })
+              } else {
+                showXPNotification(streakXp, codes.includes('streak_continued') ? 'Streak continued!' : 'Daily activity')
+              }
+            }
+            
+            const xp = result.xpResult?.xpAwarded ?? 0
+            if (xp > 0) {
+              showXPNotification(xp, 'Resolution Complete!', { reasonCode: result.reasonCode })
+            } else if (result.reasonCode === 'repeat_completion') {
+              showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+            }
+          }
+        } catch (error) {
+          console.error('[XP] Error completing resolution:', error)
+        }
+      })
     } catch (error) {
       console.error('[XP] Error completing resolution:', error)
       // If the error is from saving proof, keep the user here to retry.

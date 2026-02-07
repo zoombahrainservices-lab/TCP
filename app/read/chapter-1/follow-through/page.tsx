@@ -23,6 +23,13 @@ export default function FollowThroughFullScreenPage() {
     contentRef.current?.scrollTo({ top: 0, behavior: 'auto' })
     textContentRef.current?.scrollTo({ top: 0, behavior: 'auto' })
   }, [currentScreen])
+  
+  // Prefetch dashboard when nearing end
+  useEffect(() => {
+    if (currentScreen >= totalScreens - 2) {
+      router.prefetch('/dashboard')
+    }
+  }, [currentScreen, router, totalScreens])
 
   const handleNext = async () => {
     if (isProcessing) return
@@ -30,41 +37,53 @@ export default function FollowThroughFullScreenPage() {
     if (currentScreen < totalScreens - 1) {
       setCurrentScreen(currentScreen + 1)
     } else {
-      // Last screen - complete follow-through section AND entire chapter
+      // Last screen - immediately navigate, complete sections in background
       setIsProcessing(true)
-      try {
-        // Complete follow-through section
-        const sectionResult = await completeSectionBlock(1, 'follow_through')
-        
-        console.log('[XP] Follow-through section completion result:', sectionResult)
-        
-        // Complete entire chapter (awards chapter bonus)
-        const chapterResult = await completeChapter(1)
-        
-        console.log('[XP] Chapter completion result:', chapterResult)
-        
-        // Show XP notification with total and reason feedback
-        let totalXP = 0
-        const sectionXP = sectionResult.success && sectionResult.xpResult ? sectionResult.xpResult.xpAwarded : 0
-        const chapterXP = chapterResult.success && chapterResult.xpResult ? chapterResult.xpResult.xpAwarded : 0
-        totalXP = sectionXP + chapterXP
+      router.push('/dashboard')
+      
+      // Complete follow-through section AND entire chapter in background
+      setImmediate(async () => {
+        try {
+          // Complete follow-through section
+          const sectionResult = await completeSectionBlock(1, 'follow_through')
+          
+          console.log('[XP] Follow-through section completion result:', sectionResult)
+          
+          // Complete entire chapter (awards chapter bonus)
+          const chapterResult = await completeChapter(1)
+          
+          console.log('[XP] Chapter completion result:', chapterResult)
+          
+          // Show streak/daily XP feedback when awarded
+          if (sectionResult.success && sectionResult.streakResult?.xpAwarded && sectionResult.streakResult.xpAwarded > 0) {
+            const codes = sectionResult.streakResult.reasonCodes || []
+            const streakXp = sectionResult.streakResult.xpAwarded
+            if (codes.includes('milestone')) {
+              showXPNotification(streakXp, `${sectionResult.streakResult.milestoneReached}-day streak bonus!`, { reasonCode: 'milestone' })
+            } else {
+              showXPNotification(streakXp, codes.includes('streak_continued') ? 'Streak continued!' : 'Daily activity')
+            }
+          }
+          
+          // Show XP notification with total and reason feedback
+          let totalXP = 0
+          const sectionXP = sectionResult.success && sectionResult.xpResult ? sectionResult.xpResult.xpAwarded : 0
+          const chapterXP = chapterResult.success && chapterResult.xpResult ? chapterResult.xpResult.xpAwarded : 0
+          totalXP = sectionXP + chapterXP
 
-        if (totalXP > 0) {
-          showXPNotification(totalXP, 'Chapter 1 Complete! 🎉', {
-            reasonCode: chapterResult.reasonCode as 'first_time' | 'repeat_completion',
-          })
-        } else if (sectionResult.reasonCode === 'repeat_completion' || chapterResult.reasonCode === 'repeat_completion') {
-          showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+          if (totalXP > 0) {
+            showXPNotification(totalXP, 'Chapter 1 Complete! 🎉', {
+              reasonCode: chapterResult.reasonCode as 'first_time' | 'repeat_completion',
+            })
+          } else if (sectionResult.reasonCode === 'repeat_completion' || chapterResult.reasonCode === 'repeat_completion') {
+            showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+          }
+        } catch (error) {
+          console.error('[XP] Error completing follow-through:', error)
+        } finally {
+          setIsProcessing(false)
         }
-        
-        // Navigate to dashboard
-        router.push('/dashboard')
-      } catch (error) {
-        console.error('[XP] Error completing follow-through:', error)
-        router.push('/dashboard')
-      } finally {
-        setIsProcessing(false)
-      }
+      })
     }
   }
 
@@ -116,7 +135,7 @@ export default function FollowThroughFullScreenPage() {
         <motion.div
           className="h-full bg-[#0073ba]"
           animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.2 }}
         />
       </div>
 

@@ -1,6 +1,8 @@
 'use client'
 
 import Card from '../ui/Card'
+import Link from 'next/link'
+import { FileText } from 'lucide-react'
 
 export default function ReportsCard({
   xpThisWeek,
@@ -128,6 +130,15 @@ export default function ReportsCard({
               <span className="ml-2 text-sm font-semibold text-slate-500">XP Total Earned</span>
             </div>
           </div>
+
+          {/* PDF Reports Link */}
+          <Link
+            href="/reports"
+            className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 px-4 py-3 text-white text-sm font-semibold transition-all shadow-lg hover:shadow-xl"
+          >
+            <FileText className="w-4 h-4" />
+            Download PDF Reports
+          </Link>
         </div>
       </div>
     </Card>

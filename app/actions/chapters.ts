@@ -27,6 +27,65 @@ export type BlockType =
 // STEP COMPLETION
 // ============================================================================
 
+/**
+ * Complete multiple steps in a single batch (optimistic UI pattern).
+ * Only upserts step_completions; does NOT call updateStreak (do that at section boundary).
+ */
+export async function completeStepsBatch(
+  stepIds: string[],
+  chapterId: number
+) {
+  if (!stepIds.length) return { success: true, stepsCompleted: 0 }
+
+  const supabase = createAdminClient()
+  const userSupabase = await createClient()
+  
+  const { data: { user }, error: authError } = await userSupabase.auth.getUser()
+  
+  if (authError || !user) {
+    console.error('Auth error in completeStepsBatch:', authError)
+    return { error: 'Not authenticated' }
+  }
+  
+  const userId = user.id
+  
+  try {
+    const now = new Date().toISOString()
+    const payloads = stepIds.map(stepId => ({
+      user_id: userId,
+      step_id: stepId,
+      status: 'completed' as const,
+      completed_at: now,
+    }))
+
+    // Batch upsert
+    const { error: upsertError } = await supabase
+      .from('step_completions')
+      .upsert(payloads, { onConflict: 'user_id,step_id', ignoreDuplicates: false })
+
+    if (upsertError) {
+      console.error('Error batch upserting steps:', upsertError)
+      return { 
+        error: 'Failed to record step completions', 
+        details: upsertError.message,
+        code: upsertError.code,
+      }
+    }
+    
+    return { 
+      success: true, 
+      stepsCompleted: stepIds.length 
+    }
+  } catch (error) {
+    console.error('Error in completeStepsBatch:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    return { 
+      error: 'An error occurred while completing steps', 
+      details: msg,
+    }
+  }
+}
+
 export async function completeStep(
   stepId: string,
   chapterId: number
@@ -205,7 +264,11 @@ export async function completeSectionBlock(
     const firstTime = updatedRows?.length === 1
     let xpResult = null
     let reasonCode: XPReasonCode = firstTime ? 'first_time' : 'repeat_completion'
+    
+    // Update streak + award section XP (moved from per-step to per-section for performance)
+    let streakResult
     if (firstTime) {
+      // Award section completion XP
       xpResult = await awardXP(
         userId,
         'section_completion',
@@ -214,6 +277,13 @@ export async function completeSectionBlock(
         `section_first_complete:${userId}:${chapterId}:${blockType}`
       )
       if (xpResult.reasonCode) reasonCode = xpResult.reasonCode
+      
+      // Update streak + award daily/streak XP (once per section instead of per step)
+      try {
+        streakResult = await updateStreak(userId)
+      } catch (streakErr) {
+        console.error('Error in updateStreak during section completion:', streakErr)
+      }
     }
     
     return { 
@@ -222,6 +292,7 @@ export async function completeSectionBlock(
       xpResult,
       firstTime,
       reasonCode,
+      streakResult,
     }
   } catch (error) {
     console.error('Error in completeSectionBlock:', error)

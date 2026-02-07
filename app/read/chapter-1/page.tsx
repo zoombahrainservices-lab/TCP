@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Download } from 'lucide-react'
 import Image from 'next/image'
-import { completeStep, completeSectionBlock } from '@/app/actions/chapters'
+import { completeStepsBatch, completeSectionBlock } from '@/app/actions/chapters'
 import { showXPNotification } from '@/components/gamification/XPNotification'
 
 type TitleSlide = {
@@ -22,6 +22,9 @@ type ContentSlide = {
 }
 
 type Slide = TitleSlide | ContentSlide
+
+const CHAPTER_PDF_PATH =
+  '/chapter/Chapter 1_ From Stage Star to Silent Struggles - Printable (1).pdf'
 
 const slideContent: Slide[] = [
   {
@@ -87,6 +90,58 @@ export default function Chapter1Page() {
   const [isLoggedIn, setIsLoggedIn] = useState(false) // Check if user is logged in
   const [isProcessing, setIsProcessing] = useState(false)
   const totalSlides = slideContent.length || 5
+  
+  // Optimistic UI: buffer step completions and batch-save in background
+  const pendingStepsRef = useRef<string[]>([])
+  const syncTimeoutRef = useRef<NodeJS.Timeout>()
+  const BATCH_SIZE = 5
+  const BATCH_DELAY_MS = 2000
+
+  // Flush pending steps to server
+  const flushPendingSteps = async () => {
+    if (pendingStepsRef.current.length === 0) return
+    
+    const stepsToSave = [...pendingStepsRef.current]
+    pendingStepsRef.current = []
+    
+    try {
+      const result = await completeStepsBatch(stepsToSave, 1)
+      console.log('[XP] Batch saved steps:', result)
+    } catch (error) {
+      console.error('[XP] Error saving batch steps:', error)
+      // Re-queue on failure
+      pendingStepsRef.current.push(...stepsToSave)
+    }
+  }
+
+  // Debounced batch save
+  const scheduleBatchSave = () => {
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current)
+    
+    // Immediate flush if buffer is full
+    if (pendingStepsRef.current.length >= BATCH_SIZE) {
+      flushPendingSteps()
+      return
+    }
+    
+    // Otherwise, debounce
+    syncTimeoutRef.current = setTimeout(flushPendingSteps, BATCH_DELAY_MS)
+  }
+
+  // Flush on unmount
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current)
+      flushPendingSteps()
+    }
+  }, [])
+  
+  // Prefetch assessment page when nearing end
+  useEffect(() => {
+    if (currentSlide >= totalSlides - 2) {
+      router.prefetch('/chapter/1/assessment')
+    }
+  }, [currentSlide, router, totalSlides])
 
   const handleNext = async () => {
     if (isProcessing) return
@@ -94,52 +149,49 @@ export default function Chapter1Page() {
     setIsProcessing(true)
     
     try {
-      // Award XP for completing each step
       const stepId = `CH1-READING-${currentSlide + 1}`
-      
-      // Call completeStep server action (awards daily/streak XP on first activity today)
-      const result = await completeStep(stepId, 1)
-      
-      console.log('[XP] Step completion result:', result)
-
-      // Show streak/daily XP feedback when awarded (first activity of day)
-      if (result.success && result.streakResult?.xpAwarded && result.streakResult.xpAwarded > 0) {
-        const codes = result.streakResult.reasonCodes || []
-        const xp = result.streakResult.xpAwarded
-        if (codes.includes('milestone')) {
-          showXPNotification(xp, `${result.streakResult.milestoneReached}-day streak bonus!`, { reasonCode: 'milestone' })
-        } else {
-          showXPNotification(xp, codes.includes('streak_continued') ? 'Streak continued!' : 'Daily activity')
-        }
-      }
-      if (result.error && 'details' in result) {
-        console.error('[XP] Error:', result.error, '| Step:', (result as { step?: string }).step, '| Details:', result.details, '| Code:', result.code)
-        if (typeof result.details === 'string' && result.details.toLowerCase().includes('does not exist')) {
-          console.error('[XP] FIX: Run supabase/migrations/20260204_chapter_system.sql in Supabase SQL Editor')
-        }
-      }
       
       // Check if we just finished the last slide
       if (currentSlide === totalSlides - 1) {
-        // Complete the reading section
-        const sectionResult = await completeSectionBlock(1, 'reading')
-        console.log('Section completion result:', sectionResult)
-        
-        // Show XP notification (including "Already completed" feedback)
-        if (sectionResult.success) {
-          const xp = sectionResult.xpResult?.xpAwarded ?? 0
-          if (xp > 0) {
-            showXPNotification(xp, 'Reading complete!', { reasonCode: sectionResult.reasonCode })
-          } else if (sectionResult.reasonCode === 'repeat_completion') {
-            showXPNotification(0, '', { reasonCode: 'repeat_completion' })
-          }
-        }
-        
-        // Navigate to assessment
+        // Immediately advance UI
         router.push('/chapter/1/assessment')
+        
+        // Complete pending steps + section in background
+        setImmediate(async () => {
+          await flushPendingSteps()
+          
+          const sectionResult = await completeSectionBlock(1, 'reading')
+          console.log('Section completion result:', sectionResult)
+          
+          // Show XP notification (including streak/daily bonuses from section completion)
+          if (sectionResult.success) {
+            const xp = sectionResult.xpResult?.xpAwarded ?? 0
+            
+            // Show streak/daily XP feedback when awarded
+            if (sectionResult.streakResult?.xpAwarded && sectionResult.streakResult.xpAwarded > 0) {
+              const codes = sectionResult.streakResult.reasonCodes || []
+              const streakXp = sectionResult.streakResult.xpAwarded
+              if (codes.includes('milestone')) {
+                showXPNotification(streakXp, `${sectionResult.streakResult.milestoneReached}-day streak bonus!`, { reasonCode: 'milestone' })
+              } else {
+                showXPNotification(streakXp, codes.includes('streak_continued') ? 'Streak continued!' : 'Daily activity')
+              }
+            }
+            
+            if (xp > 0) {
+              showXPNotification(xp, 'Reading complete!', { reasonCode: sectionResult.reasonCode })
+            } else if (sectionResult.reasonCode === 'repeat_completion') {
+              showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+            }
+          }
+        })
       } else {
-        // Move to next slide
+        // Optimistic: advance slide immediately
         setCurrentSlide(currentSlide + 1)
+        
+        // Queue step for batch save
+        pendingStepsRef.current.push(stepId)
+        scheduleBatchSave()
       }
     } catch (error) {
       console.error('Error completing step:', error)
@@ -225,7 +277,7 @@ export default function Chapter1Page() {
         <motion.div
           className="h-full bg-[var(--color-blue)]"
           animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.2 }}
         />
       </div>
 
@@ -238,7 +290,7 @@ export default function Chapter1Page() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.2 }}
             className="min-h-full w-full bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a] flex flex-col relative overflow-hidden"
           >
             {/* Decorative Hollow Dots Pattern - deterministic to avoid hydration mismatch */}
@@ -290,9 +342,17 @@ export default function Chapter1Page() {
               </div>
             </div>
 
-            {/* Navigation Buttons */}
+            {/* Navigation + Download */}
             <div className="p-6 sm:p-8 border-t border-gray-700 bg-[#1a1a1a] relative z-10">
-              <div className="flex items-center justify-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
+                <a
+                  href={CHAPTER_PDF_PATH}
+                  download
+                  className="inline-flex items-center gap-2 rounded-2xl border border-gray-600 px-4 py-2 text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-gray-100 hover:bg-gray-800 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download chapter PDF</span>
+                </a>
                 <button
                   onClick={handleNext}
                   className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg"
@@ -312,7 +372,7 @@ export default function Chapter1Page() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.5 }}
+                transition={{ duration: 0.2 }}
                 className="absolute inset-0 w-full h-full"
               >
                 {!slideContent[currentSlide].isTitleSlide && (
@@ -321,7 +381,7 @@ export default function Chapter1Page() {
                     alt={(slideContent[currentSlide] as ContentSlide).heading}
                     fill
                     sizes="(max-width: 1024px) 100vw, 50vw"
-                    quality={100}
+                    quality={85}
                     priority
                     className="object-cover"
                   />
@@ -338,7 +398,7 @@ export default function Chapter1Page() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ duration: 0.2 }}
                   className="max-w-3xl mx-auto"
                 >
                   {!slideContent[currentSlide].isTitleSlide && (

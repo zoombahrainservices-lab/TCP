@@ -23,6 +23,13 @@ export default function TechniquesFullScreenPage() {
     contentRef.current?.scrollTo({ top: 0, behavior: 'auto' })
     textContentRef.current?.scrollTo({ top: 0, behavior: 'auto' })
   }, [currentScreen])
+  
+  // Prefetch next page when nearing end
+  useEffect(() => {
+    if (currentScreen >= totalScreens - 2) {
+      router.prefetch('/chapter/1/proof')
+    }
+  }, [currentScreen, router, totalScreens])
 
   const handleNext = async () => {
     if (isProcessing) return
@@ -30,29 +37,42 @@ export default function TechniquesFullScreenPage() {
     if (currentScreen < totalScreens - 1) {
       setCurrentScreen(currentScreen + 1)
     } else {
-      // Last screen - complete techniques section
+      // Last screen - immediately navigate, complete section in background
       setIsProcessing(true)
-      try {
-        const result = await completeSectionBlock(1, 'techniques')
-        
-        console.log('[XP] Techniques section completion result:', result)
-        
-        if (result.success) {
-          const xp = result.xpResult?.xpAwarded ?? 0
-          if (xp > 0) {
-            showXPNotification(xp, 'Techniques Complete!', { reasonCode: result.reasonCode })
-          } else if (result.reasonCode === 'repeat_completion') {
-            showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+      router.push('/chapter/1/proof')
+      
+      // Complete section in background
+      setImmediate(async () => {
+        try {
+          const result = await completeSectionBlock(1, 'techniques')
+          
+          console.log('[XP] Techniques section completion result:', result)
+          
+          if (result.success) {
+            // Show streak/daily XP feedback when awarded
+            if (result.streakResult?.xpAwarded && result.streakResult.xpAwarded > 0) {
+              const codes = result.streakResult.reasonCodes || []
+              const streakXp = result.streakResult.xpAwarded
+              if (codes.includes('milestone')) {
+                showXPNotification(streakXp, `${result.streakResult.milestoneReached}-day streak bonus!`, { reasonCode: 'milestone' })
+              } else {
+                showXPNotification(streakXp, codes.includes('streak_continued') ? 'Streak continued!' : 'Daily activity')
+              }
+            }
+            
+            const xp = result.xpResult?.xpAwarded ?? 0
+            if (xp > 0) {
+              showXPNotification(xp, 'Techniques Complete!', { reasonCode: result.reasonCode })
+            } else if (result.reasonCode === 'repeat_completion') {
+              showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+            }
           }
+        } catch (error) {
+          console.error('[XP] Error completing techniques:', error)
+        } finally {
+          setIsProcessing(false)
         }
-        
-        router.push('/chapter/1/proof')
-      } catch (error) {
-        console.error('[XP] Error completing techniques:', error)
-        router.push('/chapter/1/proof')
-      } finally {
-        setIsProcessing(false)
-      }
+      })
     }
   }
 
@@ -104,7 +124,7 @@ export default function TechniquesFullScreenPage() {
         <motion.div
           className="h-full bg-[#ff6a38]"
           animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.2 }}
         />
       </div>
 
