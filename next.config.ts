@@ -1,8 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Don't bundle these in API routes (resolve from node_modules at runtime)
-  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core', 'puppeteer'],
+  // Don't bundle these in API routes (resolve from node_modules at runtime). No full "puppeteer" on serverless.
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
+  // Include Chromium bin/brotli assets in serverless bundle (fixes /var/task/.../chromium/bin missing). Next 16: top-level key.
+  outputFileTracingIncludes: {
+    '/*': ['./node_modules/@sparticuz/chromium/**'],
+  },
   images: {
     remotePatterns: [
       {
@@ -15,10 +19,6 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
-    },
-    // Include Chromium bin/brotli assets in report API serverless bundle (fixes /var/task/.../chromium/bin missing)
-    outputFileTracingIncludes: {
-      '/api/reports/**': ['./node_modules/@sparticuz/chromium/**'],
     },
   },
 };
