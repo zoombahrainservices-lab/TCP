@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
+    // Include Chromium bin/brotli assets in report API serverless bundle (fixes /var/task/.../chromium/bin missing)
+    outputFileTracingIncludes: {
+      '/api/reports/**': ['./node_modules/@sparticuz/chromium/**'],
+    },
   },
 };
 
