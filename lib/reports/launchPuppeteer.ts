@@ -22,7 +22,7 @@ export async function launchBrowser() {
       args: chromium.args,
       defaultViewport: null,
       executablePath,
-      headless: chromium.headless ?? true,
+      headless: true,
     })
   }
 
