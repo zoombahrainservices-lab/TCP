@@ -8,6 +8,8 @@ import {
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+export const runtime = 'nodejs'
+
 function escapeHtml(input: string) {
   return input
     .replaceAll('&', '&amp;')
