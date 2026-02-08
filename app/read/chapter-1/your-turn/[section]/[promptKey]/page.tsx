@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { X } from 'lucide-react'
+import { X, ArrowLeft } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { frameworkScreens } from '@/app/read/chapter-1/framework/framework-screens'
 import { techniqueScreens } from '@/app/read/chapter-1/techniques/technique-screens'
