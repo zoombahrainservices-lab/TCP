@@ -19,6 +19,7 @@
     "db:delete-users": "tsx scripts/delete-all-auth-users.ts"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^143.0.4",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.90.1",
     "canvas": "^3.2.1",
@@ -29,6 +30,7 @@
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.0.379",
     "puppeteer": "^24.37.0",
+    "puppeteer-core": "^24.37.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hot-toast": "^2.6.0",

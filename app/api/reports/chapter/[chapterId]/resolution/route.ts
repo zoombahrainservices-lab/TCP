@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import puppeteer from 'puppeteer'
+import { launchBrowser } from '@/lib/reports/launchPuppeteer'
 import {
   getResolutionReportData,
   getUserInfo,
@@ -281,7 +281,8 @@ export async function GET(
     ])
 
     if (!resolutionResult.success) {
-      return NextResponse.json({ error: resolutionResult.error }, { status: 404 })
+      const status = resolutionResult.error === 'Not authenticated' ? 401 : 404
+      return NextResponse.json({ error: resolutionResult.error }, { status })
     }
 
     if (!userResult.success) {
@@ -297,11 +298,8 @@ export async function GET(
     // Build HTML
     const html = buildResolutionReportHtml(data, user, logoDataUri)
 
-    // Generate PDF
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    })
+    // Generate PDF (uses serverless Chromium on Vercel)
+    const browser = await launchBrowser()
 
     try {
       const page = await browser.newPage()

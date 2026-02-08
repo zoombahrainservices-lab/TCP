@@ -40,14 +40,14 @@ export function ChapterMarker3D({
 
   const pedestalColor =
     pedestalState === 'current'
-      ? BRAND.purple
+      ? BRAND.orange
       : pedestalState === 'completed'
-        ? BRAND.cyan
+        ? BRAND.green
         : pedestalState === 'unlocked'
           ? BRAND.blue
           : BRAND.gray
 
-  const glow = pedestalState === 'current' ? BRAND.orange : BRAND.amber
+  const glow = pedestalState === 'current' ? BRAND.orange : pedestalState === 'completed' ? BRAND.green : BRAND.amber
 
   const bookSrc =
     status === 'locked'

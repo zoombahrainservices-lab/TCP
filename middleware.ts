@@ -39,7 +39,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Exclude API routes so /api/* is never touched by middleware (fixes 404 on Vercel)
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

@@ -38,8 +38,18 @@ export default function ReportsPage() {
   const handleDownload = async (url: string, filename: string) => {
     setDownloading(filename)
     try {
-      const response = await fetch(url)
-      if (!response.ok) throw new Error('Download failed')
+      const response = await fetch(url, { credentials: 'include' })
+      if (!response.ok) {
+        const isAuth = response.status === 401
+        let message = isAuth ? 'Please log in again to download.' : 'Download failed.'
+        try {
+          const err = await response.json()
+          if (err?.error && typeof err.error === 'string') message = err.error
+        } catch {
+          // ignore
+        }
+        throw new Error(message)
+      }
 
       const blob = await response.blob()
       const downloadUrl = window.URL.createObjectURL(blob)

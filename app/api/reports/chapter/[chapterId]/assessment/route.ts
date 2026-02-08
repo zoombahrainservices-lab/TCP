@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import puppeteer from 'puppeteer'
+import { launchBrowser } from '@/lib/reports/launchPuppeteer'
 import {
   getAssessmentReportData,
   getUserInfo,
@@ -310,7 +310,8 @@ export async function GET(
     ])
 
     if (!assessmentResult.success) {
-      return NextResponse.json({ error: assessmentResult.error }, { status: 404 })
+      const status = assessmentResult.error === 'Not authenticated' ? 401 : 404
+      return NextResponse.json({ error: assessmentResult.error }, { status })
     }
 
     if (!userResult.success) {
@@ -326,11 +327,8 @@ export async function GET(
     // Build HTML
     const html = buildAssessmentReportHtml(data, user, logoDataUri, includeAnswers)
 
-    // Generate PDF
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    })
+    // Generate PDF (uses serverless Chromium on Vercel)
+    const browser = await launchBrowser()
 
     try {
       const page = await browser.newPage()

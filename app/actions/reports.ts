@@ -38,7 +38,7 @@ export type ResolutionReportData = {
 }
 
 // ============================================================================
-// FETCH ASSESSMENT REPORT DATA
+// FETCH ASSESSMENT REPORT DATA (always scoped to authenticated user)
 // ============================================================================
 
 export async function getAssessmentReportData(
@@ -112,7 +112,7 @@ export async function getAssessmentReportData(
 }
 
 // ============================================================================
-// FETCH RESOLUTION REPORT DATA
+// FETCH RESOLUTION REPORT DATA (always scoped to authenticated user)
 // ============================================================================
 
 export async function getResolutionReportData(
