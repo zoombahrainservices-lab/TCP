@@ -334,7 +334,7 @@ export async function GET(
 
     try {
       const page = await browser.newPage()
-      await page.setContent(html, { waitUntil: 'networkidle0' })
+      await page.setContent(html, { waitUntil: 'load' })
 
       const headerTemplate = `
         <div style="width:100%; padding: 10px 40px; font-family: Arial; font-size: 10px; display:flex; align-items:center; justify-content:space-between;">
