@@ -20,9 +20,9 @@ export async function launchBrowser() {
     const executablePath = await chromium.executablePath()
     return puppeteer.launch({
       args: chromium.args,
-      defaultViewport: (chromium as { defaultViewport?: unknown }).defaultViewport ?? null,
+      defaultViewport: null,
       executablePath,
-      headless: (chromium as { headless?: boolean }).headless ?? true,
+      headless: chromium.headless ?? true,
     })
   }
 
