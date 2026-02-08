@@ -23,6 +23,12 @@ export type AssessmentReportData = {
   }>
 }
 
+export type YourTurnQandA = {
+  promptText: string | null
+  responseText: string
+  createdAt: string
+}
+
 export type ResolutionReportData = {
   chapterId: number
   chapterTitle: string
@@ -35,6 +41,12 @@ export type ResolutionReportData = {
     storagePath?: string
     createdAt: string
   }>
+  /** Your Turn Q&A grouped by category for the PDF */
+  yourTurnByCategory: {
+    framework: YourTurnQandA[]
+    techniques: YourTurnQandA[]
+    followThrough: YourTurnQandA[]
+  }
 }
 
 // ============================================================================
@@ -169,12 +181,39 @@ export async function getResolutionReportData(
         createdAt: artifact.created_at,
       })) ?? []
 
+    // Fetch Your Turn responses and group by category (framework, techniques, follow-through)
+    const { data: yourTurnArtifacts } = await supabase
+      .from('artifacts')
+      .select('id, data, created_at')
+      .eq('user_id', user.id)
+      .eq('chapter_id', chapterId)
+      .eq('type', 'your_turn_response')
+      .order('created_at', { ascending: true })
+
+    const framework: YourTurnQandA[] = []
+    const techniques: YourTurnQandA[] = []
+    const followThrough: YourTurnQandA[] = []
+
+    for (const row of yourTurnArtifacts ?? []) {
+      const d = row.data as Record<string, unknown>
+      const promptKey = String(d.promptKey ?? '')
+      const item: YourTurnQandA = {
+        promptText: d.promptText != null ? String(d.promptText) : null,
+        responseText: String(d.responseText ?? ''),
+        createdAt: row.created_at ?? '',
+      }
+      if (promptKey.startsWith('ch1_framework_')) framework.push(item)
+      else if (promptKey.startsWith('ch1_technique_')) techniques.push(item)
+      else if (promptKey.startsWith('ch1_followthrough_')) followThrough.push(item)
+    }
+
     const reportData: ResolutionReportData = {
       chapterId,
       chapterTitle: 'Chapter 1: From Stage Star to Silent Struggles',
       completedAt: proofArtifacts?.[0]?.created_at ?? new Date().toISOString(),
       identityResolution: identityArtifact?.data?.identity,
       proofs,
+      yourTurnByCategory: { framework, techniques, followThrough },
     }
 
     return { success: true, data: reportData }

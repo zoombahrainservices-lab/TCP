@@ -8,6 +8,7 @@ export type TechniqueScreen = {
   image: string
   body: React.ReactNode
   yourTurn?: string
+  promptKey?: string
 }
 
 export const techniqueScreens: TechniqueScreen[] = [
@@ -30,7 +31,8 @@ export const techniqueScreens: TechniqueScreen[] = [
         </p>
       </>
     ),
-    yourTurn: 'Pick three easy alternatives. Write them in notes app now.'
+    yourTurn: 'Pick three easy alternatives. Write them in notes app now.',
+    promptKey: 'ch1_technique_1_substitution'
   },
   {
     id: 2,
@@ -61,7 +63,8 @@ export const techniqueScreens: TechniqueScreen[] = [
         </p>
       </>
     ),
-    yourTurn: 'Tonight—charge phone outside your bedroom.'
+    yourTurn: 'Tonight—charge phone outside your bedroom.',
+    promptKey: 'ch1_technique_3_environment'
   },
   {
     id: 4,
@@ -77,6 +80,7 @@ export const techniqueScreens: TechniqueScreen[] = [
         </p>
       </>
     ),
-    yourTurn: "Paper chain, calendar X's, marble jar—make progress visible."
+    yourTurn: "Paper chain, calendar X's, marble jar—make progress visible.",
+    promptKey: 'ch1_technique_4_visual'
   }
 ]

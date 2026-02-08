@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, X, Download } from 'lucide-react'
 import Image from 'next/image'
-import { completeStepsBatch, completeSectionBlock } from '@/app/actions/chapters'
+import { completeStepsBatch, completeSectionBlock, hasAssessmentForChapter } from '@/app/actions/chapters'
 import { showXPNotification } from '@/components/gamification/XPNotification'
 
 type TitleSlide = {
@@ -87,9 +87,15 @@ export default function Chapter1Page() {
   const router = useRouter()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false) // Check if user is logged in
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [hasCompletedAssessment, setHasCompletedAssessment] = useState<boolean | null>(null)
   const totalSlides = slideContent.length || 5
+
+  // Load completion state so we can route read → self-check OR read → framework
+  useEffect(() => {
+    hasAssessmentForChapter(1).then(setHasCompletedAssessment)
+  }, [])
   
   // Optimistic UI: buffer step completions and batch-save in background
   const pendingStepsRef = useRef<string[]>([])
@@ -136,38 +142,45 @@ export default function Chapter1Page() {
     }
   }, [])
   
-  // Prefetch assessment page when nearing end
+  // Prefetch both possible next steps when nearing end (instant navigation)
   useEffect(() => {
     if (currentSlide >= totalSlides - 2) {
       router.prefetch('/chapter/1/assessment')
+      router.prefetch('/read/chapter-1/framework')
     }
   }, [currentSlide, router, totalSlides])
 
+  // Flush pending steps when nearing end so "Continue" doesn't wait on a big batch
+  useEffect(() => {
+    if (currentSlide >= totalSlides - 2) {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current)
+      syncTimeoutRef.current = undefined
+      flushPendingSteps()
+    }
+  }, [currentSlide])
+
   const handleNext = async () => {
     if (isProcessing) return
-    
+
     setIsProcessing(true)
-    
+
     try {
       const stepId = `CH1-READING-${currentSlide + 1}`
-      
-      // Check if we just finished the last slide
+
+      // Last slide: go to next step based on completion (if/else for everything)
       if (currentSlide === totalSlides - 1) {
-        // Immediately advance UI
-        router.push('/chapter/1/assessment')
-        
-        // Complete pending steps + section in background
-        setImmediate(async () => {
+        // If user has no self-check record → go to self-check. If already done → skip to framework.
+        if (hasCompletedAssessment === true) {
+          router.push('/read/chapter-1/framework')
+        } else {
+          router.push('/chapter/1/assessment')
+        }
+
+        setTimeout(async () => {
           await flushPendingSteps()
-          
           const sectionResult = await completeSectionBlock(1, 'reading')
-          console.log('Section completion result:', sectionResult)
-          
-          // Show XP notification (including streak/daily bonuses from section completion)
           if (sectionResult.success) {
             const xp = sectionResult.xpResult?.xpAwarded ?? 0
-            
-            // Show streak/daily XP feedback when awarded
             if (sectionResult.streakResult?.xpAwarded && sectionResult.streakResult.xpAwarded > 0) {
               const codes = sectionResult.streakResult.reasonCodes || []
               const streakXp = sectionResult.streakResult.xpAwarded
@@ -177,19 +190,15 @@ export default function Chapter1Page() {
                 showXPNotification(streakXp, codes.includes('streak_continued') ? 'Streak continued!' : 'Daily activity')
               }
             }
-            
             if (xp > 0) {
               showXPNotification(xp, 'Reading complete!', { reasonCode: sectionResult.reasonCode })
             } else if (sectionResult.reasonCode === 'repeat_completion') {
               showXPNotification(0, '', { reasonCode: 'repeat_completion' })
             }
           }
-        })
+        }, 0)
       } else {
-        // Optimistic: advance slide immediately
         setCurrentSlide(currentSlide + 1)
-        
-        // Queue step for batch save
         pendingStepsRef.current.push(stepId)
         scheduleBatchSave()
       }

@@ -9,6 +9,7 @@ export type FrameworkScreen = {
   image?: string
   body: React.ReactNode
   yourTurn?: string
+  promptKey?: string
 }
 
 export const frameworkScreens: FrameworkScreen[] = [
@@ -37,7 +38,8 @@ export const frameworkScreens: FrameworkScreen[] = [
         </p>
       </>
     ),
-    yourTurn: 'Settings → Screen Time (iPhone) or Digital Wellbeing (Android). Look at your daily average. Don\'t judge. Just look.'
+    yourTurn: 'Settings → Screen Time (iPhone) or Digital Wellbeing (Android). Look at your daily average. Don\'t judge. Just look.',
+    promptKey: 'ch1_framework_s_surface'
   },
   {
     id: 'p',
@@ -57,7 +59,8 @@ export const frameworkScreens: FrameworkScreen[] = [
         </p>
       </>
     ),
-    yourTurn: '"When I reach for my phone, I\'m usually avoiding feeling..."'
+    yourTurn: '"When I reach for my phone, I\'m usually avoiding feeling..."',
+    promptKey: 'ch1_framework_p_pinpoint'
   },
   {
     id: 'a',
@@ -80,7 +83,8 @@ export const frameworkScreens: FrameworkScreen[] = [
         </p>
       </>
     ),
-    yourTurn: '"I am a [identity] who [impact]." Write it somewhere visible.'
+    yourTurn: '"I am a [identity] who [impact]." Write it somewhere visible.',
+    promptKey: 'ch1_framework_a_anchor'
   },
   {
     id: 'r',
@@ -103,7 +107,8 @@ export const frameworkScreens: FrameworkScreen[] = [
         </p>
       </>
     ),
-    yourTurn: 'Pick ONE thing. 5–10 minutes max. Three times this week.'
+    yourTurn: 'Pick ONE thing. 5–10 minutes max. Three times this week.',
+    promptKey: 'ch1_framework_r_rebuild'
   },
   {
     id: 'day23',
@@ -147,6 +152,7 @@ export const frameworkScreens: FrameworkScreen[] = [
         </p>
       </>
     ),
-    yourTurn: 'Text ONE person right now. Tell them what you\'re working on. Ask for weekly check-ins.'
+    yourTurn: 'Text ONE person right now. Tell them what you\'re working on. Ask for weekly check-ins.',
+    promptKey: 'ch1_framework_k_kindle'
   }
 ]

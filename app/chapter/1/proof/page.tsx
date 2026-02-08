@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { completeSectionBlock } from '@/app/actions/chapters'
+import Link from 'next/link'
+import { completeSectionBlock, hasProofForChapter } from '@/app/actions/chapters'
 import { showXPNotification } from '@/components/gamification/XPNotification'
 import { createClient } from '@/lib/supabase/client'
 import { saveIdentityResolutionForChapter1, type IdentityResolutionData } from '@/app/actions/identity'
+import { CheckCircle2 } from 'lucide-react'
 
 type ResolutionType = 'text' | 'image' | 'audio' | 'video'
 
@@ -48,6 +50,7 @@ function extForMime(mimeType: string): string {
 export default function ResolutionPage() {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
+  const [alreadyCompleted, setAlreadyCompleted] = useState<boolean | null>(null)
   const [drafts, setDrafts] = useState<ProofDraft[]>([
     {
       id: 1,
@@ -82,6 +85,11 @@ export default function ResolutionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   
+  // One-time per chapter: if proof already submitted, show completed view
+  useEffect(() => {
+    hasProofForChapter(1).then(setAlreadyCompleted)
+  }, [])
+
   // Prefetch next page (follow-through)
   useEffect(() => {
     router.prefetch('/chapter/1/follow-through')
@@ -329,8 +337,8 @@ export default function ResolutionPage() {
       // Complete resolution/proof section
       router.push('/chapter/1/follow-through')
       
-      // Complete section in background
-      setImmediate(async () => {
+      // Complete section in background (setTimeout: browser-safe; setImmediate is Node-only)
+      setTimeout(async () => {
         try {
           const result = await completeSectionBlock(1, 'proof')
           
@@ -358,7 +366,7 @@ export default function ResolutionPage() {
         } catch (error) {
           console.error('[XP] Error completing resolution:', error)
         }
-      })
+      }, 0)
     } catch (error) {
       console.error('[XP] Error completing resolution:', error)
       // If the error is from saving proof, keep the user here to retry.
@@ -369,6 +377,31 @@ export default function ResolutionPage() {
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  // Already completed: show read-only message, no form
+  if (alreadyCompleted === true) {
+    return (
+      <div className="min-h-full bg-[var(--color-offwhite)] dark:bg-[#142A4A]">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="rounded-2xl border-2 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-8 text-center">
+            <CheckCircle2 className="w-16 h-16 text-green-600 dark:text-green-400 mx-auto mb-4" />
+            <h1 className="text-2xl sm:text-3xl font-black text-[var(--color-charcoal)] dark:text-white mb-2">
+              Proof already completed
+            </h1>
+            <p className="text-[var(--color-gray)] dark:text-gray-300 mb-6">
+              You can only submit proof once per chapter. Your submission is saved.
+            </p>
+            <Link
+              href="/dashboard"
+              className="inline-block px-6 py-3 rounded-xl bg-[#673067] hover:bg-[#573057] text-white font-bold transition"
+            >
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

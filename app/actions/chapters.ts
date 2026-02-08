@@ -509,6 +509,42 @@ export async function startChapterSession(
 }
 
 // ============================================================================
+// ONE-TIME PER CHAPTER CHECKS (for Proof, Self-Check, Your Turn)
+// ============================================================================
+
+/** True if the user has at least one proof artifact for this chapter (one-time proof). */
+export async function hasProofForChapter(chapterId: number): Promise<boolean> {
+  const userSupabase = await createClient()
+  const { data: { user } } = await userSupabase.auth.getUser()
+  if (!user) return false
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('artifacts')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('chapter_id', chapterId)
+    .eq('type', 'proof')
+    .limit(1)
+  return !error && (data?.length ?? 0) > 0
+}
+
+/** True if the user has a baseline assessment for this chapter (one-time self-check). */
+export async function hasAssessmentForChapter(chapterId: number): Promise<boolean> {
+  const userSupabase = await createClient()
+  const { data: { user } } = await userSupabase.auth.getUser()
+  if (!user) return false
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('assessments')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('chapter_id', chapterId)
+    .eq('kind', 'baseline')
+    .limit(1)
+  return !error && (data?.length ?? 0) > 0
+}
+
+// ============================================================================
 // PROGRESS QUERIES
 // ============================================================================
 

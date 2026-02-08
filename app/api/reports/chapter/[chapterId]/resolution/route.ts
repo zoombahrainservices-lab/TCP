@@ -205,6 +205,57 @@ function buildResolutionReportHtml(
       font-size: 10px;
       color: #64748b;
     }
+    .your-turn-section {
+      margin: 24px 0;
+    }
+    .your-turn-category {
+      margin: 16px 0;
+      page-break-inside: avoid;
+    }
+    .your-turn-category-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+      border-bottom: 2px solid #f59e0b;
+    }
+    .your-turn-item {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 10px 0;
+      background: #fffbeb;
+      page-break-inside: avoid;
+    }
+    .your-turn-q {
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .your-turn-question {
+      color: #334155;
+      margin-bottom: 8px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .your-turn-a {
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .your-turn-answer {
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -243,6 +294,82 @@ function buildResolutionReportHtml(
   <h2>Identity Resolution</h2>
   <div class="identity-statement">
     ${escapeHtml(data.identityResolution)}
+  </div>
+  `
+      : ''
+  }
+
+  ${
+    data.yourTurnByCategory &&
+    (data.yourTurnByCategory.framework.length > 0 ||
+      data.yourTurnByCategory.techniques.length > 0 ||
+      data.yourTurnByCategory.followThrough.length > 0)
+      ? `
+  <h2>Your Turn (Question & Answer)</h2>
+  <div class="your-turn-section">
+    ${
+      data.yourTurnByCategory.framework.length > 0
+        ? `
+    <div class="your-turn-category">
+      <div class="your-turn-category-title">Framework</div>
+      ${data.yourTurnByCategory.framework
+        .map(
+          (item) => `
+      <div class="your-turn-item">
+        <div class="your-turn-q">Question</div>
+        <div class="your-turn-question">${escapeHtml(item.promptText ?? '—')}</div>
+        <div class="your-turn-a">Your answer</div>
+        <div class="your-turn-answer">${escapeHtml(item.responseText)}</div>
+      </div>
+      `
+        )
+        .join('')}
+    </div>
+    `
+        : ''
+    }
+    ${
+      data.yourTurnByCategory.techniques.length > 0
+        ? `
+    <div class="your-turn-category">
+      <div class="your-turn-category-title">Techniques</div>
+      ${data.yourTurnByCategory.techniques
+        .map(
+          (item) => `
+      <div class="your-turn-item">
+        <div class="your-turn-q">Question</div>
+        <div class="your-turn-question">${escapeHtml(item.promptText ?? '—')}</div>
+        <div class="your-turn-a">Your answer</div>
+        <div class="your-turn-answer">${escapeHtml(item.responseText)}</div>
+      </div>
+      `
+        )
+        .join('')}
+    </div>
+    `
+        : ''
+    }
+    ${
+      data.yourTurnByCategory.followThrough.length > 0
+        ? `
+    <div class="your-turn-category">
+      <div class="your-turn-category-title">Follow-through</div>
+      ${data.yourTurnByCategory.followThrough
+        .map(
+          (item) => `
+      <div class="your-turn-item">
+        <div class="your-turn-q">Question</div>
+        <div class="your-turn-question">${escapeHtml(item.promptText ?? '—')}</div>
+        <div class="your-turn-a">Your answer</div>
+        <div class="your-turn-answer">${escapeHtml(item.responseText)}</div>
+      </div>
+      `
+        )
+        .join('')}
+    </div>
+    `
+        : ''
+    }
   </div>
   `
       : ''

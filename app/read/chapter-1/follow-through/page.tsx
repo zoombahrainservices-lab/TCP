@@ -1,29 +1,52 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { followThroughScreens } from './follow-through-screens'
 import { completeSectionBlock, completeChapter } from '@/app/actions/chapters'
 import { showXPNotification } from '@/components/gamification/XPNotification'
+import { getYourTurnResponses } from '@/app/actions/yourTurn'
 
 export default function FollowThroughFullScreenPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [currentScreen, setCurrentScreen] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [yourTurnResponses, setYourTurnResponses] = useState<Record<string, import('@/app/actions/yourTurn').YourTurnResponseItem | null>>({})
   const contentRef = useRef<HTMLDivElement>(null)
   const textContentRef = useRef<HTMLDivElement>(null)
   const totalScreens = followThroughScreens.length
   const screen = followThroughScreens[currentScreen]
   const progress = ((currentScreen + 1) / totalScreens) * 100
 
+  // Land on the right screen when coming from Your Turn
+  useEffect(() => {
+    const s = searchParams.get('screen')
+    if (s != null) {
+      const n = parseInt(s, 10)
+      if (!isNaN(n) && n >= 0 && n < totalScreens) setCurrentScreen(n)
+    }
+  }, [searchParams, totalScreens])
+
+  useEffect(() => {
+    getYourTurnResponses(1).then(setYourTurnResponses)
+  }, [])
+
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: 'auto' })
     textContentRef.current?.scrollTo({ top: 0, behavior: 'auto' })
   }, [currentScreen])
   
+  // Prefetch Your Turn URL when this screen has one
+  useEffect(() => {
+    if (screen.yourTurn && screen.promptKey) {
+      router.prefetch(`/read/chapter-1/your-turn/follow-through/${screen.promptKey}`)
+    }
+  }, [currentScreen, router, screen.yourTurn, screen.promptKey])
+
   // Prefetch dashboard when nearing end
   useEffect(() => {
     if (currentScreen >= totalScreens - 2) {
@@ -33,7 +56,15 @@ export default function FollowThroughFullScreenPage() {
 
   const handleNext = async () => {
     if (isProcessing) return
-    
+
+    // If this screen has a Your Turn prompt, go to Your Turn page only if not already completed
+    if (screen.yourTurn && screen.promptKey) {
+      if (!yourTurnResponses[screen.promptKey]) {
+        router.push(`/read/chapter-1/your-turn/follow-through/${screen.promptKey}`)
+        return
+      }
+    }
+
     if (currentScreen < totalScreens - 1) {
       setCurrentScreen(currentScreen + 1)
     } else {
@@ -41,8 +72,8 @@ export default function FollowThroughFullScreenPage() {
       setIsProcessing(true)
       router.push('/dashboard')
       
-      // Complete follow-through section AND entire chapter in background
-      setImmediate(async () => {
+      // Complete follow-through section AND entire chapter in background (setTimeout: browser-safe; setImmediate is Node-only)
+      setTimeout(async () => {
         try {
           // Complete follow-through section
           const sectionResult = await completeSectionBlock(1, 'follow_through')
@@ -83,7 +114,7 @@ export default function FollowThroughFullScreenPage() {
         } finally {
           setIsProcessing(false)
         }
-      })
+      }, 0)
     }
   }
 
@@ -97,6 +128,9 @@ export default function FollowThroughFullScreenPage() {
 
   const isFirst = currentScreen === 0
   const isLast = currentScreen === totalScreens - 1
+  // On last screen (e.g. 90-day plan): show "Continue" if Your Turn is pending, else "Back to Dashboard"
+  const hasYourTurnPending = isLast && !!(screen.yourTurn && screen.promptKey && !yourTurnResponses[screen.promptKey])
+  const primaryButtonLabel = isLast ? (hasYourTurnPending ? 'Continue' : 'Back to Dashboard') : 'Continue'
 
   return (
     <div className="fixed inset-0 bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden flex flex-col" style={{ height: '100dvh' }}>
@@ -182,7 +216,7 @@ export default function FollowThroughFullScreenPage() {
                 <div className="space-y-4 text-base sm:text-lg lg:text-xl leading-relaxed sm:leading-loose text-gray-800 dark:text-gray-200">
                   {screen.body}
                 </div>
-                {screen.yourTurn && (
+                {screen.yourTurn && !screen.promptKey && (
                   <div className="mt-8 p-6 rounded-xl bg-[#f7b418]/15 dark:bg-[#f7b418]/20 border border-[#f7b418]/40">
                     <p className="text-sm font-bold text-[var(--color-charcoal)] dark:text-white mb-2 uppercase tracking-wide">
                       Your turn
@@ -210,7 +244,7 @@ export default function FollowThroughFullScreenPage() {
                   onClick={handleNext}
                   className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[#0073ba] hover:bg-[#005a9e] text-white shadow-md hover:shadow-lg"
                 >
-                  {isLast ? 'Back to Dashboard' : 'Continue'}
+                  {primaryButtonLabel}
                 </button>
               </div>
             </div>

@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
         pathname: '/storage/v1/object/public/**',
       },
     ],
+    // Allow local images from public: root (e.g. /TCP-logo.png) and /slider-work-on-quizz (e.g. ?v=2)
+    localPatterns: [
+      {
+        pathname: '/**',
+      },
+    ],
   },
   experimental: {
     serverActions: {

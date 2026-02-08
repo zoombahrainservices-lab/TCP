@@ -1,30 +1,53 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { techniqueScreens } from './technique-screens'
 import { completeSectionBlock } from '@/app/actions/chapters'
 import { showXPNotification } from '@/components/gamification/XPNotification'
+import { getYourTurnResponses } from '@/app/actions/yourTurn'
 
 export default function TechniquesFullScreenPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [currentScreen, setCurrentScreen] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [yourTurnResponses, setYourTurnResponses] = useState<Record<string, import('@/app/actions/yourTurn').YourTurnResponseItem | null>>({})
   const contentRef = useRef<HTMLDivElement>(null)
   const textContentRef = useRef<HTMLDivElement>(null)
   const totalScreens = techniqueScreens.length
   const screen = techniqueScreens[currentScreen]
   const progress = ((currentScreen + 1) / totalScreens) * 100
 
+  // Land on the right screen when coming from Your Turn
+  useEffect(() => {
+    const s = searchParams.get('screen')
+    if (s != null) {
+      const n = parseInt(s, 10)
+      if (!isNaN(n) && n >= 0 && n < totalScreens) setCurrentScreen(n)
+    }
+  }, [searchParams, totalScreens])
+
+  useEffect(() => {
+    getYourTurnResponses(1).then(setYourTurnResponses)
+  }, [])
+
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: 'auto' })
     textContentRef.current?.scrollTo({ top: 0, behavior: 'auto' })
   }, [currentScreen])
   
-  // Prefetch next page when nearing end
+  // Prefetch Your Turn URL when this screen has one
+  useEffect(() => {
+    if (screen.yourTurn && screen.promptKey) {
+      router.prefetch(`/read/chapter-1/your-turn/techniques/${screen.promptKey}`)
+    }
+  }, [currentScreen, router, screen.yourTurn, screen.promptKey])
+
+  // Prefetch next section when nearing end
   useEffect(() => {
     if (currentScreen >= totalScreens - 2) {
       router.prefetch('/chapter/1/proof')
@@ -34,6 +57,14 @@ export default function TechniquesFullScreenPage() {
   const handleNext = async () => {
     if (isProcessing) return
     
+    // If this screen has a Your Turn prompt, go to Your Turn page only if not already completed
+    if (screen.yourTurn && screen.promptKey) {
+      if (!yourTurnResponses[screen.promptKey]) {
+        router.push(`/read/chapter-1/your-turn/techniques/${screen.promptKey}`)
+        return
+      }
+    }
+
     if (currentScreen < totalScreens - 1) {
       setCurrentScreen(currentScreen + 1)
     } else {
@@ -41,8 +72,8 @@ export default function TechniquesFullScreenPage() {
       setIsProcessing(true)
       router.push('/chapter/1/proof')
       
-      // Complete section in background
-      setImmediate(async () => {
+      // Complete section in background (setTimeout: browser-safe; setImmediate is Node-only)
+      setTimeout(async () => {
         try {
           const result = await completeSectionBlock(1, 'techniques')
           
@@ -72,7 +103,7 @@ export default function TechniquesFullScreenPage() {
         } finally {
           setIsProcessing(false)
         }
-      })
+      }, 0)
     }
   }
 
@@ -153,7 +184,7 @@ export default function TechniquesFullScreenPage() {
                 <div className="space-y-4 text-base sm:text-lg lg:text-xl leading-relaxed sm:leading-loose text-gray-800 dark:text-gray-200">
                   {screen.body}
                 </div>
-                {screen.yourTurn && (
+                {screen.yourTurn && !screen.promptKey && (
                   <div className="mt-8 p-6 rounded-xl bg-[#f7b418]/15 dark:bg-[#f7b418]/20 border border-[#f7b418]/40">
                     <p className="text-sm font-bold text-[var(--color-charcoal)] dark:text-white mb-2 uppercase tracking-wide">
                       Your turn

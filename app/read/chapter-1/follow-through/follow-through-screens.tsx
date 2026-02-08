@@ -12,6 +12,9 @@ export type FollowThroughScreen = {
   image?: string
   body: React.ReactNode
   yourTurn?: string
+  promptKey?: string
+  /** Optional choices shown on the Your Turn page (e.g. Pick ONE thing) */
+  yourTurnOptions?: string[]
 }
 
 export const followThroughScreens: FollowThroughScreen[] = [
@@ -48,7 +51,13 @@ export const followThroughScreens: FollowThroughScreen[] = [
         </p>
       </>
     ),
-    yourTurn: 'Pick one thing. Start now.'
+    yourTurn: 'Pick one thing. Start now.',
+    promptKey: 'ch1_followthrough_1_pick_one',
+    yourTurnOptions: [
+      'Write your identity statement in phone notes',
+      'Text one person for weekly check-ins',
+      'Delete one app that takes more than it gives',
+    ],
   },
   {
     id: 'real-conversations',
@@ -77,7 +86,8 @@ export const followThroughScreens: FollowThroughScreen[] = [
         </p>
       </>
     ),
-    yourTurn: "Don't do this alone. Use these scripts when you're ready."
+    yourTurn: "Don't do this alone. Use these scripts when you're ready.",
+    promptKey: 'ch1_followthrough_2_conversations'
   },
   {
     id: 'the-comeback',
@@ -139,7 +149,8 @@ export const followThroughScreens: FollowThroughScreen[] = [
         </p>
       </>
     ),
-    yourTurn: 'When you slip, use the 24-Hour Rule. Then get back in.'
+    yourTurn: 'When you slip, use the 24-Hour Rule. Then get back in.',
+    promptKey: 'ch1_followthrough_3_recovery'
   },
   {
     id: '90-day-plan',
@@ -170,6 +181,7 @@ export const followThroughScreens: FollowThroughScreen[] = [
         </ul>
       </>
     ),
-    yourTurn: 'Where this goes over 90 days. Start with Week 1.'
+    yourTurn: 'Where this goes over 90 days. Start with Week 1.',
+    promptKey: 'ch1_followthrough_4_plan'
   }
 ]

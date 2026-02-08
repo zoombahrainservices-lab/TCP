@@ -4,8 +4,10 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { submitAssessment, completeSectionBlock } from '@/app/actions/chapters'
+import { submitAssessment, completeSectionBlock, hasAssessmentForChapter } from '@/app/actions/chapters'
 import { showXPNotification } from '@/components/gamification/XPNotification'
+import { getAssessmentReportData } from '@/app/actions/reports'
+import { CheckCircle2 } from 'lucide-react'
 
 interface AssessmentQuestion {
   id: number
@@ -42,6 +44,7 @@ export default function AssessmentPage() {
   const [questionPage, setQuestionPage] = useState(0)
   const [responses, setResponses] = useState<Record<number, number>>({})
   const [isProcessing, setIsProcessing] = useState(false)
+  const [alreadyCompleted, setAlreadyCompleted] = useState<{ score: number; band: string; color: string; message: string } | null>(null)
   const totalQuestionPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE)
   const currentQuestions = questions.slice(
     questionPage * QUESTIONS_PER_PAGE,
@@ -120,6 +123,21 @@ export default function AssessmentPage() {
   }
 
   const scoreBand = getScoreBand(totalScore)
+
+  // One-time per chapter: if self-check already completed, show read-only completed view
+  useEffect(() => {
+    hasAssessmentForChapter(1).then((done) => {
+      if (!done) return
+      getAssessmentReportData(1).then((result) => {
+        if (result.success && result.data) {
+          const band = getScoreBand(result.data.score)
+          setAlreadyCompleted({ score: result.data.score, ...band })
+        } else {
+          setAlreadyCompleted({ score: 0, ...getScoreBand(0) })
+        }
+      })
+    })
+  }, [])
   const cardsScrollRef = useRef<HTMLDivElement>(null)
 
   // Reset scroll position when changing question page so scrollbar doesn't flash
@@ -127,6 +145,42 @@ export default function AssessmentPage() {
     if (step !== 'questions') return
     cardsScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [questionPage, step])
+
+  // Already completed: show read-only score, no form, no retake
+  if (alreadyCompleted) {
+    return (
+      <div className="min-h-screen bg-[var(--color-offwhite)] dark:bg-[#142A4A] flex">
+        <main className="flex-1 max-w-4xl mx-auto w-full p-12">
+          <div className="rounded-2xl border-2 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-8 text-center">
+            <CheckCircle2 className="w-16 h-16 text-green-600 dark:text-green-400 mx-auto mb-4" />
+            <h1 className="text-2xl sm:text-3xl font-black text-[var(--color-charcoal)] dark:text-white mb-2">
+              Self-Check already completed
+            </h1>
+            <p className="text-[var(--color-gray)] dark:text-gray-300 mb-6">
+              You can only complete the self-check once per chapter. Your responses are saved.
+            </p>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl inline-block mb-6">
+              <div className="text-4xl font-black text-[var(--color-charcoal)] dark:text-white mb-1">{alreadyCompleted.score}</div>
+              <div className="text-sm text-[var(--color-gray)] dark:text-gray-400">out of 49</div>
+              <div
+                className="mt-3 inline-block px-6 py-2 rounded-full text-white font-bold"
+                style={{ backgroundColor: alreadyCompleted.color }}
+              >
+                {alreadyCompleted.band}
+              </div>
+            </div>
+            <p className="text-[var(--color-charcoal)] dark:text-gray-200 mb-6">{alreadyCompleted.message}</p>
+            <Link
+              href="/dashboard"
+              className="inline-block px-6 py-3 rounded-xl bg-[#f7b418] hover:bg-[#e5a616] text-[var(--color-charcoal)] font-bold transition"
+            >
+              Back to Dashboard
+            </Link>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className={`bg-[var(--color-offwhite)] dark:bg-[#142A4A] flex ${step === 'questions' ? 'h-full min-h-0 overflow-hidden' : 'min-h-screen'}`}>
@@ -427,18 +481,11 @@ export default function AssessmentPage() {
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <button
-                onClick={() => setStep('questions')}
-                className="py-4 px-6 bg-gray-200 text-[var(--color-charcoal)] rounded-xl font-bold text-lg hover:bg-gray-300 transition"
-                disabled={isProcessing}
-              >
-                ← Retake
-              </button>
+            <div className="flex justify-end">
               <button
                 onClick={handleCompleteAssessment}
                 disabled={isProcessing}
-                className="flex-1 py-4 px-6 bg-[#ff6a38] text-white rounded-xl font-bold text-lg hover:bg-[#ff5a28] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="py-4 px-8 bg-[#ff6a38] text-white rounded-xl font-bold text-lg hover:bg-[#ff5a28] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isProcessing ? 'Saving...' : 'Continue to Framework →'}
               </button>
