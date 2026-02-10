@@ -34,11 +34,15 @@ export default function TopHero({
   totalXP,
   level,
   levelThreshold,
+  continueHref = '/read/chapter-1',
+  continueLabel = 'Continue Chapter 1 →',
 }: {
   userName: string
   totalXP: number
   level: number
   levelThreshold: number
+  continueHref?: string
+  continueLabel?: string
 }) {
   const nextThreshold = Math.floor(100 * Math.pow(level, 2.22)) || 100
   const currentThreshold = level > 1 ? Math.floor(100 * Math.pow(level - 1, 2.22)) : 0
@@ -105,10 +109,10 @@ export default function TopHero({
             </div>
 
             <Link
-              href="/read/chapter-1"
+              href={continueHref}
               className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-400 px-5 py-2.5 text-xs sm:text-sm font-black text-white shadow-md hover:brightness-105 transition-all"
             >
-              Continue Chapter 1 →
+              {continueLabel}
             </Link>
           </div>
         </div>

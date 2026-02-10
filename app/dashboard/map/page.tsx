@@ -138,7 +138,20 @@ export default function MapPage() {
   const handleChapterClick = (chapter: Chapter) => {
     if (chapter.status !== 'locked') {
       const chapterNumber = chapter.id.replace('c', '')
-      router.push(`/chapter/${chapterNumber}/reading`)
+
+      // For published chapters, prefer canonical slug-based read routes
+      const slugByChapterNumber: Record<string, string> = {
+        '1': 'stage-star-silent-struggles',
+        '2': 'genius-who-couldnt-speak',
+      }
+
+      const slug = slugByChapterNumber[chapterNumber]
+      if (slug) {
+        router.push(`/read/${slug}`)
+      } else {
+        // Fallback for future/unimplemented chapters
+        router.push(`/chapter/${chapterNumber}/reading`)
+      }
     }
   }
 

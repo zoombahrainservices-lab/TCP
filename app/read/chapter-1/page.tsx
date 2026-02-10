@@ -412,17 +412,18 @@ export default function Chapter1Page() {
                 >
                   {!slideContent[currentSlide].isTitleSlide && (
                     <>
-                      {/* Section Heading */}
-                      <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-charcoal)] dark:text-[#FFF8E7] mb-6 sm:mb-8">
+                      {/* Section Heading — Typography: H2 = text-3xl font-bold */}
+                      <h2 className="text-3xl font-bold text-[var(--color-charcoal)] dark:text-white mb-6">
                         {(slideContent[currentSlide] as ContentSlide).heading}
                       </h2>
 
-                      {/* Body Text */}
-                      <div 
-                        className="text-base sm:text-lg lg:text-xl leading-relaxed sm:leading-loose text-gray-800 dark:text-gray-200 whitespace-pre-line"
-                        style={{ fontFamily: "'Inter', sans-serif" }}
-                      >
-                        {(slideContent[currentSlide] as ContentSlide).text}
+                      {/* Body Text — Typography: Large Body = text-lg font-normal; dialogue lines indented */}
+                      <div className="text-lg font-normal text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {(slideContent[currentSlide] as ContentSlide).text.split('\n').map((line, i) => (
+                          <span key={i} className={line.trimStart().startsWith('"') ? 'block pl-4 sm:pl-6' : 'block'}>
+                            {line || ' '}
+                          </span>
+                        ))}
                       </div>
                     </>
                   )}

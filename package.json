@@ -16,7 +16,10 @@
     "migrate-xp-v2": "tsx scripts/migrate_xp_v2.ts",
     "seed-mission-1": "tsx scripts/seed_mission_1.ts",
     "check-mission-1": "tsx scripts/check_mission_1.ts",
-    "db:delete-users": "tsx scripts/delete-all-auth-users.ts"
+    "db:delete-users": "tsx scripts/delete-all-auth-users.ts",
+    "migrate-content": "tsx scripts/migrate-content.ts",
+    "reset-user-progress": "tsx scripts/reset-user-progress.ts",
+    "reset-all-user-data": "tsx scripts/reset-all-user-data.ts"
   },
   "dependencies": {
     "@sparticuz/chromium": "^143.0.4",

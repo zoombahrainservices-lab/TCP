@@ -110,7 +110,7 @@ export default function ChapterProgressProfileCard({
             </div>
 
             <Link
-              href="/read/chapter-1"
+              href="/read/stage-star-silent-struggles"
               className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-black text-white hover:bg-slate-800 transition-colors"
             >
               Continue →

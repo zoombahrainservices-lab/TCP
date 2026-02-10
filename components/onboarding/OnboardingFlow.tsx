@@ -178,7 +178,9 @@ export function OnboardingFlow() {
       localStorage.setItem('onboarding_timestamp', new Date().toISOString())
       
       if (selectedOption === 'chapter-1') {
-        router.push('/read/chapter-1')
+        // Send to public Chapter 1 demo reader that does NOT require login.
+        // After finishing the reading there, user is sent to login.
+        router.push('/onboarding/chapter-1')
       } else if (selectedOption === 'full-access') {
         router.push('/auth/register')
       }

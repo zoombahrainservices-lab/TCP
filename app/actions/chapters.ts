@@ -596,3 +596,148 @@ export async function getChapterSession(chapterId: number) {
   
   return { data, error }
 }
+
+// ============================================================================
+// DYNAMIC CONTENT COMPLETION (for DB-driven chapters)
+// ============================================================================
+
+/**
+ * Complete a single page in the dynamic reader.
+ * Uses synthetic step_id = `page:${pageId}` to track page-level progress.
+ */
+export async function completeDynamicPage({
+  chapterNumber,
+  stepId,
+  pageId,
+  stepType,
+}: {
+  chapterNumber: number;
+  stepId: string;
+  pageId: string;
+  stepType: string;
+}) {
+  const supabase = createAdminClient();
+  const userSupabase = await createClient();
+  
+  const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+  if (authError || !user) {
+    console.error('Auth error in completeDynamicPage:', authError);
+    return { error: 'Not authenticated' };
+  }
+  
+  const userId = user.id;
+  const syntheticStepId = `page:${pageId}`;
+  
+  try {
+    const now = new Date().toISOString();
+    const payload = {
+      user_id: userId,
+      step_id: syntheticStepId,
+      status: 'completed' as const,
+      completed_at: now,
+      data: {
+        chapterId: chapterNumber,
+        stepId,
+        pageId,
+        stepType,
+      },
+    };
+
+    const { error: upsertError } = await supabase
+      .from('step_completions')
+      .upsert(payload, { onConflict: 'user_id,step_id', ignoreDuplicates: false });
+
+    if (upsertError) {
+      console.error('Error upserting page completion:', upsertError);
+      return { error: 'Failed to record page completion', details: upsertError.message };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error in completeDynamicPage:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    return { error: 'An error occurred while completing page', details: msg };
+  }
+}
+
+/**
+ * Complete a step in the dynamic reader (optional, for step-level tracking).
+ * Uses synthetic step_id = `step:${stepId}`.
+ */
+export async function completeDynamicStep({
+  chapterNumber,
+  stepId,
+  stepType,
+}: {
+  chapterNumber: number;
+  stepId: string;
+  stepType: string;
+}) {
+  const supabase = createAdminClient();
+  const userSupabase = await createClient();
+  
+  const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+  if (authError || !user) {
+    console.error('Auth error in completeDynamicStep:', authError);
+    return { error: 'Not authenticated' };
+  }
+  
+  const userId = user.id;
+  const syntheticStepId = `step:${stepId}`;
+  
+  try {
+    const now = new Date().toISOString();
+    const payload = {
+      user_id: userId,
+      step_id: syntheticStepId,
+      status: 'completed' as const,
+      completed_at: now,
+      data: {
+        chapterId: chapterNumber,
+        stepId,
+        stepType,
+      },
+    };
+
+    const { error: upsertError } = await supabase
+      .from('step_completions')
+      .upsert(payload, { onConflict: 'user_id,step_id', ignoreDuplicates: false });
+
+    if (upsertError) {
+      console.error('Error upserting step completion:', upsertError);
+      return { error: 'Failed to record step completion', details: upsertError.message };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error in completeDynamicStep:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    return { error: 'An error occurred while completing step', details: msg };
+  }
+}
+
+/**
+ * Complete a section in the dynamic reader.
+ * Maps step_type to blockType and calls the existing completeSectionBlock.
+ */
+export async function completeDynamicSection({
+  chapterNumber,
+  stepType,
+}: {
+  chapterNumber: number;
+  stepType: string;
+}) {
+  // Map step_type to blockType for completeSectionBlock
+  const blockTypeMap: Record<string, BlockType> = {
+    'read': 'reading',
+    'self_check': 'assessment',
+    'framework': 'framework',
+    'techniques': 'techniques',
+    'resolution': 'proof',
+    'follow_through': 'follow_through',
+  };
+  
+  const blockType = blockTypeMap[stepType] || 'reading';
+  
+  return await completeSectionBlock(chapterNumber, blockType);
+}

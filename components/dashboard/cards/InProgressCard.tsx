@@ -12,6 +12,7 @@ export default function InProgressCard({
   xpAward = 20,
   progress = 20,
   chapterImage = '/slider-work-on-quizz/chapter1/chaper1-1.jpeg',
+  continueHref,
 }: {
   chapterNumber?: number
   title?: string
@@ -20,30 +21,29 @@ export default function InProgressCard({
   xpAward?: number
   progress?: number
   chapterImage?: string
+  continueHref?: string
 }) {
+  const targetHref = continueHref ?? `/read/chapter-${chapterNumber}`
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col lg:flex-row">
-        {/* Left: Image panel with gradient */}
-        <div className="relative h-[200px] w-full lg:h-auto lg:w-[240px] shrink-0 bg-gradient-to-br from-orange-300 via-orange-200 to-amber-100">
+        {/* Left: Full-bleed chapter image */}
+        <div className="relative h-[200px] w-full lg:h-auto lg:w-[260px] shrink-0 overflow-hidden">
+          <Image
+            src={chapterImage}
+            alt={`Chapter ${chapterNumber}`}
+            fill
+            className="object-cover"
+            sizes="260px"
+          />
+          {/* Soft gradient overlay for better text/badge contrast */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/25 via-black/10 to-transparent" />
+
           {/* IN PROGRESS badge */}
           <div className="absolute left-4 top-4 z-10">
             <span className="rounded-full bg-orange-500 px-3 py-1.5 text-xs font-black text-white shadow-sm">
               IN PROGRESS
             </span>
-          </div>
-          
-          {/* Chapter image */}
-          <div className="absolute inset-4 top-12 flex items-center justify-center">
-            <div className="relative h-[140px] w-[180px] rounded-2xl overflow-hidden shadow-lg ring-1 ring-white/20">
-              <Image
-                src={chapterImage}
-                alt={`Chapter ${chapterNumber}`}
-                fill
-                className="object-cover"
-                sizes="180px"
-              />
-            </div>
           </div>
         </div>
 
@@ -98,7 +98,7 @@ export default function InProgressCard({
             </div>
 
             <Link
-              href="/read/chapter-1"
+              href={targetHref}
               className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-black text-white hover:bg-slate-800 transition-colors"
             >
               Continue →

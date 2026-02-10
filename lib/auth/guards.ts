@@ -5,9 +5,10 @@ export interface AuthUser {
   id: string
   email: string
   fullName: string
+  role?: string
 }
 
-export async function requireAuth(): Promise<AuthUser> {
+export async function requireAuth(role?: 'admin' | 'mentor' | 'parent' | 'student'): Promise<AuthUser> {
   const supabase = await createClient()
   
   const { data: { user }, error } = await supabase.auth.getUser()
@@ -19,14 +20,20 @@ export async function requireAuth(): Promise<AuthUser> {
   // Fetch user profile
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name')
+    .select('full_name, role')
     .eq('id', user.id)
     .single()
+
+  // Check role if specified
+  if (role && profile?.role !== role) {
+    redirect('/dashboard')
+  }
 
   return {
     id: user.id,
     email: user.email!,
     fullName: profile?.full_name || user.email?.split('@')[0] || 'User',
+    role: profile?.role,
   }
 }
 

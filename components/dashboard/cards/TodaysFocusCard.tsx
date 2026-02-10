@@ -63,7 +63,7 @@ export default function TodaysFocusCard({
         {/* Right: CTA + XP */}
         <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
           <Link
-            href="/read/chapter-1"
+            href={`/read/chapter-${chapterNumber}`}
             className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-400 px-6 py-3 text-sm font-black text-white shadow-md hover:shadow-lg hover:brightness-105 transition-all"
           >
             Continue Chapter {chapterNumber} →

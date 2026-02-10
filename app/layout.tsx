@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Bebas_Neue, JetBrains_Mono, Montserrat, Lexend, Roboto, Open_Sans } from "next/font/google";
+import { ChapterCacheProvider } from '@/lib/cache/ChapterCacheContext';
 import "./globals.css";
 
 const inter = Inter({
@@ -89,7 +90,9 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${bebasNeue.variable} ${jetbrainsMono.variable} ${montserrat.variable} ${lexend.variable} ${roboto.variable} ${openSans.variable} antialiased`}
       >
-        {children}
+        <ChapterCacheProvider>
+          {children}
+        </ChapterCacheProvider>
       </body>
     </html>
   );

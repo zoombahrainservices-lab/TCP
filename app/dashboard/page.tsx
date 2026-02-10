@@ -1,29 +1,28 @@
+import { Suspense } from 'react'
 import { requireAuth } from '@/lib/auth/guards'
-import { getGamificationData, getWeeklyReportsData, getChapterReportsData } from '@/app/actions/gamification'
-import { getLevelThreshold } from '@/lib/gamification/math'
-import { getIdentityResolutionForChapter1 } from '@/app/actions/identity'
-import TopHero from '@/components/dashboard/TopHero'
-import TodaysFocusCard from '@/components/dashboard/cards/TodaysFocusCard'
-import StreakCard from '@/components/dashboard/cards/StreakCard'
-import ReportsCard from '@/components/dashboard/cards/ReportsCard'
-import InProgressCard from '@/components/dashboard/cards/InProgressCard'
-import WhatsNextCard from '@/components/dashboard/cards/WhatsNextCard'
-import ChapterReportsCard from '@/components/dashboard/cards/ChapterReportsCard'
-import IdentityResolutionCard from '@/components/dashboard/cards/IdentityResolutionCard'
+import { getCachedAllChapters } from '@/lib/content/cache.server'
+import { getChapterReportsData } from '@/app/actions/gamification'
+import CurrentChapterSync from '@/components/dashboard/CurrentChapterSync'
+
+// Async components (stream in with Suspense)
+import GamificationAsync from '@/components/dashboard/async/GamificationAsync'
+import ChapterProgressAsync from '@/components/dashboard/async/ChapterProgressAsync'
+import ReportsAsync from '@/components/dashboard/async/ReportsAsync'
+
+// Skeleton fallbacks
+import TopHeroSkeleton from '@/components/dashboard/skeletons/TopHeroSkeleton'
+import ChapterCardsSkeleton from '@/components/dashboard/skeletons/ChapterCardsSkeleton'
+import ReportsSkeleton from '@/components/dashboard/skeletons/ReportsSkeleton'
 
 export default async function DashboardPage() {
+  // Only wait for auth + minimal data to render shell instantly
   const user = await requireAuth()
-  const { data: gamificationData, error: gamificationError } = await getGamificationData(user.id)
-  const [reportsData, chapterReports, identityResolution] = await Promise.all([
-    getWeeklyReportsData(user.id),
+  
+  // Get minimal data needed for navigation (cached)
+  const [chapterReports, allChapters] = await Promise.all([
     getChapterReportsData(user.id),
-    getIdentityResolutionForChapter1(),
+    getCachedAllChapters(),
   ])
-
-  const totalXP = gamificationData?.total_xp ?? 0
-  const level = gamificationData?.level ?? 1
-  const currentStreak = gamificationData?.current_streak ?? 0
-  const longestStreak = gamificationData?.longest_streak ?? 0
 
   // Format name as "FIRST L." (first name + last initial) like "TOM H."
   const fullName = user.fullName || user.email?.split('@')[0] || 'User'
@@ -32,77 +31,71 @@ export default async function DashboardPage() {
   const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1]?.[0]?.toUpperCase() + '.' : ''
   const displayName = `${firstName} ${lastInitial}`.trim()
 
-  const levelThreshold = getLevelThreshold(level + 1)
+  // Determine current chapter for navigation (minimal computation)
+  const publishedChapters = Array.isArray(allChapters) ? allChapters : []
+  const progressList = Array.isArray(chapterReports) ? chapterReports : []
 
-  const userProgress = {
-    currentChapter: 1,
-    currentChapterTitle: 'From Stage Star to Silent Struggles',
-    currentChapterSubtitle: "You'll learn why habits feel impossible",
-    readTime: 7,
-    progress: 20,
-    xpAward: 20,
-    chapterImage: '/slider-work-on-quizz/chapter1/chaper1-1.jpeg',
+  const progressByNumber = new Map<number, any>()
+  for (const row of progressList) {
+    if (typeof row.chapter_id === 'number') {
+      progressByNumber.set(row.chapter_id, row)
+    }
   }
+
+  let currentChapterNumber: number | null = null
+  for (const chapter of publishedChapters) {
+    const chapterNum = chapter.chapter_number as number
+    const progress = progressByNumber.get(chapterNum)
+    const totalSections = progress?.totalSections ?? 6
+    const completedCount = progress?.completedCount ?? 0
+
+    if (!progress || completedCount < totalSections) {
+      currentChapterNumber = chapterNum
+      break
+    }
+  }
+
+  if (currentChapterNumber == null && publishedChapters.length > 0) {
+    const last = publishedChapters[publishedChapters.length - 1]
+    currentChapterNumber = last.chapter_number as number
+  }
+
+  const currentChapter = currentChapterNumber ?? 1
+  const currentChapterMeta = publishedChapters.find(c => c.chapter_number === currentChapter) ?? publishedChapters[0]
+  const currentChapterSlug = currentChapterMeta?.slug || 
+    (currentChapter === 1 ? 'stage-star-silent-struggles' : 'genius-who-couldnt-speak')
+
+  const continueHref = `/read/${currentChapterSlug}`
+  const continueLabel = `Continue Chapter ${currentChapter} →`
 
   return (
     <div className="min-h-full">
       <div className="mx-auto max-w-[1400px] gap-6 px-6 py-6">
-        {/* Gamification Error Banner */}
-        {gamificationError && (
-          <div className="mb-6 rounded-2xl bg-red-50 border border-red-200 p-5">
-            <p className="font-bold text-red-800">Gamification Error:</p>
-            <p className="mt-1 text-sm text-red-600">
-              {gamificationError.message || JSON.stringify(gamificationError)}
-            </p>
-            <p className="mt-2 text-xs text-red-600">
-              Make sure you&apos;ve run both database migrations in Supabase SQL editor.
-            </p>
-          </div>
-        )}
-
-        <TopHero
-          userName={displayName}
-          totalXP={totalXP}
-          level={level}
-          levelThreshold={levelThreshold}
-        />
+        <CurrentChapterSync currentChapter={currentChapter} />
+        
+        {/* Gamification Hero - Streams in with Suspense */}
+        <Suspense fallback={<TopHeroSkeleton />}>
+          <GamificationAsync
+            userId={user.id}
+            userName={displayName}
+            continueHref={continueHref}
+            continueLabel={continueLabel}
+          />
+        </Suspense>
 
         <div className="mt-6 grid grid-cols-12 gap-6">
-          {/* Left column: main chapter cards */}
+          {/* Left column: Chapter progress cards - Streams in independently */}
           <div className="col-span-12 lg:col-span-8">
-            <div className="space-y-6">
-              <TodaysFocusCard
-                chapterNumber={userProgress.currentChapter}
-                readTime={userProgress.readTime}
-                progress={55}
-                xpAward={70}
-              />
-              <IdentityResolutionCard identity={identityResolution} />
-              <InProgressCard
-                chapterNumber={userProgress.currentChapter}
-                title={userProgress.currentChapterTitle}
-                subtitle={userProgress.currentChapterSubtitle}
-                readTime={userProgress.readTime}
-                xpAward={userProgress.xpAward}
-                progress={userProgress.progress}
-                chapterImage={userProgress.chapterImage}
-              />
-              <WhatsNextCard />
-            </div>
+            <Suspense fallback={<ChapterCardsSkeleton />}>
+              <ChapterProgressAsync userId={user.id} />
+            </Suspense>
           </div>
 
-          {/* Right column: streak + reports */}
+          {/* Right column: Reports - Streams in independently */}
           <div className="col-span-12 lg:col-span-4">
-            <div className="space-y-6">
-              <StreakCard currentStreak={currentStreak} longestStreak={longestStreak} />
-              <ReportsCard
-                xpThisWeek={reportsData.xpThisWeek}
-                skillImprovement={reportsData.skillImprovement}
-                totalXP={totalXP}
-                weeklyXPData={reportsData.weeklyXPData}
-              />
-              <ChapterReportsCard chapters={chapterReports} />
-            </div>
+            <Suspense fallback={<ReportsSkeleton />}>
+              <ReportsAsync userId={user.id} />
+            </Suspense>
           </div>
         </div>
       </div>

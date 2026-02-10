@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
@@ -8,10 +8,71 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import Button from '@/components/ui/Button'
 import { signOut } from '@/app/actions/auth'
 
-export function DashboardNav() {
+const STORAGE_KEY = 'tcpCurrentChapter'
+
+type DashboardNavProps = {
+  /** When on dashboard, use this so Framework/Techniques/Resolution/Follow-through match current chapter */
+  serverCurrentChapter?: number
+}
+
+export function DashboardNav({ serverCurrentChapter }: DashboardNavProps = {}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [storedChapter, setStoredChapter] = useState<number | null>(null)
   const pathname = usePathname()
+
+  // When on dashboard (or any non-chapter page), use the current chapter from localStorage
+  // so Framework, Techniques, Resolution, Follow-through all point to the correct chapter.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY)
+      if (raw != null) {
+        const n = parseInt(raw, 10)
+        if (Number.isFinite(n) && n >= 1) setStoredChapter(n)
+      }
+    } catch {
+      // ignore
+    }
+  }, [pathname])
+
+  // Infer current chapter from URL when we're on a chapter/read page
+  let chapterFromPath = 1
+  let hasChapterInPath = false
+  const chapterMatch = pathname.match(/^\/(?:read\/chapter-(\d+)|chapter\/(\d+)|read\/([^/]+))/)
+  if (chapterMatch) {
+    if (chapterMatch[1] || chapterMatch[2]) {
+      chapterFromPath = Number(chapterMatch[1] || chapterMatch[2]) || 1
+      hasChapterInPath = true
+    } else if (chapterMatch[3]) {
+      const slug = chapterMatch[3]
+      if (slug === 'stage-star-silent-struggles') {
+        chapterFromPath = 1
+        hasChapterInPath = true
+      }
+      if (slug === 'genius-who-couldnt-speak') {
+        chapterFromPath = 2
+        hasChapterInPath = true
+      }
+    }
+  }
+
+  // Use chapter from URL when on a chapter page; otherwise use server or stored current chapter
+  const activeChapter = hasChapterInPath
+    ? chapterFromPath
+    : (serverCurrentChapter ?? storedChapter ?? 1)
+
+  // Helper: chapter slug for dynamic read routes
+  const chapterSlugByNumber: Record<number, string> = {
+    1: 'stage-star-silent-struggles',
+    2: 'genius-who-couldnt-speak',
+  }
+
+  const frameworkHref = `/read/${chapterSlugByNumber[activeChapter] ?? 'stage-star-silent-struggles'}/framework`
+  const techniquesHref = `/read/${chapterSlugByNumber[activeChapter] ?? 'stage-star-silent-struggles'}/techniques`
+
+  const followThroughHref = `/read/${chapterSlugByNumber[activeChapter] ?? 'stage-star-silent-struggles'}/follow-through`
+  const resolutionHref = `/read/${chapterSlugByNumber[activeChapter] ?? 'stage-star-silent-struggles'}/proof`
 
   const menuItems = [
     // Map - Main Navigation (at the very top)
@@ -31,7 +92,7 @@ export function DashboardNav() {
     {
       id: 'reading',
       label: 'Reading',
-      href: '/chapter/1/reading',
+      href: `/chapter/${activeChapter}/reading`,
       icon: (
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -44,7 +105,7 @@ export function DashboardNav() {
     {
       id: 'self-check',
       label: 'Self-Check',
-      href: '/chapter/1/assessment',
+      href: `/chapter/${activeChapter}/assessment`,
       icon: (
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -57,7 +118,7 @@ export function DashboardNav() {
     {
       id: 'framework',
       label: 'Framework',
-      href: '/read/chapter-1/framework',
+      href: frameworkHref,
       icon: (
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -68,7 +129,7 @@ export function DashboardNav() {
     {
       id: 'techniques',
       label: 'Techniques',
-      href: '/read/chapter-1/techniques',
+      href: techniquesHref,
       icon: (
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -81,7 +142,7 @@ export function DashboardNav() {
     {
       id: 'resolution',
       label: 'Resolution',
-      href: '/chapter/1/proof',
+      href: resolutionHref,
       icon: (
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -92,7 +153,7 @@ export function DashboardNav() {
     {
       id: 'follow-through',
       label: 'Follow-Through',
-      href: '/read/chapter-1/follow-through',
+      href: followThroughHref,
       icon: (
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
