@@ -58,17 +58,31 @@ export default function SelfCheckAssessment({
   questionsStepSubtitle,
 }: SelfCheckAssessmentProps) {
   const router = useRouter()
+  // ALL HOOKS AT THE TOP - no conditional execution, no early returns before hooks
   const [step, setStep] = useState<'intro' | 'questions' | 'results'>('intro')
   const [questionPage, setQuestionPage] = useState(0)
   const [responses, setResponses] = useState<Record<number, number>>({})
   const [isProcessing, setIsProcessing] = useState(false)
+  const cardsScrollRef = useRef<HTMLDivElement>(null)
+  const isMountedRef = useRef(false)
 
   // Prefetch next route for instant navigation
   useEffect(() => {
+    isMountedRef.current = true
     if (step === 'results') {
       router.prefetch(nextStepUrl)
     }
+    return () => {
+      isMountedRef.current = false
+    }
   }, [step, router, nextStepUrl])
+
+  // Auto-scroll on question page change - with cleanup flag to prevent state updates after unmount
+  useEffect(() => {
+    if (step === 'questions') {
+      cardsScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    }
+  }, [questionPage, step])
 
   const totalQuestionPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE)
   const currentQuestions = questions.slice(
@@ -77,6 +91,7 @@ export default function SelfCheckAssessment({
   )
 
   const handleSliderChange = (questionId: number, value: number) => {
+    if (!isMountedRef.current) return
     setResponses(prev => ({ ...prev, [questionId]: value }))
   }
 
@@ -85,7 +100,7 @@ export default function SelfCheckAssessment({
   const scoreBand = getScoreBand(totalScore)
 
   const handleCompleteAssessment = async () => {
-    if (isProcessing) return
+    if (isProcessing || !isMountedRef.current) return
     setIsProcessing(true)
     
     // Navigate IMMEDIATELY - don't wait for DB operations
@@ -108,14 +123,10 @@ export default function SelfCheckAssessment({
       }
     })
     
-    setIsProcessing(false)
+    if (isMountedRef.current) {
+      setIsProcessing(false)
+    }
   }
-
-  const cardsScrollRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (step !== 'questions') return
-    cardsScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-  }, [questionPage, step])
 
   return (
     <div className={`bg-[var(--color-offwhite)] dark:bg-[#142A4A] flex ${step === 'questions' ? 'h-full min-h-0 overflow-hidden' : 'min-h-screen'}`}>
@@ -123,6 +134,7 @@ export default function SelfCheckAssessment({
         {/* Intro Step - same style as Chapter 1 */}
         {step === 'intro' && (
           <motion.div
+            key="intro"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-8"
@@ -155,6 +167,7 @@ export default function SelfCheckAssessment({
         {/* Questions Step - same style as Chapter 1 */}
         {step === 'questions' && (
           <motion.div
+            key="questions"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4 flex-1 min-h-0 flex flex-col overflow-hidden"
@@ -274,6 +287,7 @@ export default function SelfCheckAssessment({
         {/* Results Step - same style as Chapter 1 */}
         {step === 'results' && (
           <motion.div
+            key="results"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-8"

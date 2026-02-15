@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getAllChapters } from '@/lib/content/queries'
 
 // ============================================================================
 // TYPES
@@ -49,6 +50,125 @@ export type ResolutionReportData = {
   }
 }
 
+export type ChapterReportMeta = {
+  chapterId: number
+  title: string
+  status: 'available' | 'locked' | 'pending'
+  assessmentAvailable: boolean
+  resolutionAvailable: boolean
+}
+
+// ============================================================================
+// CHAPTER ASSESSMENT CONFIG (questions + title per chapter for reports)
+// ============================================================================
+
+const ASSESSMENT_CONFIG: Record<
+  number,
+  { chapterTitle: string; questions: Array<{ id: number; question: string; low: string; high: string }>; maxScore: number }
+> = {
+  1: {
+    chapterTitle: 'Chapter 1: From Stage Star to Silent Struggles',
+    maxScore: 49,
+    questions: [
+      { id: 1, question: 'How often I grab phone when working', low: 'Rarely', high: 'Constantly' },
+      { id: 2, question: "Remember yesterday's scrolling", low: 'Yes', high: 'Barely' },
+      { id: 3, question: 'Feel after phone session', low: 'Energized', high: 'Empty' },
+      { id: 4, question: 'Time on passion this year', low: 'More', high: 'Abandoned' },
+      { id: 5, question: 'Time before phone urge', low: '30+ min', high: 'Under 5' },
+      { id: 6, question: 'Use phone to avoid feelings', low: 'Rarely', high: 'Always' },
+      { id: 7, question: 'Phone vanished 24hrs', low: 'Relieved', high: 'Panicked' },
+    ],
+  },
+  2: {
+    chapterTitle: 'Chapter 2: The Genius Who Couldn\'t Speak',
+    maxScore: 28,
+    questions: [
+      { id: 1, question: 'I avoid speaking situations when possible', low: 'Rarely', high: 'Always' },
+      { id: 2, question: 'My mind goes blank when speaking', low: 'Never', high: 'Every time' },
+      { id: 3, question: 'Physical symptoms (shaking/racing heart) overwhelm me', low: 'Manageable', high: 'Paralyzing' },
+      { id: 4, question: 'I catastrophize what could go wrong', low: 'Rarely', high: 'Constantly' },
+    ],
+  },
+}
+
+function getAssessmentConfig(chapterId: number, fallbackTitle: string) {
+  const config = ASSESSMENT_CONFIG[chapterId]
+  if (config) return config
+  return {
+    chapterTitle: fallbackTitle,
+    maxScore: 0,
+    questions: [] as Array<{ id: number; question: string; low: string; high: string }>,
+  }
+}
+
+// ============================================================================
+// GET CHAPTERS FOR REPORTS PAGE (with availability per chapter)
+// ============================================================================
+
+export async function getChaptersForReports(): Promise<
+  { success: true; data: ChapterReportMeta[] } | { success: false; error: string }
+> {
+  try {
+    const userSupabase = await createClient()
+    const supabase = createAdminClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await userSupabase.auth.getUser()
+
+    if (authError || !user) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    const chapters = await getAllChapters()
+    if (!chapters?.length) {
+      return { success: true, data: [] }
+    }
+
+    const chapterNumbers = chapters.map((c) => c.chapter_number as number)
+
+    const [assessmentsRows, artifactsRows] = await Promise.all([
+      supabase
+        .from('assessments')
+        .select('chapter_id')
+        .eq('user_id', user.id)
+        .eq('kind', 'baseline')
+        .in('chapter_id', chapterNumbers),
+      supabase
+        .from('artifacts')
+        .select('chapter_id, type')
+        .eq('user_id', user.id)
+        .in('chapter_id', chapterNumbers),
+    ])
+
+    const hasAssessment = new Set((assessmentsRows.data ?? []).map((r) => r.chapter_id))
+    const hasResolution = new Set(
+      (artifactsRows.data ?? []).filter((r) => r.type === 'identity_resolution' || r.type === 'proof').map((r) => r.chapter_id)
+    )
+
+    const data: ChapterReportMeta[] = chapters.map((ch) => {
+      const chapterId = ch.chapter_number as number
+      const assessmentAvailable = hasAssessment.has(chapterId)
+      const resolutionAvailable = hasResolution.has(chapterId)
+      const status: ChapterReportMeta['status'] =
+        assessmentAvailable || resolutionAvailable ? 'available' : 'pending'
+      return {
+        chapterId,
+        title: (ch.title as string) ?? `Chapter ${chapterId}`,
+        status,
+        assessmentAvailable,
+        resolutionAvailable,
+      }
+    })
+
+    return { success: true, data }
+  } catch (error) {
+    console.error('Error in getChaptersForReports:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
 // ============================================================================
 // FETCH ASSESSMENT REPORT DATA (always scoped to authenticated user)
 // ============================================================================
@@ -89,29 +209,22 @@ export async function getAssessmentReportData(
       return { success: false, error: 'No assessment found for this chapter' }
     }
 
-    // Define questions (these should match your assessment page)
-    const questions = [
-      { id: 1, question: 'How often I grab phone when working', low: 'Rarely', high: 'Constantly' },
-      { id: 2, question: "Remember yesterday's scrolling", low: 'Yes', high: 'Barely' },
-      { id: 3, question: 'Feel after phone session', low: 'Energized', high: 'Empty' },
-      { id: 4, question: 'Time on passion this year', low: 'More', high: 'Abandoned' },
-      { id: 5, question: 'Time before phone urge', low: '30+ min', high: 'Under 5' },
-      { id: 6, question: 'Use phone to avoid feelings', low: 'Rarely', high: 'Always' },
-      { id: 7, question: 'Phone vanished 24hrs', low: 'Relieved', high: 'Panicked' },
-    ]
+    const config = getAssessmentConfig(chapterId, `Chapter ${chapterId}`)
+    if (!config.questions.length) {
+      return { success: false, error: 'No assessment config for this chapter' }
+    }
 
-    // Map responses to questions
-    const questionsWithResponses = questions.map((q) => ({
+    const questionsWithResponses = config.questions.map((q) => ({
       ...q,
-      userResponse: assessment.responses[q.id] ?? 0,
+      userResponse: (assessment.responses as Record<number, number>)?.[q.id] ?? 0,
     }))
 
     const reportData: AssessmentReportData = {
       chapterId,
-      chapterTitle: 'Chapter 1: From Stage Star to Silent Struggles',
+      chapterTitle: config.chapterTitle,
       assessmentType: 'Self-Check (Baseline)',
       score: assessment.score ?? 0,
-      maxScore: 49, // 7 questions * 7 points each
+      maxScore: config.maxScore,
       completedAt: assessment.created_at,
       questions: questionsWithResponses,
     }
@@ -194,6 +307,7 @@ export async function getResolutionReportData(
     const techniques: YourTurnQandA[] = []
     const followThrough: YourTurnQandA[] = []
 
+    const prefix = `ch${chapterId}_`
     for (const row of yourTurnArtifacts ?? []) {
       const d = row.data as Record<string, unknown>
       const promptKey = String(d.promptKey ?? '')
@@ -202,14 +316,16 @@ export async function getResolutionReportData(
         responseText: String(d.responseText ?? ''),
         createdAt: row.created_at ?? '',
       }
-      if (promptKey.startsWith('ch1_framework_')) framework.push(item)
-      else if (promptKey.startsWith('ch1_technique_')) techniques.push(item)
-      else if (promptKey.startsWith('ch1_followthrough_')) followThrough.push(item)
+      if (promptKey.startsWith(`${prefix}framework_`)) framework.push(item)
+      else if (promptKey.startsWith(`${prefix}technique_`)) techniques.push(item)
+      else if (promptKey.startsWith(`${prefix}followthrough_`)) followThrough.push(item)
     }
+
+    const chapterTitle = ASSESSMENT_CONFIG[chapterId]?.chapterTitle ?? `Chapter ${chapterId}`
 
     const reportData: ResolutionReportData = {
       chapterId,
-      chapterTitle: 'Chapter 1: From Stage Star to Silent Struggles',
+      chapterTitle,
       completedAt: proofArtifacts?.[0]?.created_at ?? new Date().toISOString(),
       identityResolution: identityArtifact?.data?.identity,
       proofs,

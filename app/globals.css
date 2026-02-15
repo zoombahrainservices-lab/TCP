@@ -93,6 +93,19 @@ body {
   color: #e5e7eb;
 }
 
+/* Mobile-first: allow content to scroll inside reading views */
+.reading-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Safe area for fixed bottom nav on notched devices */
+.safe-area-pb {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
 /* 50% dark tint over background image in dark mode */
 /* Make headings white in dark mode, regardless of text-slate-* classes */
 .dark h1,

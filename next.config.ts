@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Enable source maps in production to debug React hook errors (see browser console for real stack traces)
+  productionBrowserSourceMaps: true,
   // Don't bundle these in API routes (resolve from node_modules at runtime). No full "puppeteer" on serverless.
   serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
   // Include Chromium bin/brotli assets in serverless bundle (fixes /var/task/.../chromium/bin missing). Next 16: top-level key.

@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { completeSectionBlock, hasProofForChapter } from '@/app/actions/chapters'
 import { showXPNotification } from '@/components/gamification/XPNotification'
-import { createClient } from '@/lib/supabase/client'
+import { getClient } from '@/lib/supabase/client'
 import { saveIdentityResolutionForChapter1, type IdentityResolutionData } from '@/app/actions/identity'
 import { CheckCircle2 } from 'lucide-react'
 
@@ -49,7 +49,7 @@ function extForMime(mimeType: string): string {
 
 export default function ResolutionPage() {
   const router = useRouter()
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = getClient()
   const [alreadyCompleted, setAlreadyCompleted] = useState<boolean | null>(null)
   const [drafts, setDrafts] = useState<ProofDraft[]>([
     {

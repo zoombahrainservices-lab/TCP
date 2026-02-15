@@ -72,7 +72,8 @@ export function DashboardNav({ serverCurrentChapter }: DashboardNavProps = {}) {
   const techniquesHref = `/read/${chapterSlugByNumber[activeChapter] ?? 'stage-star-silent-struggles'}/techniques`
 
   const followThroughHref = `/read/${chapterSlugByNumber[activeChapter] ?? 'stage-star-silent-struggles'}/follow-through`
-  const resolutionHref = `/read/${chapterSlugByNumber[activeChapter] ?? 'stage-star-silent-struggles'}/proof`
+  // Always link to /chapter/1/proof — Ch2 proof redirects there anyway. Avoiding /chapter/2/proof prevents server redirect → MPA → React #310 when reaching proof.
+  const resolutionHref = '/chapter/1/proof'
 
   const menuItems = [
     // Map - Main Navigation (at the very top)

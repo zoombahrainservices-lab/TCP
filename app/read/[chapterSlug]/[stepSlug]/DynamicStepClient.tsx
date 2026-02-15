@@ -2,14 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import ReadingLayout from '@/components/content/ReadingLayout';
-import SectionLayout from '@/components/content/SectionLayout';
-import PageNavigator from '@/components/content/PageNavigator';
 import BlockRenderer from '@/components/content/BlockRenderer';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { submitAssessment, completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
 import { showXPNotification } from '@/components/gamification/XPNotification';
-import { useChapterCache } from '@/lib/cache/ChapterCacheContext';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 
 interface Props {
@@ -19,6 +17,14 @@ interface Props {
   nextStepSlug: string | null;
 }
 
+// Steps that the server redirects — use canonical URL so we never trigger redirect → MPA → React #310. Proof always /chapter/1/proof (Ch2 redirects there).
+function getCanonicalNextUrl(chapterNumber: number, nextStepSlug: string | null): string | null {
+  if (!nextStepSlug) return null;
+  if (nextStepSlug === 'assessment') return `/chapter/${chapterNumber}/assessment`;
+  if (nextStepSlug === 'proof') return '/chapter/1/proof';
+  return null;
+}
+
 export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }: Props) {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(0);
@@ -26,21 +32,15 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
   const [isProcessing, setIsProcessing] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
 
-  const { prefetchStepPages } = useChapterCache();
+  const nextUrl = getCanonicalNextUrl(chapter.chapter_number, nextStepSlug) ?? (nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : null);
 
-  // Aggressive prefetching for instant navigation (route + data)
+  // Aggressive prefetching for instant navigation (route code only). Use canonical URL so we never trigger server redirect → MPA → #310.
   useEffect(() => {
     if (currentPage >= pages.length - 2) {
-      if (nextStepSlug) {
-        router.prefetch(`/read/${chapter.slug}/${nextStepSlug}`);
-        // Prefetch next step data
-        prefetchStepPages(chapter.slug, nextStepSlug).catch(err => 
-          console.error('[Prefetch] Next step data error:', err)
-        );
-      }
+      if (nextUrl) router.prefetch(nextUrl);
       router.prefetch('/dashboard');
     }
-  }, [currentPage, pages.length, router, chapter.slug, nextStepSlug, prefetchStepPages]);
+  }, [currentPage, pages.length, router, nextUrl]);
 
   const handleResponseChange = (promptId: string, value: any) => {
     setUserResponses(prev => ({ ...prev, [promptId]: value }));
@@ -74,9 +74,9 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
 
     const lastPageData = pages[currentPage];
     
-    // Navigate IMMEDIATELY - don't wait for DB operations
-    if (nextStepSlug) {
-      router.push(`/read/${chapter.slug}/${nextStepSlug}`);
+    // Navigate IMMEDIATELY - don't wait for DB operations. Use canonical URL so server never redirects → avoids Next.js MPA path → React #310.
+    if (nextUrl) {
+      router.push(nextUrl);
     } else {
       router.push('/dashboard');
     }
@@ -185,9 +185,23 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
 
   return (
     <ReadingLayout currentProgress={progress} onClose={() => router.push('/dashboard')}>
-      <div className="h-full flex flex-col">
-        <div className="flex-1 overflow-y-auto">
-          <SectionLayout imageSrc={heroImageSrc} imageAlt={heroImageAlt}>
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+        {/* Left side: Image */}
+        <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative overflow-hidden bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
+          <Image
+            src={heroImageSrc}
+            alt={heroImageAlt}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 50vw"
+            priority
+          />
+        </div>
+
+        {/* Right side: Content + Navigation */}
+        <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col flex-1 min-h-0 overflow-hidden">
+          {/* Content - scrollable on mobile */}
+          <div className="flex-1 p-6 sm:p-8 lg:p-12 min-h-0 reading-scroll">
             <div className="space-y-6">
               <div className="mb-6">
                 <p className="text-sm text-[#ff6a38] font-semibold uppercase tracking-wide mb-2">
@@ -208,17 +222,28 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
                 />
               ))}
             </div>
-          </SectionLayout>
-        </div>
-        <div className="flex-shrink-0 p-6 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800">
-          <PageNavigator
-            currentPage={currentPage}
-            totalPages={pages.length}
-            onPrevious={handlePrevious}
-            onNext={handleNext}
-            onComplete={handleComplete}
-            className="max-w-4xl mx-auto"
-          />
+          </div>
+
+          {/* Bottom navigation - inside right panel */}
+          <div className="flex-shrink-0 p-4 sm:p-6 lg:p-8 border-t border-[#E5D5B0] dark:border-[#4A3B1E] bg-[#FFFAED] dark:bg-[#1A1410] safe-area-pb">
+            <div className="flex items-center justify-center gap-4 sm:gap-6 max-w-3xl mx-auto">
+              {currentPage > 0 && (
+                <button
+                  onClick={handlePrevious}
+                  className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
+                >
+                  Previous
+                </button>
+              )}
+              <button
+                onClick={currentPage === pages.length - 1 ? handleComplete : handleNext}
+                disabled={isProcessing}
+                className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-[#FF6B35] hover:bg-[#FF5722] text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
+              >
+                {currentPage === pages.length - 1 ? 'Complete' : 'Continue'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </ReadingLayout>

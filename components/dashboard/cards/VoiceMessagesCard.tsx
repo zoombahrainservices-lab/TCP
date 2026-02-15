@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Card from '../ui/Card'
 import Button from '@/components/ui/Button'
-import { createClient } from '@/lib/supabase/client'
+import { getClient } from '@/lib/supabase/client'
 
 type VoiceMessageRow = {
   id: string
@@ -44,7 +44,7 @@ function extForMime(mimeType: string): string {
 }
 
 export default function VoiceMessagesCard() {
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = getClient()
 
   const [recState, setRecState] = useState<RecorderState>('idle')
   const [error, setError] = useState<string | null>(null)

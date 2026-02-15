@@ -34,17 +34,28 @@ export default function ReadingLayout({
   };
 
   return (
-    <div className={`fixed inset-0 w-full h-full min-w-full min-h-screen bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden flex flex-col ${className}`}>
-      {/* Header */}
-      <header className="flex-shrink-0 w-full bg-white/95 dark:bg-[#0a1628]/95 backdrop-blur-sm shadow-sm z-10">
+    <div
+      className={`fixed inset-0 w-full min-w-full bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden flex flex-col ${className}`}
+      style={{ height: '100dvh', maxHeight: '-webkit-fill-available' }}
+    >
+      {/* Top navbar - white bg, logo left, close right */}
+      <header className="flex-shrink-0 w-full bg-white dark:bg-[#0a1628] border-b border-gray-100 dark:border-gray-800 shadow-sm z-10">
         <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <Image
               src="/TCP-logo.png"
-              alt="TCP Logo"
-              width={120}
-              height={32}
-              className="h-8 w-auto"
+              alt="The Communication Protocol"
+              width={180}
+              height={40}
+              className="h-9 sm:h-10 w-auto dark:hidden"
+              priority
+            />
+            <Image
+              src="/TCP-logo-white.png"
+              alt="The Communication Protocol"
+              width={180}
+              height={40}
+              className="h-9 sm:h-10 w-auto hidden dark:block"
               priority
             />
           </div>
@@ -62,10 +73,10 @@ export default function ReadingLayout({
             )}
             <button
               onClick={handleClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
               aria-label="Close"
             >
-              <X className="w-6 h-6 text-gray-700 dark:text-gray-200" />
+              <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
             </button>
           </div>
         </div>
@@ -81,8 +92,8 @@ export default function ReadingLayout({
         />
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden">
+      {/* Main Content Area - min-h-0 critical for mobile scroll */}
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {children}
       </div>
     </div>

@@ -1,6 +1,5 @@
 'use client';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface PageNavigatorProps {
@@ -52,54 +51,26 @@ export default function PageNavigator({
   };
 
   return (
-    <div className={`flex items-center justify-between gap-4 ${className}`}>
-      {/* Previous Button */}
-      {showPrevious && (
+    <div className={`flex items-center justify-center gap-4 sm:gap-6 ${className}`}>
+      {/* Previous Button - only show if not first page */}
+      {showPrevious && !isFirst && (
         <button
           onClick={handlePrevious}
-          disabled={isFirst || isLoading}
-          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-            isFirst || isLoading
-              ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-md'
-          }`}
+          disabled={isLoading}
+          className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ChevronLeft className="w-5 h-5" />
-          <span>Previous</span>
+          Previous
         </button>
       )}
-
-      {/* Page Indicator */}
-      <div className="flex items-center gap-2">
-        {Array.from({ length: totalPages }, (_, i) => (
-          <motion.div
-            key={i}
-            className={`h-2 rounded-full transition-all ${
-              i === currentPage
-                ? 'w-8 bg-[#ff6a38]'
-                : 'w-2 bg-gray-300 dark:bg-gray-700'
-            }`}
-            initial={false}
-            animate={{
-              scale: i === currentPage ? 1.1 : 1,
-            }}
-          />
-        ))}
-      </div>
 
       {/* Next/Complete Button */}
       {showNext && (
         <button
           onClick={handleNext}
           disabled={isLoading}
-          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-            isLoading
-              ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-              : 'bg-[#ff6a38] hover:bg-[#ff8c38] text-white shadow-lg hover:shadow-xl transform hover:scale-105'
-          }`}
+          className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-[#FF6B35] hover:bg-[#FF5722] text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
         >
-          <span>{isLoading ? 'Loading...' : getNextButtonLabel()}</span>
-          {!isLast && <ChevronRight className="w-5 h-5" />}
+          {isLoading ? 'Loading...' : getNextButtonLabel()}
         </button>
       )}
     </div>

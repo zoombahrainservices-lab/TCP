@@ -91,17 +91,20 @@ export default function LegacyChapter1ReadingClient() {
   }
 
   return (
-    <div className="fixed inset-0 bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden flex flex-col">
-      {/* Top bar with logo + close */}
-      <header className="flex-shrink-0 bg-white/95 dark:bg-[#0a1628]/95 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700 z-30">
+    <div
+      className="fixed inset-0 w-full bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden flex flex-col"
+      style={{ height: '100dvh', maxHeight: '-webkit-fill-available' }}
+    >
+      {/* Top navbar - white bg, logo left, close right */}
+      <header className="flex-shrink-0 w-full bg-white dark:bg-[#0a1628] border-b border-gray-100 dark:border-gray-800 shadow-sm z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <div className="relative h-10 w-auto">
+          <div className="relative h-9 sm:h-10 w-auto">
             <Image
               src="/TCP-logo.png"
               alt="The Communication Protocol"
               width={180}
               height={40}
-              className="object-contain h-10 w-auto dark:hidden"
+              className="object-contain h-9 sm:h-10 w-auto dark:hidden"
               priority
             />
             <Image
@@ -109,13 +112,14 @@ export default function LegacyChapter1ReadingClient() {
               alt="The Communication Protocol"
               width={180}
               height={40}
-              className="object-contain h-10 w-auto hidden dark:block"
+              className="object-contain h-9 sm:h-10 w-auto hidden dark:block"
               priority
             />
           </div>
           <button
             onClick={handleClose}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
+            aria-label="Close"
           >
             <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
@@ -131,11 +135,11 @@ export default function LegacyChapter1ReadingClient() {
         />
       </div>
 
-      {/* Content: image left, text right, chunk-by-chunk */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto">
-        <div className="min-h-full flex flex-col lg:flex-row lg:h-full">
+      {/* Content: image left, text right - mobile: scrollable text column */}
+      <div ref={contentRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           {/* Image */}
-          <div className="w-full lg:w-1/2 h-64 sm:h-96 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden">
+          <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden">
             <motion.div
               key={currentSlide.id}
               initial={{ opacity: 0 }}
@@ -157,8 +161,8 @@ export default function LegacyChapter1ReadingClient() {
           </div>
 
           {/* Text */}
-          <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col">
-            <div className="flex-1 p-6 sm:p-8 lg:p-12 overflow-auto">
+          <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 p-6 sm:p-8 lg:p-12 min-h-0 reading-scroll">
               <motion.div
                 key={currentSlide.id}
                 initial={{ opacity: 0, y: 16 }}
@@ -182,20 +186,20 @@ export default function LegacyChapter1ReadingClient() {
               </motion.div>
             </div>
 
-            {/* Navigation buttons */}
-            <div className="p-4 sm:p-6 lg:p-8 border-t border-[#E8D9B8] dark:border-gray-700 bg-[#FFF8E7] dark:bg-[#2A2416]">
+            {/* Navigation - inside right panel */}
+            <div className="flex-shrink-0 p-4 sm:p-6 lg:p-8 border-t border-[#E8D9B8] dark:border-gray-700 bg-[#FFF8E7] dark:bg-[#2A2416] safe-area-pb">
               <div className="flex items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto">
                 {currentIndex > 0 && (
                   <button
                     onClick={handlePrev}
-                    className="px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-white dark:bg-gray-800 text-[var(--color-gray)] border-2 border-[var(--color-gray)] hover:border-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+                    className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
                   >
-                    Back
+                    Previous
                   </button>
                 )}
                 <button
                   onClick={handleNext}
-                  className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+                  className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-[#FF6B35] hover:bg-[#FF5722] text-white shadow-lg hover:shadow-xl min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
                 >
                   {currentIndex === totalSlides - 1 ? 'Complete' : 'Continue'}
                 </button>

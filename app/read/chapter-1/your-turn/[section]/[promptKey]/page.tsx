@@ -139,17 +139,17 @@ export default function YourTurnPage() {
 
   // If we discovered an existing response, redirect happens in useEffect; show form until then
   return (
-    <div className="fixed inset-0 bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden flex flex-col" style={{ height: '100dvh' }}>
-      {/* Header - same as S / Framework page */}
-      <header className="flex-shrink-0 bg-white/95 dark:bg-[#0a1628]/95 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700 z-30">
+    <div className="fixed inset-0 w-full bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden flex flex-col" style={{ height: '100dvh', maxHeight: '-webkit-fill-available' }}>
+      {/* Top navbar - white bg, logo left, close right */}
+      <header className="flex-shrink-0 w-full bg-white dark:bg-[#0a1628] border-b border-gray-100 dark:border-gray-800 shadow-sm z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <div className="relative h-10 sm:h-12 w-auto">
+          <div className="relative h-9 sm:h-10 w-auto">
             <Image
               src="/TCP-logo.png"
               alt="The Communication Protocol"
               width={180}
               height={40}
-              className="object-contain h-10 sm:h-12 w-auto dark:hidden"
+              className="object-contain h-9 sm:h-10 w-auto dark:hidden"
               priority
             />
             <Image
@@ -157,13 +157,14 @@ export default function YourTurnPage() {
               alt="The Communication Protocol"
               width={180}
               height={40}
-              className="object-contain h-10 sm:h-12 w-auto hidden dark:block"
+              className="object-contain h-9 sm:h-10 w-auto hidden dark:block"
               priority
             />
           </div>
           <button
             onClick={handleClose}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
+            aria-label="Close"
           >
             <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
@@ -175,12 +176,12 @@ export default function YourTurnPage() {
         <div className="h-full bg-[#ff6a38] w-1/3" />
       </div>
 
-      {/* Content - image left, text + input right (same structure as S page) */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="min-h-full flex flex-col lg:flex-row lg:min-h-0 lg:h-full">
+      {/* Content - image left, text + input right (mobile: scrollable right column) */}
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           {/* Image - left side (same as Framework) */}
           {promptInfo.image && (
-            <div className="w-full lg:w-1/2 h-64 sm:h-96 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden">
+            <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden">
               <Image
                 src={promptInfo.image}
                 alt={promptInfo.screenTitle ?? 'Your Turn'}
@@ -193,8 +194,8 @@ export default function YourTurnPage() {
           )}
 
           {/* Text + input - right side (same beige column as S page) */}
-          <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col flex-1 min-h-0">
-            <div className="flex-1 p-6 sm:p-8 lg:p-12 overflow-auto">
+          <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 p-6 sm:p-8 lg:p-12 min-h-0 reading-scroll">
               <div className="max-w-3xl mx-auto">
                 {promptInfo.letter && (
                   <div className="w-12 h-12 rounded-xl bg-[#ff6a38] text-white flex items-center justify-center font-black text-xl mb-4">
@@ -238,20 +239,20 @@ export default function YourTurnPage() {
               </div>
             </div>
 
-            {/* Navigation - same as S page: Back + Continue */}
-            <div className="p-4 sm:p-6 lg:p-8 border-t border-[#E8D9B8] dark:border-gray-700 bg-[#FFF8E7] dark:bg-[#2A2416] flex-shrink-0">
-              <div className="flex justify-center gap-3 sm:gap-4 max-w-3xl mx-auto">
+            {/* Navigation - inside right panel */}
+            <div className="flex-shrink-0 p-4 sm:p-6 lg:p-8 border-t border-[#E8D9B8] dark:border-gray-700 bg-[#FFF8E7] dark:bg-[#2A2416] safe-area-pb">
+              <div className="flex items-center justify-center gap-4 sm:gap-6 max-w-3xl mx-auto">
                 <Link
                   href={config.href}
-                  className="px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-white dark:bg-gray-800 text-[var(--color-gray)] border-2 border-[var(--color-gray)] hover:border-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+                  className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation flex items-center justify-center"
                 >
-                  Back
+                  Previous
                 </Link>
                 <button
                   type="button"
                   onClick={handleContinue}
                   disabled={isSaving}
-                  className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[#ff6a38] hover:bg-[#ff5a28] text-white shadow-md hover:shadow-lg disabled:opacity-70"
+                  className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-[#FF6B35] hover:bg-[#FF5722] text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
                 >
                   {isSaving ? 'Saving...' : continueTo.label}
                 </button>
