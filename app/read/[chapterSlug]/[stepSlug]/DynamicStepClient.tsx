@@ -9,6 +9,7 @@ import type { Chapter, Step, Page } from '@/lib/content/types';
 import { submitAssessment, completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
 import { showXPNotification } from '@/components/gamification/XPNotification';
 import { writeQueue } from '@/lib/queue/WriteQueue';
+import toast from 'react-hot-toast';
 
 interface Props {
   chapter: Chapter;
@@ -119,6 +120,20 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
           showXPNotification(xp, `${sectionName} Complete!`, { reasonCode: (sectionResult as any).reasonCode as any });
         } else if ((sectionResult as any).reasonCode === 'repeat_completion') {
           showXPNotification(0, '', { reasonCode: 'repeat_completion' });
+        }
+        
+        // Show streak XP notifications
+        const streakResult = (sectionResult as any).streakResult
+        if (streakResult) {
+          if (streakResult.dailyXP > 0) {
+            toast.success(`+${streakResult.dailyXP} XP for daily activity!`)
+          }
+          if (streakResult.streakBonus > 0) {
+            toast.success(`+${streakResult.streakBonus} XP streak bonus! 🔥`)
+          }
+          if (streakResult.milestone) {
+            toast.success(`🎉 ${streakResult.milestone.days}-day streak! +${streakResult.milestone.bonusXP} XP!`)
+          }
         }
       }
     });
