@@ -250,7 +250,6 @@ const chapter1FrameworkPages: Array<{ slug: string; title: string; order_index: 
 
 // Chapter 2 Reading: intro page with chapter title, then 5 pages of story/content.
 const chapter2ReadingIntroBlocks = [
-  { type: 'heading', level: 1, text: 'THE GENIUS WHO COULDNT SPEAK' },
   {
     type: 'paragraph',
     text: 'Tony\'s story about turning stage fright into fuel. This chapter shows you how to work with your fear instead of letting it silence you.'

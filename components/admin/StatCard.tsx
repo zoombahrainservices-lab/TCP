@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import { LucideIcon } from 'lucide-react'
 
 interface StatCardProps {
@@ -12,7 +12,8 @@ interface StatCardProps {
   }
 }
 
-export default function StatCard({ 
+// OPTIMIZED: Memoized to prevent unnecessary re-renders
+export default memo(function StatCard({ 
   title, 
   value, 
   icon: Icon, 
@@ -41,4 +42,4 @@ export default function StatCard({
       </div>
     </div>
   )
-}
+})

@@ -163,7 +163,7 @@ export default function OnboardingChapter1DemoPage() {
       </div>
 
       {/* Content */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto">
+      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">
         {slideContent[currentSlide].isTitleSlide ? (
           // TITLE SLIDE - Full Screen with Dark Background
           <motion.div
@@ -172,7 +172,7 @@ export default function OnboardingChapter1DemoPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="min-h-full w-full bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a] flex flex-col relative overflow-hidden"
+            className="h-full w-full bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a] flex flex-col relative overflow-hidden"
           >
             {/* Decorative pattern */}
             <div className="absolute inset-0 opacity-20">
@@ -224,19 +224,19 @@ export default function OnboardingChapter1DemoPage() {
             </div>
 
             {/* Navigation + Download */}
-            <div className="p-6 sm:p-8 border-t border-gray-700 bg-[#1a1a1a] relative z-10">
+            <div className="flex-shrink-0 p-[clamp(12px,3vw,32px)] border-t border-gray-700 bg-[#1a1a1a] relative z-10 pb-[max(12px,env(safe-area-inset-bottom))]">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
                 <a
                   href={CHAPTER_PDF_PATH}
                   download
-                  className="inline-flex items-center gap-2 rounded-2xl border border-gray-600 px-4 py-2 text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-gray-100 hover:bg-gray-800 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-gray-600 px-4 py-2 text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-gray-100 hover:bg-gray-800 transition-colors min-h-[44px] touch-manipulation"
                 >
                   <Download className="w-4 h-4" />
                   <span>Download chapter PDF</span>
                 </a>
                 <button
                   onClick={handleNext}
-                  className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+                  className="px-[clamp(24px,4vw,32px)] py-[clamp(10px,2vh,12px)] rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg min-h-[48px] touch-manipulation"
                 >
                   Continue
                 </button>
@@ -245,9 +245,9 @@ export default function OnboardingChapter1DemoPage() {
           </motion.div>
         ) : (
           // REGULAR CONTENT SLIDES - Mobile: Image on top, Text below | Desktop: Image left, Text right
-          <div className="min-h-full flex flex-col lg:flex-row lg:h-full">
+          <div className="h-full flex flex-col lg:flex-row">
             {/* Image Section */}
-            <div className="w-full lg:w-1/2 h-64 sm:h-96 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden">
+            <div className="w-full lg:w-1/2 h-64 sm:h-96 lg:h-full flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden">
               <motion.div
                 key={currentSlide}
                 initial={{ opacity: 0 }}
@@ -271,8 +271,8 @@ export default function OnboardingChapter1DemoPage() {
             </div>
 
             {/* Text Content */}
-            <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col">
-              <div ref={readingContentRef} className="flex-1 p-6 sm:p-8 lg:p-12 overflow-auto">
+            <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div ref={readingContentRef} className="flex-1 min-h-0 overflow-auto p-[clamp(16px,4vw,48px)]">
                 <motion.div
                   key={currentSlide}
                   initial={{ opacity: 0, y: 20 }}
@@ -283,10 +283,10 @@ export default function OnboardingChapter1DemoPage() {
                 >
                   {!slideContent[currentSlide].isTitleSlide && (
                     <>
-                      <h2 className="text-3xl font-bold text-[var(--color-charcoal)] dark:text-white mb-6">
+                      <h2 className="text-[clamp(1.5rem,4vw,1.875rem)] font-bold text-[var(--color-charcoal)] dark:text-white mb-[clamp(12px,2vh,24px)]">
                         {(slideContent[currentSlide] as ContentSlide).heading}
                       </h2>
-                      <div className="text-lg font-normal text-gray-700 dark:text-gray-300 leading-relaxed">
+                      <div className="text-[clamp(14px,2.5vw,18px)] font-normal text-gray-700 dark:text-gray-300 leading-relaxed">
                         {(slideContent[currentSlide] as ContentSlide).text.split('\n').map((line, i) => (
                           <span
                             key={i}
@@ -302,19 +302,19 @@ export default function OnboardingChapter1DemoPage() {
               </div>
 
               {/* Navigation Buttons */}
-              <div className="p-4 sm:p-6 lg:p-8 border-t border-[#E8D9B8] dark:border-gray-700 bg-[#FFF8E7] dark:bg-[#2A2416]">
+              <div className="flex-shrink-0 p-[clamp(12px,3vw,32px)] border-t border-[#E8D9B8] dark:border-gray-700 bg-[#FFF8E7] dark:bg-[#2A2416] pb-[max(12px,env(safe-area-inset-bottom))]">
                 <div className="flex items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto">
                   {currentSlide > 0 && (
                     <button
                       onClick={handlePrev}
-                      className="px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-white dark:bg-gray-800 text-[var(--color-gray)] border-2 border-[var(--color-gray)] hover:border-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+                      className="px-[clamp(16px,3vw,24px)] py-[clamp(10px,2vh,12px)] rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-white dark:bg-gray-800 text-[var(--color-gray)] border-2 border-[var(--color-gray)] hover:border-[var(--color-charcoal)] shadow-md hover:shadow-lg min-h-[48px] touch-manipulation"
                     >
                       Back
                     </button>
                   )}
                   <button
                     onClick={handleNext}
-                    className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+                    className="px-[clamp(24px,4vw,32px)] py-[clamp(10px,2vh,12px)] rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg min-h-[48px] touch-manipulation"
                   >
                     {currentSlide === totalSlides - 1 ? 'Continue to Login' : 'Continue'}
                   </button>

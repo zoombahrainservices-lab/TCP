@@ -1,5 +1,6 @@
 'use client'
 
+import { memo, useMemo } from 'react'
 import { 
   Type, 
   AlignLeft, 
@@ -60,16 +61,18 @@ interface BlockPaletteProps {
   isOpen?: boolean
 }
 
-export default function BlockPalette({ onSelectBlock, isOpen = true }: BlockPaletteProps) {
+// OPTIMIZED: Memoized to prevent unnecessary re-renders
+export default memo(function BlockPalette({ onSelectBlock, isOpen = true }: BlockPaletteProps) {
   if (!isOpen) return null
 
-  const categories = {
+  // OPTIMIZED: Memoize category filtering
+  const categories = useMemo(() => ({
     text: blockTypes.filter(b => b.category === 'text'),
     visual: blockTypes.filter(b => b.category === 'visual'),
     interactive: blockTypes.filter(b => b.category === 'interactive'),
     planning: blockTypes.filter(b => b.category === 'planning'),
     action: blockTypes.filter(b => b.category === 'action'),
-  }
+  }), [])
 
   return (
     <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
@@ -110,4 +113,4 @@ export default function BlockPalette({ onSelectBlock, isOpen = true }: BlockPale
       </div>
     </div>
   )
-}
+})

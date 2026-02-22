@@ -3,6 +3,10 @@ import StatCard from '@/components/admin/StatCard'
 import { Users, BookOpen, Trophy, TrendingUp, UserPlus, CheckCircle, Award } from 'lucide-react'
 import Link from 'next/link'
 
+// OPTIMIZED: Revalidate every 60 seconds for fresh data
+export const revalidate = 60
+export const dynamic = 'force-dynamic'
+
 export default async function AdminDashboard() {
   const stats = await getAdminDashboardStats()
   const activity = await getRecentActivity(5)

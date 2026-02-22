@@ -38,12 +38,12 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     }
   }, [isChapter1]);
 
-  // Canonical next URL: avoid redirects → no MPA → no React #310. Proof always /chapter/1/proof (Ch2 redirects there).
+  // Canonical next URL: avoid redirects → no MPA → no React #310.
   const canonicalNextUrl =
     nextStepSlug === 'assessment'
       ? `/chapter/${chapter.chapter_number}/assessment`
       : nextStepSlug === 'proof'
-        ? '/chapter/1/proof'
+        ? `/chapter/${chapter.chapter_number}/proof`
         : nextStepSlug
           ? `/read/${chapter.slug}/${nextStepSlug}`
           : null;

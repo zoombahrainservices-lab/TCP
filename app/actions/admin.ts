@@ -14,73 +14,56 @@ export async function getAdminDashboardStats() {
   const admin = createAdminClient()
 
   try {
-    // Get user stats
-    const { data: profiles, error: profilesError } = await admin
-      .from('profiles')
-      .select('role, created_at')
+    // Calculate date filters
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
+    // OPTIMIZED: Run all queries in parallel
+    const [
+      { data: profiles, error: profilesError },
+      { data: activeUsers, error: activeUsersError },
+      { data: chapters, error: chaptersError },
+      { data: gamification, error: gamificationError },
+      { data: parts, error: partsError }
+    ] = await Promise.all([
+      admin.from('profiles').select('role, created_at'),
+      admin.from('user_gamification').select('user_id').gte('last_active_date', oneDayAgo),
+      admin.from('chapters').select('is_published'),
+      admin.from('user_gamification').select('total_xp, level'),
+      admin.from('parts').select('id')
+    ])
+
+    // Handle errors
     if (profilesError) throw profilesError
+    if (chaptersError) throw new Error(`Failed to fetch chapters: ${chaptersError.message}`)
+    
+    if (activeUsersError) {
+      console.error('Error fetching active users:', activeUsersError)
+    }
+    if (gamificationError) {
+      console.error('Error fetching gamification data:', gamificationError)
+    }
+    if (partsError) {
+      console.error('Error fetching parts:', partsError)
+    }
 
+    // Process results
     const totalUsers = profiles?.length || 0
     const usersByRole = profiles?.reduce((acc, p) => {
       acc[p.role || 'student'] = (acc[p.role || 'student'] || 0) + 1
       return acc
     }, {} as Record<string, number>) || {}
 
-    // Users active today (have any activity in last 24 hours)
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    const { data: activeUsers, error: activeUsersError } = await admin
-      .from('user_gamification')
-      .select('user_id')
-      .gte('last_active_date', oneDayAgo)
-    
-    if (activeUsersError) {
-      console.error('Error fetching active users:', activeUsersError)
-      // Don't throw, just log - this is non-critical data
-    }
-
-    // New users this week
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const newUsersThisWeek = profiles?.filter(p => p.created_at >= oneWeekAgo).length || 0
-
-    // Get chapter stats
-    const { data: chapters, error: chaptersError } = await admin
-      .from('chapters')
-      .select('is_published')
-    
-    if (chaptersError) {
-      console.error('Error fetching chapters:', chaptersError)
-      throw new Error(`Failed to fetch chapters: ${chaptersError.message}`)
-    }
 
     const totalChapters = chapters?.length || 0
     const publishedChapters = chapters?.filter(c => c.is_published).length || 0
     const draftChapters = totalChapters - publishedChapters
 
-    // Get XP stats
-    const { data: gamification, error: gamificationError } = await admin
-      .from('user_gamification')
-      .select('total_xp, level')
-    
-    if (gamificationError) {
-      console.error('Error fetching gamification data:', gamificationError)
-      // Don't throw, just log - this is non-critical data
-    }
-
     const totalXP = gamification?.reduce((sum, g) => sum + (g.total_xp || 0), 0) || 0
     const avgLevel = gamification?.length 
       ? (gamification.reduce((sum, g) => sum + (g.level || 1), 0) / gamification.length).toFixed(1)
       : '1.0'
-
-    // Get parts count
-    const { data: parts, error: partsError } = await admin
-      .from('parts')
-      .select('id')
-    
-    if (partsError) {
-      console.error('Error fetching parts:', partsError)
-      // Don't throw, just log - this is non-critical data
-    }
 
     return {
       users: {
@@ -113,56 +96,41 @@ export async function getRecentActivity(limit: number = 10) {
   const admin = createAdminClient()
 
   try {
-    // Get recent user signups
-    const { data: recentUsers } = await admin
-      .from('profiles')
-      .select('id, full_name, email, created_at')
-      .order('created_at', { ascending: false })
-      .limit(limit)
+    // OPTIMIZED: Parallelize all queries
+    const [
+      { data: recentUsers },
+      { data: completions },
+      { data: xpLogs }
+    ] = await Promise.all([
+      admin.from('profiles').select('id, full_name, email, created_at').order('created_at', { ascending: false }).limit(limit),
+      admin.from('chapter_sessions').select('id, chapter_id, completed_at, user_id').not('completed_at', 'is', null).order('completed_at', { ascending: false }).limit(limit),
+      admin.from('xp_logs').select('id, user_id, reason, amount, created_at').order('created_at', { ascending: false }).limit(limit)
+    ])
 
-    // Get recent chapter completions
-    const { data: completions } = await admin
-      .from('chapter_sessions')
-      .select('id, chapter_id, completed_at, user_id')
-      .not('completed_at', 'is', null)
-      .order('completed_at', { ascending: false })
-      .limit(limit)
-
-    // Get user info for completions
+    // Get all unique user IDs
     const completionUserIds = completions?.map(c => c.user_id) || []
-    const { data: completionUsers } = await admin
-      .from('profiles')
-      .select('id, full_name, email')
-      .in('id', completionUserIds)
+    const xpUserIds = xpLogs?.map(x => x.user_id) || []
+    const allUserIds = [...new Set([...completionUserIds, ...xpUserIds])]
+
+    // Fetch all user profiles at once
+    const { data: userProfiles } = allUserIds.length > 0
+      ? await admin.from('profiles').select('id, full_name, email').in('id', allUserIds)
+      : { data: [] }
 
     const recentCompletions = completions?.map(c => ({
       ...c,
-      profiles: completionUsers?.find(u => u.id === c.user_id)
+      profiles: userProfiles?.find(u => u.id === c.user_id)
     })) || []
-
-    // Get recent XP awards
-    const { data: xpLogs } = await admin
-      .from('xp_logs')
-      .select('id, user_id, reason, amount, created_at')
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    // Get user info for XP logs
-    const xpUserIds = xpLogs?.map(x => x.user_id) || []
-    const { data: xpUsers } = await admin
-      .from('profiles')
-      .select('id, full_name, email')
-      .in('id', xpUserIds)
 
     const recentXP = xpLogs?.map(x => ({
       ...x,
-      profiles: xpUsers?.find(u => u.id === x.user_id)
+      profiles: userProfiles?.find(u => u.id === x.user_id)
     })) || []
 
     return {
       recentUsers: recentUsers || [],
-      recentCompletions: recentCompletions || [],
-      recentXP: recentXP || [],
+      recentCompletions,
+      recentXP,
     }
   } catch (error) {
     console.error('Error fetching recent activity:', error)
@@ -283,35 +251,32 @@ export async function getUserDetailById(userId: string) {
   const admin = createAdminClient()
 
   try {
-    const { data: profile, error: profileError } = await admin
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    // OPTIMIZED: Parallelize all queries
+    const [
+      { data: profile, error: profileError },
+      { data: gamification },
+      { data: completedChapters },
+      { data: badgeRecords }
+    ] = await Promise.all([
+      admin.from('profiles').select('*').eq('id', userId).single(),
+      admin.from('user_gamification').select('*').eq('user_id', userId).single(),
+      admin.from('chapter_progress').select('chapter_id').eq('user_id', userId).eq('chapter_complete', true),
+      admin.from('user_badges').select('*, badge_id, earned_at').eq('user_id', userId)
+    ])
 
     if (profileError) throw profileError
 
-    const { data: gamification } = await admin
-      .from('user_gamification')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
+    // Get badge details separately
+    const badgeIds = badgeRecords?.map(b => b.badge_id).filter(Boolean) || []
+    const { data: badgeDetails } = badgeIds.length > 0
+      ? await admin.from('badges').select('*').in('id', badgeIds)
+      : { data: [] }
 
-    // Get chapters completed count
-    const { data: completedChapters } = await admin
-      .from('chapter_progress')
-      .select('chapter_id')
-      .eq('user_id', userId)
-      .eq('chapter_complete', true)
-
-    // Get badges earned
-    const { data: badges } = await admin
-      .from('user_badges')
-      .select(`
-        *,
-        badges (*)
-      `)
-      .eq('user_id', userId)
+    // Merge badge data
+    const badges = badgeRecords?.map(record => ({
+      ...record,
+      badges: badgeDetails?.find(b => b.id === record.badge_id)
+    })) || []
 
     return {
       profile,
@@ -320,7 +285,7 @@ export async function getUserDetailById(userId: string) {
         chaptersCompleted: completedChapters?.length || 0,
         badgesEarned: badges?.length || 0,
       },
-      badges: badges || [],
+      badges,
     }
   } catch (error) {
     console.error('Error fetching user detail:', error)
@@ -333,12 +298,18 @@ export async function getUserProgressTimeline(userId: string) {
   const admin = createAdminClient()
 
   try {
-    // Get progress
-    const { data: progress, error: progressError } = await admin
-      .from('chapter_progress')
-      .select('*')
-      .eq('user_id', userId)
-      .order('chapter_id', { ascending: true })
+    // OPTIMIZED: Parallelize all queries
+    const [
+      { data: progress, error: progressError },
+      { data: assessments },
+      { data: sessions },
+      { data: xpLogs }
+    ] = await Promise.all([
+      admin.from('chapter_progress').select('*').eq('user_id', userId).order('chapter_id', { ascending: true }).limit(50),
+      admin.from('chapter_skill_scores').select('*').eq('user_id', userId).limit(50),
+      admin.from('chapter_sessions').select('*').eq('user_id', userId).limit(50),
+      admin.from('xp_logs').select('chapter_id, amount').eq('user_id', userId).limit(100)
+    ])
 
     if (progressError) {
       console.error('Error fetching progress:', progressError)
@@ -347,34 +318,15 @@ export async function getUserProgressTimeline(userId: string) {
 
     // Get chapters for the progress
     const chapterIds = progress?.map(p => p.chapter_id).filter(Boolean) || []
-    const { data: chapters } = await admin
-      .from('chapters')
-      .select('id, chapter_number, title, slug')
-      .in('id', chapterIds)
+    const { data: chapters } = chapterIds.length > 0
+      ? await admin.from('chapters').select('id, chapter_number, title, slug').in('id', chapterIds)
+      : { data: [] }
 
     // Merge chapter data with progress
     const progressWithChapters = progress?.map(p => ({
       ...p,
       chapters: chapters?.find(c => c.id === p.chapter_id)
     })) || []
-
-    // Get assessment scores
-    const { data: assessments } = await admin
-      .from('chapter_skill_scores')
-      .select('*')
-      .eq('user_id', userId)
-
-    // Get chapter sessions
-    const { data: sessions } = await admin
-      .from('chapter_sessions')
-      .select('*')
-      .eq('user_id', userId)
-
-    // Get XP breakdown by chapter
-    const { data: xpLogs } = await admin
-      .from('xp_logs')
-      .select('chapter_id, amount')
-      .eq('user_id', userId)
 
     const xpByChapter = xpLogs?.reduce((acc, log) => {
       if (log.chapter_id) {
@@ -654,6 +606,7 @@ export async function getAllParts() {
       .from('parts')
       .select('*')
       .order('order_index')
+      .limit(100) // OPTIMIZED: Add pagination limit
 
     if (error) {
       console.error('Error fetching parts:', error)
@@ -676,6 +629,7 @@ export async function getAllChapters() {
       .from('chapters')
       .select('*')
       .order('chapter_number')
+      .limit(100) // OPTIMIZED: Add pagination limit
 
     if (error) {
       console.error('Error fetching chapters:', error)
@@ -1407,21 +1361,20 @@ export async function getXPSystemStats() {
   const admin = createAdminClient()
 
   try {
-    // Total XP distributed
-    const { data: gamification } = await admin
-      .from('user_gamification')
-      .select('total_xp, level, current_streak')
+    // OPTIMIZED: Parallelize queries
+    const [
+      { data: gamification },
+      { data: userBadges }
+    ] = await Promise.all([
+      admin.from('user_gamification').select('total_xp, level, current_streak'),
+      admin.from('user_badges').select('id').limit(1000)
+    ])
 
     const totalXP = gamification?.reduce((sum, g) => sum + (g.total_xp || 0), 0) || 0
     const avgLevel = gamification?.length
       ? (gamification.reduce((sum, g) => sum + (g.level || 1), 0) / gamification.length).toFixed(1)
       : '1.0'
     const activeStreaks = gamification?.filter(g => (g.current_streak || 0) > 0).length || 0
-
-    // Badges awarded
-    const { data: userBadges } = await admin
-      .from('user_badges')
-      .select('id')
 
     // XP distribution
     const xpDistribution = {
@@ -1543,6 +1496,7 @@ export async function getAllBadges() {
         user_badges (id)
       `)
       .order('id', { ascending: true })
+      .limit(50) // OPTIMIZED: Add pagination limit
 
     if (error) throw error
 
@@ -1629,14 +1583,14 @@ export async function getUserEngagementStats(dateRange?: { from: string; to: str
   const admin = createAdminClient()
 
   try {
-    // This is a simplified version - you'd want more sophisticated analytics
-    const { data: profiles } = await admin
-      .from('profiles')
-      .select('created_at')
-
-    const { data: gamification } = await admin
-      .from('user_gamification')
-      .select('last_active_date')
+    // OPTIMIZED: Parallelize queries
+    const [
+      { data: profiles },
+      { data: gamification }
+    ] = await Promise.all([
+      admin.from('profiles').select('created_at'),
+      admin.from('user_gamification').select('last_active_date')
+    ])
 
     // Calculate DAU, WAU, MAU
     const now = new Date()
@@ -1673,13 +1627,14 @@ export async function getChapterAnalytics() {
   const admin = createAdminClient()
 
   try {
-    const { data: chapters } = await admin
-      .from('chapters')
-      .select('id, chapter_number, title')
-
-    const { data: progress } = await admin
-      .from('chapter_progress')
-      .select('chapter_id, chapter_complete')
+    // OPTIMIZED: Parallelize queries
+    const [
+      { data: chapters },
+      { data: progress }
+    ] = await Promise.all([
+      admin.from('chapters').select('id, chapter_number, title').limit(100),
+      admin.from('chapter_progress').select('chapter_id, chapter_complete')
+    ])
 
     // Calculate completion rates
     const chapterStats = chapters?.map(chapter => {
@@ -1707,13 +1662,14 @@ export async function getProgressMetrics() {
   const admin = createAdminClient()
 
   try {
-    const { data: progress } = await admin
-      .from('chapter_progress')
-      .select('*')
-
-    const { data: profiles } = await admin
-      .from('profiles')
-      .select('id')
+    // OPTIMIZED: Parallelize queries
+    const [
+      { data: progress },
+      { data: profiles }
+    ] = await Promise.all([
+      admin.from('chapter_progress').select('*'),
+      admin.from('profiles').select('id')
+    ])
 
     const totalUsers = profiles?.length || 0
     const usersWithProgress = new Set(progress?.map(p => p.user_id)).size
@@ -1787,6 +1743,48 @@ export async function getAllPagesForStep(stepId: string) {
     return data || []
   } catch (error) {
     console.error('Error in getAllPagesForStep:', error)
+    throw error
+  }
+}
+
+// OPTIMIZED: Batch fetch all pages for a chapter (fixes N+1 pattern)
+export async function getAllPagesForChapter(chapterId: string) {
+  await requireAuth('admin')
+  const admin = createAdminClient()
+  
+  try {
+    // First get all steps for this chapter
+    const { data: steps, error: stepsError } = await admin
+      .from('chapter_steps')
+      .select('id')
+      .eq('chapter_id', chapterId)
+    
+    if (stepsError) {
+      console.error('Error fetching steps:', stepsError)
+      throw new Error(`Failed to fetch steps: ${stepsError.message}`)
+    }
+    
+    if (!steps || steps.length === 0) {
+      return []
+    }
+    
+    const stepIds = steps.map(s => s.id)
+    
+    // Then fetch all pages for these steps in one query
+    const { data: pages, error: pagesError } = await admin
+      .from('step_pages')
+      .select('*')
+      .in('step_id', stepIds)
+      .order('order_index')
+    
+    if (pagesError) {
+      console.error('Error fetching pages:', pagesError)
+      throw new Error(`Failed to fetch pages: ${pagesError.message}`)
+    }
+    
+    return pages || []
+  } catch (error) {
+    console.error('Error in getAllPagesForChapter:', error)
     throw error
   }
 }

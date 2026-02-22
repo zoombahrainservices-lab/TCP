@@ -27,15 +27,9 @@ export default function SelectionCard({
   const [isHovered, setIsHovered] = useState(false)
 
   const sizeStyles = {
-    sm: 'p-2',
-    md: 'p-3',
-    lg: 'p-4',
-  }
-
-  const imageSizes = {
-    sm: { width: 200, height: 200 },
-    md: { width: 300, height: 300 },
-    lg: { width: 400, height: 400 },
+    sm: 'p-[clamp(4px,1vw,8px)]',
+    md: 'p-[clamp(6px,1vw,12px)]',
+    lg: 'p-[clamp(8px,1vw,16px)]',
   }
 
   return (
@@ -43,15 +37,15 @@ export default function SelectionCard({
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`relative group rounded-xl ${sizeStyles[size]} transition-all cursor-pointer ${
+      className={`relative group rounded-xl ${sizeStyles[size]} transition-all cursor-pointer flex flex-col h-full ${
         selected
-          ? `bg-gradient-to-br ${gradient} text-white shadow-2xl scale-105`
-          : 'bg-white dark:bg-[#1a3456] border-2 border-gray-200 dark:border-gray-700 hover:border-[#0073ba] dark:hover:border-[#4bc4dc] shadow-lg hover:shadow-xl hover:scale-105'
+          ? `bg-gradient-to-br ${gradient} text-white shadow-2xl ring-2 ring-offset-1 ring-white/50`
+          : 'bg-white dark:bg-[#1a3456] border-2 border-gray-200 dark:border-gray-700 hover:border-[#0073ba] dark:hover:border-[#4bc4dc] shadow-lg hover:shadow-xl'
       }`}
     >
-      {/* Image container with hover effect */}
+      {/* Image region - grows and shrinks, minimum 40px height */}
       <div
-        className={`w-full aspect-square rounded-lg mb-2 flex items-center justify-center overflow-hidden relative ${
+        className={`flex-1 min-h-[40px] rounded-lg mb-2 overflow-hidden relative ${
           selected ? 'bg-white/15' : 'bg-gray-50 dark:bg-gray-800'
         }`}
       >
@@ -59,10 +53,9 @@ export default function SelectionCard({
         <Image
           src={image}
           alt={title}
-          width={imageSizes[size].width}
-          height={imageSizes[size].height}
+          fill
           quality={100}
-          className={`w-full h-full object-contain transition-opacity duration-300 ${
+          className={`object-contain transition-opacity duration-300 ${
             hoverImage && isHovered ? 'opacity-0' : 'opacity-100'
           }`}
         />
@@ -71,33 +64,33 @@ export default function SelectionCard({
           <Image
             src={hoverImage}
             alt={`${title} hover`}
-            width={imageSizes[size].width}
-            height={imageSizes[size].height}
+            fill
             quality={100}
-            className={`w-full h-full object-contain absolute inset-0 transition-opacity duration-300 ${
+            className={`object-contain transition-opacity duration-300 ${
               isHovered ? 'opacity-100' : 'opacity-0'
             }`}
           />
         )}
       </div>
 
-      {/* Title */}
-      <h3
-        className={`text-sm font-bold mb-1 ${
-          selected ? 'text-white' : 'text-gray-900 dark:text-white'
-        }`}
-      >
-        {title}
-      </h3>
+      {/* Text region - fixed height, fluid typography */}
+      <div className="flex-shrink-0">
+        <h3
+          className={`[font-size:clamp(9px,1.8vw,14px)] font-bold mb-1 line-clamp-1 ${
+            selected ? 'text-white' : 'text-gray-900 dark:text-white'
+          }`}
+        >
+          {title}
+        </h3>
 
-      {/* Description */}
-      <p
-        className={`text-xs leading-tight ${
-          selected ? 'text-white/90' : 'text-gray-600 dark:text-gray-400'
-        }`}
-      >
-        {description}
-      </p>
+        <p
+          className={`[font-size:clamp(8px,1.4vw,12px)] leading-tight line-clamp-1 [@media(max-height:500px)]:hidden ${
+            selected ? 'text-white/90' : 'text-gray-600 dark:text-gray-400'
+          }`}
+        >
+          {description}
+        </p>
+      </div>
 
       {/* Selection checkmark */}
       {selected && (

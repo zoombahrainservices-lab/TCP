@@ -1,12 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import dynamic from 'next/dynamic'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAllParts, getAllChapters, createPart, updatePart, deletePart, deleteChapter, publishChapter, createChapterWithSteps } from '@/app/actions/admin'
 import PartEditor from '@/components/admin/PartEditor'
-import ChapterWizard from '@/components/admin/ChapterWizard'
 import ConfirmDialog from '@/components/admin/ConfirmDialog'
 import Button from '@/components/ui/Button'
 import Link from 'next/link'
+
+// OPTIMIZED: Lazy load ChapterWizard modal
+const ChapterWizard = dynamic(() => import('@/components/admin/ChapterWizard'), {
+  ssr: false
+})
 import {
   Plus,
   Edit,
@@ -21,10 +27,8 @@ import {
 import toast from 'react-hot-toast'
 
 export default function ChaptersPage() {
-  const [parts, setParts] = useState<any[]>([])
-  const [chapters, setChapters] = useState<any[]>([])
+  const queryClient = useQueryClient()
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(true)
   const [showPartEditor, setShowPartEditor] = useState(false)
   const [showChapterWizard, setShowChapterWizard] = useState(false)
   const [editingPart, setEditingPart] = useState<any>(null)
@@ -40,48 +44,28 @@ export default function ChaptersPage() {
     onConfirm: () => {},
   })
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  // OPTIMIZED: Use React Query for caching parts and chapters
+  const { data: parts = [], isLoading: partsLoading } = useQuery({
+    queryKey: ['parts'],
+    queryFn: getAllParts,
+    staleTime: 120000, // 2 minutes
+  })
 
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      // Use server actions instead of direct client calls
-      const [loadedParts, loadedChapters] = await Promise.all([
-        getAllParts(),
-        getAllChapters(),
-      ])
-      
-      setParts(loadedParts)
-      setChapters(loadedChapters)
-      
-      console.log('=== ADMIN CHAPTERS DEBUG ===')
-      console.log('Loaded parts:', loadedParts.length)
-      console.log('Parts data:', loadedParts)
-      console.log('Loaded chapters:', loadedChapters.length)
-      console.log('Chapters data:', loadedChapters)
-      
-      // Group chapters by part_id for debugging
-      const grouped = loadedChapters.reduce((acc: any, ch: any) => {
-        const partId = ch.part_id || 'null'
-        if (!acc[partId]) acc[partId] = []
-        acc[partId].push(ch.title)
-        return acc
-      }, {})
-      console.log('Chapters grouped by part_id:', grouped)
-      
-      // Expand all parts by default
-      const partIds = loadedParts.map((p: any) => p.id)
-      console.log('Setting expanded parts:', partIds)
+  const { data: chapters = [], isLoading: chaptersLoading } = useQuery({
+    queryKey: ['chapters'],
+    queryFn: getAllChapters,
+    staleTime: 60000, // 1 minute
+  })
+
+  const loading = partsLoading || chaptersLoading
+
+  // Expand all parts by default when parts load
+  useEffect(() => {
+    if (parts.length > 0 && expandedParts.size === 0) {
+      const partIds = parts.map((p: any) => p.id)
       setExpandedParts(new Set(partIds))
-    } catch (error) {
-      console.error('Error loading data:', error)
-      toast.error('Failed to load chapters')
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [parts])
 
   const togglePart = (partId: string) => {
     const newExpanded = new Set(expandedParts)
@@ -129,7 +113,9 @@ export default function ChaptersPage() {
         try {
           await deletePart(part.id)
           toast.success('Part deleted successfully')
-          loadData()
+          // OPTIMIZED: Invalidate cache instead of manual reload
+          queryClient.invalidateQueries({ queryKey: ['parts'] })
+          queryClient.invalidateQueries({ queryKey: ['chapters'] })
         } catch (error) {
           toast.error('Failed to delete part')
         }
@@ -142,7 +128,8 @@ export default function ChaptersPage() {
     try {
       await createChapterWithSteps(data)
       toast.success('Chapter created successfully')
-      loadData()
+      // OPTIMIZED: Invalidate cache instead of manual reload
+      queryClient.invalidateQueries({ queryKey: ['chapters'] })
     } catch (error) {
       toast.error('Failed to create chapter')
       throw error
@@ -158,7 +145,8 @@ export default function ChaptersPage() {
         try {
           await deleteChapter(chapter.id)
           toast.success('Chapter deleted successfully')
-          loadData()
+          // OPTIMIZED: Invalidate cache instead of manual reload
+          queryClient.invalidateQueries({ queryKey: ['chapters'] })
         } catch (error) {
           toast.error('Failed to delete chapter')
         }
@@ -171,19 +159,23 @@ export default function ChaptersPage() {
     try {
       await publishChapter(chapter.id, !chapter.is_published)
       toast.success(chapter.is_published ? 'Chapter unpublished' : 'Chapter published')
-      loadData()
+      // OPTIMIZED: Invalidate cache instead of manual reload
+      queryClient.invalidateQueries({ queryKey: ['chapters'] })
     } catch (error) {
       toast.error('Failed to update chapter')
     }
   }
 
-  const chaptersByPart = chapters.reduce((acc, chapter) => {
-    if (!acc[chapter.part_id]) {
-      acc[chapter.part_id] = []
-    }
-    acc[chapter.part_id].push(chapter)
-    return acc
-  }, {} as Record<string, any[]>)
+  // OPTIMIZED: Memoize expensive computation
+  const chaptersByPart = useMemo(() => {
+    return chapters.reduce((acc, chapter) => {
+      if (!acc[chapter.part_id]) {
+        acc[chapter.part_id] = []
+      }
+      acc[chapter.part_id].push(chapter)
+      return acc
+    }, {} as Record<string, any[]>)
+  }, [chapters])
 
   if (loading) {
     return (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import Button from '@/components/ui/Button'
 import { 
   ChevronDown, 
@@ -70,7 +70,8 @@ const stepTypeNames: Record<string, string> = {
   follow_through: 'Follow-Through'
 }
 
-export default function StepCard({
+// OPTIMIZED: Memoized to prevent unnecessary re-renders
+export default memo(function StepCard({
   step,
   pages,
   chapterId,
@@ -277,4 +278,4 @@ export default function StepCard({
       )}
     </div>
   )
-}
+})

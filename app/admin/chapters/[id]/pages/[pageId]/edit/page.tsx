@@ -2,9 +2,19 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import PageContentEditor from '@/components/admin/PageContentEditor'
+import dynamic from 'next/dynamic'
 import { getPageWithContent, updatePageContent } from '@/app/actions/admin'
 import toast from 'react-hot-toast'
+
+// OPTIMIZED: Lazy load heavy PageContentEditor component
+const PageContentEditor = dynamic(() => import('@/components/admin/PageContentEditor'), {
+  loading: () => (
+    <div className="flex items-center justify-center h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-amber)]"></div>
+    </div>
+  ),
+  ssr: false
+})
 
 export default function PageEditorPage() {
   const params = useParams()

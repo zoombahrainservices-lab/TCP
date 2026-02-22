@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   getUserEngagementStats,
   getChapterAnalytics,
@@ -49,14 +49,18 @@ export default function AnalyticsPage() {
     )
   }
 
-  // Sort chapters by completion rate
-  const topChapters = [...chapterStats]
-    .sort((a, b) => b.completionRate - a.completionRate)
-    .slice(0, 10)
+  // OPTIMIZED: Memoize sorting operations
+  const topChapters = useMemo(() => {
+    return [...chapterStats]
+      .sort((a, b) => b.completionRate - a.completionRate)
+      .slice(0, 10)
+  }, [chapterStats])
 
-  const bottomChapters = [...chapterStats]
-    .sort((a, b) => a.completionRate - b.completionRate)
-    .slice(0, 10)
+  const bottomChapters = useMemo(() => {
+    return [...chapterStats]
+      .sort((a, b) => a.completionRate - b.completionRate)
+      .slice(0, 10)
+  }, [chapterStats])
 
   return (
     <div className="p-6 lg:p-8">

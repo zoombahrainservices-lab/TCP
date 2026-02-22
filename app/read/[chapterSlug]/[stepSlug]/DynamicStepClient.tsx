@@ -18,11 +18,11 @@ interface Props {
   nextStepSlug: string | null;
 }
 
-// Steps that the server redirects — use canonical URL so we never trigger redirect → MPA → React #310. Proof always /chapter/1/proof (Ch2 redirects there).
+// Steps that the server redirects — use canonical URL so we never trigger redirect → MPA → React #310.
 function getCanonicalNextUrl(chapterNumber: number, nextStepSlug: string | null): string | null {
   if (!nextStepSlug) return null;
   if (nextStepSlug === 'assessment') return `/chapter/${chapterNumber}/assessment`;
-  if (nextStepSlug === 'proof') return '/chapter/1/proof';
+  if (nextStepSlug === 'proof') return `/chapter/${chapterNumber}/proof`;
   return null;
 }
 

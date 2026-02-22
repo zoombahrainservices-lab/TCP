@@ -56,7 +56,7 @@ export default function TopHero({
 
   return (
     <section className="rounded-[26px] bg-white dark:bg-[#020617] shadow-[0_10px_35px_rgba(15,23,42,0.08)] ring-1 ring-slate-100 dark:ring-slate-800 transition-colors duration-300">
-      <div className="relative overflow-hidden rounded-[26px] px-5 py-6">
+      <div className="relative overflow-hidden rounded-[26px] px-[clamp(16px,3vw,20px)] py-[clamp(20px,3vh,24px)]">
         {/* Pink/Blue gradient background wash */}
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-20 -top-20 h-80 w-80 rounded-full bg-gradient-to-br from-pink-200/60 to-pink-100/40 blur-3xl dark:opacity-20" />
@@ -64,15 +64,15 @@ export default function TopHero({
           <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-amber-100/40 blur-3xl dark:opacity-10" />
         </div>
 
-        <div className="relative flex flex-col lg:flex-row items-center gap-6">
+        <div className="relative flex flex-col lg:flex-row items-stretch lg:items-center gap-4 lg:gap-6">
           {/* Left: User XP Card with hero avatar */}
-          <div className="flex w-full lg:w-auto lg:min-w-[320px] items-center gap-3 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-4 py-3 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-800 transition-colors duration-300">
+          <div className="flex w-full lg:w-auto lg:min-w-[320px] items-center gap-3 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-800 transition-colors duration-300">
             <LevelAvatar level={level} />
             <div className="flex-1 min-w-0">
-              <div className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{userName}</div>
-              <div className="mt-1.5 flex items-center gap-3">
-                <div className="text-sm font-bold text-slate-600 dark:text-slate-300">{totalXP} XP</div>
-                <div className="h-2.5 flex-1 min-w-[100px] overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+              <div className="text-[clamp(1rem,3vw,1.25rem)] font-black text-slate-800 dark:text-slate-100 tracking-tight truncate">{userName}</div>
+              <div className="mt-1 sm:mt-1.5 flex items-center gap-2 sm:gap-3">
+                <div className="text-[clamp(12px,2vw,14px)] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">{totalXP} XP</div>
+                <div className="h-2 sm:h-2.5 flex-1 min-w-[60px] sm:min-w-[100px] overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all"
                     style={{ width: `${progressPercent}%` }}
@@ -83,23 +83,23 @@ export default function TopHero({
           </div>
 
           {/* Right: Level Progress + CTA */}
-          <div className="flex w-full lg:w-auto lg:min-w-[340px] items-center justify-between gap-4 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-4 py-3 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-800 lg:ml-auto transition-colors duration-300">
-            <div className="flex items-center gap-3">
+          <div className="flex w-full lg:w-auto lg:min-w-[340px] items-center justify-between gap-3 sm:gap-4 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-800 lg:ml-auto transition-colors duration-300">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <PillIcon>
-                <span className="text-xl">🏆</span>
+                <span className="text-lg sm:text-xl">🏆</span>
               </PillIcon>
-              <div>
-                <div className="text-xl font-black text-slate-800 dark:text-slate-100">Level {level}</div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{totalXP} / {nextThreshold}</span>
-                  <div className="flex gap-1">
+              <div className="flex-1 min-w-0">
+                <div className="text-[clamp(1rem,3vw,1.25rem)] font-black text-slate-800 dark:text-slate-100">Level {level}</div>
+                <div className="mt-1 sm:mt-1.5 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className="text-[clamp(11px,2vw,14px)] font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">{totalXP} / {nextThreshold}</span>
+                  <div className="flex gap-0.5 sm:gap-1">
                     {[0, 1, 2, 3, 4].map((i) => (
                       <span
                         key={i}
-                        className={`h-2.5 w-5 rounded-full transition-colors ${
+                        className={`h-2 sm:h-2.5 w-4 sm:w-5 rounded-full transition-colors ${
                           i < filledSegments
                             ? 'bg-gradient-to-r from-blue-500 to-blue-600'
-                            : 'bg-slate-200'
+                            : 'bg-slate-200 dark:bg-slate-700'
                         }`}
                       />
                     ))}
@@ -110,7 +110,7 @@ export default function TopHero({
 
             <Link
               href={continueHref}
-              className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-400 px-5 py-2.5 text-xs sm:text-sm font-black text-white shadow-md hover:brightness-105 transition-all"
+              className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-400 px-[clamp(12px,2.5vw,20px)] py-[clamp(8px,1.5vh,10px)] text-[clamp(11px,2vw,14px)] font-black text-white shadow-md hover:brightness-105 transition-all whitespace-nowrap shrink-0"
             >
               {continueLabel}
             </Link>

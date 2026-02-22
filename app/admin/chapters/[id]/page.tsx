@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   getChapter, 
@@ -14,17 +14,23 @@ import {
   updatePage, 
   deletePage, 
   getAllPagesForStep,
+  getAllPagesForChapter,
   toggleStepRequired,
   reorderSteps,
   reorderPages
 } from '@/app/actions/admin'
+import dynamic from 'next/dynamic'
 import Button from '@/components/ui/Button'
 import StepCard from '@/components/admin/StepCard'
 import StepSettingsModal from '@/components/admin/StepSettingsModal'
-import TemplateSelector from '@/components/admin/TemplateSelector'
 import { ArrowLeft, Plus, Save, Edit, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+
+// OPTIMIZED: Lazy load TemplateSelector modal
+const TemplateSelector = dynamic(() => import('@/components/admin/TemplateSelector'), {
+  ssr: false
+})
 
 export default function ChapterEditorPage() {
   const params = useParams()
@@ -78,19 +84,32 @@ export default function ChapterEditorPage() {
       setParts(partsData || [])
       setSteps(stepsData || [])
       
-      // Load pages for each step
-      if (stepsData) {
-        const pagesData: Record<string, any[]> = {}
-        for (const step of stepsData) {
-          try {
-            const stepPages = await getAllPagesForStep(step.id)
-            pagesData[step.id] = stepPages
-          } catch (error) {
-            console.error(`Error loading pages for step ${step.id}:`, error)
-            pagesData[step.id] = []
-          }
+      // OPTIMIZED: Load all pages for the chapter in one query (fixes N+1 pattern)
+      if (stepsData && stepsData.length > 0) {
+        try {
+          const allPages = await getAllPagesForChapter(chapterId)
+          const pagesData: Record<string, any[]> = {}
+          
+          // Group pages by step_id
+          allPages.forEach(page => {
+            if (!pagesData[page.step_id]) {
+              pagesData[page.step_id] = []
+            }
+            pagesData[page.step_id].push(page)
+          })
+          
+          // Ensure all steps have an entry (even if empty)
+          stepsData.forEach(step => {
+            if (!pagesData[step.id]) {
+              pagesData[step.id] = []
+            }
+          })
+          
+          setPages(pagesData)
+        } catch (error) {
+          console.error('Error loading pages for chapter:', error)
+          setPages({})
         }
-        setPages(pagesData)
       }
     } catch (error) {
       console.error('Error loading chapter:', error)
@@ -189,12 +208,13 @@ export default function ChapterEditorPage() {
     }
   }
 
-  const handleEditStep = (step: any) => {
+  // OPTIMIZED: Memoize event handlers to prevent child re-renders
+  const handleEditStep = useCallback((step: any) => {
     setEditingStep(step)
     setShowStepSettings(true)
-  }
+  }, [])
 
-  const handleSaveStepSettings = async (data: { title: string; slug: string; is_required: boolean }) => {
+  const handleSaveStepSettings = useCallback(async (data: { title: string; slug: string; is_required: boolean }) => {
     if (!editingStep) return
 
     try {
@@ -207,9 +227,9 @@ export default function ChapterEditorPage() {
     } catch (error) {
       toast.error('Failed to update step')
     }
-  }
+  }, [editingStep])
 
-  const handleStepMoveUp = async (stepId: string) => {
+  const handleStepMoveUp = useCallback(async (stepId: string) => {
     const stepIndex = steps.findIndex(s => s.id === stepId)
     if (stepIndex <= 0) return
 
@@ -230,9 +250,9 @@ export default function ChapterEditorPage() {
     } catch (error) {
       toast.error('Failed to reorder step')
     }
-  }
+  }, [steps, chapterId])
 
-  const handleStepMoveDown = async (stepId: string) => {
+  const handleStepMoveDown = useCallback(async (stepId: string) => {
     const stepIndex = steps.findIndex(s => s.id === stepId)
     if (stepIndex >= steps.length - 1) return
 
@@ -253,9 +273,9 @@ export default function ChapterEditorPage() {
     } catch (error) {
       toast.error('Failed to reorder step')
     }
-  }
+  }, [steps, chapterId])
 
-  const handlePageMoveUp = async (stepId: string, pageId: string) => {
+  const handlePageMoveUp = useCallback(async (stepId: string, pageId: string) => {
     const stepPages = pages[stepId] || []
     const pageIndex = stepPages.findIndex(p => p.id === pageId)
     if (pageIndex <= 0) return
@@ -277,9 +297,9 @@ export default function ChapterEditorPage() {
     } catch (error) {
       toast.error('Failed to reorder page')
     }
-  }
+  }, [pages])
 
-  const handlePageMoveDown = async (stepId: string, pageId: string) => {
+  const handlePageMoveDown = useCallback(async (stepId: string, pageId: string) => {
     const stepPages = pages[stepId] || []
     const pageIndex = stepPages.findIndex(p => p.id === pageId)
     if (pageIndex >= stepPages.length - 1) return
@@ -301,14 +321,14 @@ export default function ChapterEditorPage() {
     } catch (error) {
       toast.error('Failed to reorder page')
     }
-  }
+  }, [pages])
 
-  const handleAddFromTemplate = (stepId: string) => {
+  const handleAddFromTemplate = useCallback((stepId: string) => {
     setCurrentStepForTemplate(stepId)
     setShowTemplateSelector(true)
-  }
+  }, [])
 
-  const handleApplyTemplate = async (templateBlocks: any[]) => {
+  const handleApplyTemplate = useCallback(async (templateBlocks: any[]) => {
     if (!currentStepForTemplate) return
 
     const title = prompt('Enter page title:')
@@ -328,7 +348,7 @@ export default function ChapterEditorPage() {
     } catch (error) {
       toast.error('Failed to create page')
     }
-  }
+  }, [currentStepForTemplate, pages])
 
   if (loading) {
     return (
@@ -351,7 +371,8 @@ export default function ChapterEditorPage() {
   }
 
   // Validation warnings
-  const getValidationWarnings = () => {
+  // OPTIMIZED: Memoize expensive validation computation
+  const validationWarnings = useMemo(() => {
     const warnings: string[] = []
     
     // Check for required steps without pages
@@ -378,14 +399,12 @@ export default function ChapterEditorPage() {
     }
 
     // Check if chapter is published but has warnings
-    if (chapter.is_published && warnings.length > 0) {
+    if (chapter?.is_published && warnings.length > 0) {
       warnings.unshift('⚠️ Chapter is published but has issues')
     }
 
     return warnings
-  }
-
-  const validationWarnings = getValidationWarnings()
+  }, [steps, pages, chapter])
 
   return (
     <div className="p-6 lg:p-8">

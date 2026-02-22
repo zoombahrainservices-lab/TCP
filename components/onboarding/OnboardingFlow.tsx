@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { X, ChevronLeft, ChevronRight, Info } from 'lucide-react'
 import Image from 'next/image'
+import { FeatureCard } from './FeatureCard'
 
 interface OnboardingData {
   entryCategory?: string
@@ -139,6 +140,46 @@ export function OnboardingFlow() {
     }
   }, [selectedOption, currentStep])
 
+  // Dev-only scroll detection for Step 2
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && currentStep === 2) {
+      const checkScroll = () => {
+        const hasScroll = document.documentElement.scrollHeight > window.innerHeight + 1
+        if (hasScroll) {
+          console.warn('⚠️ Step 2 has vertical scroll:', {
+            scrollHeight: document.documentElement.scrollHeight,
+            innerHeight: window.innerHeight,
+            diff: document.documentElement.scrollHeight - window.innerHeight
+          })
+        }
+      }
+      
+      checkScroll()
+      window.addEventListener('resize', checkScroll)
+      return () => window.removeEventListener('resize', checkScroll)
+    }
+  }, [currentStep])
+
+  // Dev-only scroll detection for Step 4
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && currentStep === 4) {
+      const checkScroll = () => {
+        const hasScroll = document.documentElement.scrollHeight > window.innerHeight + 1
+        if (hasScroll) {
+          console.warn('⚠️ Step 4 has vertical scroll:', {
+            scrollHeight: document.documentElement.scrollHeight,
+            innerHeight: window.innerHeight,
+            diff: document.documentElement.scrollHeight - window.innerHeight
+          })
+        }
+      }
+      
+      checkScroll()
+      window.addEventListener('resize', checkScroll)
+      return () => window.removeEventListener('resize', checkScroll)
+    }
+  }, [currentStep])
+
   const totalSteps = 5
   const progress = (currentStep / totalSteps) * 100
 
@@ -250,92 +291,118 @@ export function OnboardingFlow() {
         />
       </div>
 
-      {/* Main content - scrollable, aligned to top for mobile */}
-      <div className="flex-1 w-full flex items-start justify-center px-6 py-8 overflow-y-auto">
-        <div className="w-full max-w-5xl">
+      {/* Main content - Step 0 gets no-scroll layout, Steps 1-4 remain scrollable */}
+      {currentStep === 0 ? (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <AnimatePresence mode="wait">
-            {/* STEP 0: Focus Area - ORIGINAL DESIGN */}
-            {currentStep === 0 && (
-              <motion.div
-                key="step-0"
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={{ duration: 0.3 }}
-                className="text-center"
-              >
-                <div className="flex flex-col items-center mb-6">
-                  <h1 className="text-3xl sm:text-4xl font-bold text-[var(--color-charcoal)] dark:text-white mb-2">
-                    I want to work on...
-                  </h1>
-                  <p className="text-sm text-[var(--color-gray)]">
-                    Choose your focus area
-                  </p>
-                </div>
+            {/* STEP 0: Focus Area - NO SCROLL, 3-ZONE LAYOUT */}
+            <motion.div
+              key="step-0"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col h-full overflow-hidden"
+            >
+              {/* Zone A: Header text - fixed height, fluid typography */}
+              <div className="flex-shrink-0 text-center px-6 py-3 sm:py-4 [@media(max-height:480px)]:py-2">
+                <h1 className="[font-size:clamp(1.25rem,4vw,2.25rem)] font-bold text-[var(--color-charcoal)] dark:text-white mb-2">
+                  I want to work on...
+                </h1>
+                <p className="text-sm text-[var(--color-gray)] [@media(max-height:500px)]:hidden">
+                  Choose your focus area
+                </p>
+              </div>
 
-                {/* Grid layout - mobile: 2 columns (Duolingo-style), desktop: 3 columns */}
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
-                  {focusAreas.map((area) => (
-                    <button
-                      key={area.id}
-                      onClick={() => setSelectedOption(area.id)}
-                      className={`relative group rounded-xl p-2 lg:p-3 transition-all cursor-pointer ${
-                        selectedOption === area.id
-                          ? `bg-gradient-to-br ${area.gradient} text-white shadow-2xl scale-105`
-                          : 'bg-white dark:bg-[#1a3456] border-2 border-gray-200 dark:border-gray-700 hover:border-[#0073ba] dark:hover:border-[#4bc4dc] shadow-lg hover:shadow-xl hover:scale-105'
-                      }`}
-                    >
-                      <div className={`w-full aspect-square rounded-lg mb-1 lg:mb-2 flex items-center justify-center overflow-hidden relative ${
-                        selectedOption === area.id ? 'bg-white/15' : 'bg-gray-50 dark:bg-gray-800'
-                      }`}>
-                        {/* Default image - hidden on hover or when selected */}
-                        <Image 
-                          src={area.image} 
-                          alt={area.title}
-                          width={300}
-                          height={300}
-                          quality={100}
-                          priority
-                          className={`w-full h-full object-contain transition-opacity duration-300 ${
-                            selectedOption === area.id ? 'opacity-0' : 'group-hover:opacity-0'
-                          }`}
-                        />
-                        {/* Hover image - shown on hover or when selected */}
-                        <Image 
-                          src={area.hoverImage} 
-                          alt={`${area.title} hover`}
-                          width={300}
-                          height={300}
-                          quality={100}
-                          priority
-                          className={`w-full h-full object-contain absolute inset-0 transition-opacity duration-300 ${
-                            selectedOption === area.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                          }`}
-                        />
-                      </div>
-                      <h3 className={`text-xs lg:text-sm font-bold mb-0.5 lg:mb-1 ${
-                        selectedOption === area.id ? 'text-white' : 'text-gray-900 dark:text-white'
-                      }`}>
-                        {area.title}
-                      </h3>
-                      <p className={`text-[10px] lg:text-xs leading-tight line-clamp-2 ${
-                        selectedOption === area.id ? 'text-white/90' : 'text-gray-600 dark:text-gray-400'
-                      }`}>
-                        {area.description}
-                      </p>
-                      {selectedOption === area.id && (
-                        <div className="absolute top-1.5 right-1.5 lg:top-2 lg:right-2 w-4 h-4 lg:w-5 lg:h-5 bg-white rounded-full flex items-center justify-center shadow-md">
-                          <svg className="w-2.5 h-2.5 lg:w-3 lg:h-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
+              {/* Zone B: Grid - flexible height, never overflows */}
+              <div className="flex-1 min-h-0 overflow-hidden px-4 sm:px-6">
+                <div className="grid grid-cols-2 lg:grid-cols-3 grid-rows-3 lg:grid-rows-2 gap-[clamp(4px,1.5vh,12px)] w-full max-w-4xl h-full mx-auto">
+                    {focusAreas.map((area) => (
+                      <button
+                        key={area.id}
+                        onClick={() => setSelectedOption(area.id)}
+                        className={`relative group rounded-xl p-[clamp(4px,1vw,12px)] transition-all cursor-pointer flex flex-col h-full ${
+                          selectedOption === area.id
+                            ? `bg-gradient-to-br ${area.gradient} text-white shadow-2xl ring-2 ring-offset-1 ring-white/50`
+                            : 'bg-white dark:bg-[#1a3456] border-2 border-gray-200 dark:border-gray-700 hover:border-[#0073ba] dark:hover:border-[#4bc4dc] shadow-lg hover:shadow-xl'
+                        }`}
+                      >
+                        {/* Image region - grows and shrinks, minimum 40px height */}
+                        <div className={`flex-1 min-h-[40px] rounded-lg mb-1 [@media(max-height:480px)]:mb-0 overflow-hidden relative ${
+                          selectedOption === area.id ? 'bg-white/15' : 'bg-gray-50 dark:bg-gray-800'
+                        }`}>
+                          <Image 
+                            src={area.image} 
+                            alt={area.title}
+                            fill
+                            quality={100}
+                            priority
+                            className={`object-contain transition-opacity duration-300 ${
+                              selectedOption === area.id ? 'opacity-0' : 'group-hover:opacity-0'
+                            }`}
+                          />
+                          <Image 
+                            src={area.hoverImage} 
+                            alt={`${area.title} hover`}
+                            fill
+                            quality={100}
+                            priority
+                            className={`object-contain transition-opacity duration-300 ${
+                              selectedOption === area.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                            }`}
+                          />
                         </div>
-                      )}
-                    </button>
-                  ))}
+                        
+                        {/* Text region - fixed height, fluid typography */}
+                        <div className="flex-shrink-0">
+                          <h3 className={`[font-size:clamp(9px,1.8vw,14px)] font-bold mb-0.5 [@media(max-height:480px)]:mb-0 line-clamp-1 ${
+                            selectedOption === area.id ? 'text-white' : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {area.title}
+                          </h3>
+                          <p className={`[font-size:clamp(8px,1.4vw,12px)] leading-tight line-clamp-1 [@media(max-height:500px)]:hidden ${
+                            selectedOption === area.id ? 'text-white/90' : 'text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {area.description}
+                          </p>
+                        </div>
+                        
+                        {selectedOption === area.id && (
+                          <div className="absolute top-1.5 right-1.5 lg:top-2 lg:right-2 w-4 h-4 lg:w-5 lg:h-5 bg-white rounded-full flex items-center justify-center shadow-md">
+                            <svg className="w-2.5 h-2.5 lg:w-3 lg:h-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    ))}
                 </div>
-              </motion.div>
-            )}
+              </div>
 
+              {/* Zone C: Footer - Continue button with safe-area */}
+              <div className="flex-shrink-0 px-6 py-3 [@media(max-height:480px)]:py-2 pb-[max(12px,env(safe-area-inset-bottom))] flex justify-center">
+                <motion.button
+                  onClick={handleContinue}
+                  disabled={!selectedOption}
+                  animate={showShake && selectedOption ? {
+                    x: [0, -10, 10, -10, 10, 0],
+                    transition: { duration: 0.5, repeat: Infinity, repeatDelay: 2 }
+                  } : {}}
+                  className={`px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all ${
+                    !selectedOption
+                      ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                      : 'bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg'
+                  }`}
+                >
+                  Continue
+                </motion.button>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <AnimatePresence mode="wait">
             {/* STEP 1: Specific Issue */}
             {currentStep === 1 && currentIssues && (
               <motion.div
@@ -344,76 +411,87 @@ export function OnboardingFlow() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -30 }}
                 transition={{ duration: 0.3 }}
-                className="max-w-3xl mx-auto relative"
+                className="flex-1 min-h-0 flex flex-col overflow-hidden"
               >
-                {/* Background images - HUGE faded behind content */}
-                <div className="hidden lg:block absolute inset-0 pointer-events-none overflow-visible">
-                  {/* Normal image - left side, HUGE */}
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-96 w-[600px] h-[600px] opacity-12">
-                    <Image 
-                      src={focusAreas.find(area => area.id === data.entryCategory)?.image || ''} 
-                      alt="Background"
-                      width={600}
-                      height={600}
-                      quality={100}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  {/* Hover image - right side, HUGE */}
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-96 w-[600px] h-[600px] opacity-8">
-                    <Image 
-                      src={focusAreas.find(area => area.id === data.entryCategory)?.hoverImage || ''} 
-                      alt="Background hover"
-                      width={600}
-                      height={600}
-                      quality={100}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                </div>
+                {/* 3-Zone Layout: Header / Content / (Footer handled globally) */}
+                <div className="flex-1 min-h-0 flex items-center justify-center px-4 sm:px-6 py-4 overflow-hidden">
+                  <div className="w-full max-w-3xl h-full flex flex-col overflow-hidden">
+                    {/* Background images - HUGE faded behind content */}
+                    <div className="hidden lg:block absolute inset-0 pointer-events-none overflow-visible">
+                      {/* Normal image - left side, HUGE */}
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-96 w-[600px] h-[600px] opacity-12">
+                        <Image 
+                          src={focusAreas.find(area => area.id === data.entryCategory)?.image || ''} 
+                          alt="Background"
+                          width={600}
+                          height={600}
+                          quality={100}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      {/* Hover image - right side, HUGE */}
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-96 w-[600px] h-[600px] opacity-8">
+                        <Image 
+                          src={focusAreas.find(area => area.id === data.entryCategory)?.hoverImage || ''} 
+                          alt="Background hover"
+                          width={600}
+                          height={600}
+                          quality={100}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    </div>
 
-                {/* Centered content with background */}
-                <div className="relative z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
-                  <h2 className="text-3xl font-bold text-center text-[var(--color-charcoal)] dark:text-white mb-4">
-                    {currentIssues.question}
-                  </h2>
-                  
-                  <div className="bg-[var(--color-blue)]/10 border-l-4 border-[var(--color-blue)] p-4 mb-6 rounded">
-                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                      <strong>Why focus on one?</strong> Concentrating on a single area allows for faster, more meaningful improvement. Don't worry - you can work on other areas later. This is just your starting point!
-                    </p>
-                  </div>
+                    {/* Centered content with background - flex column for internal zones */}
+                    <div className="relative z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl flex-1 min-h-0 flex flex-col overflow-hidden shadow-lg p-[clamp(12px,3vw,32px)]">
+                      {/* Zone A: Header */}
+                      <div className="flex-shrink-0 text-center mb-[clamp(8px,2vh,16px)]">
+                        <h2 className="[font-size:clamp(1.25rem,4vw,1.875rem)] font-bold text-[var(--color-charcoal)] dark:text-white mb-[clamp(8px,1.5vh,16px)]">
+                          {currentIssues.question}
+                        </h2>
+                        
+                        <div className="bg-[var(--color-blue)]/10 border-l-4 border-[var(--color-blue)] p-[clamp(8px,2vw,16px)] rounded [@media(max-height:600px)]:hidden">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                            <strong>Why focus on one?</strong> Concentrating on a single area allows for faster, more meaningful improvement. Don't worry - you can work on other areas later. This is just your starting point!
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="space-y-2">
-                    {currentIssues.options.map((option, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedOption(option)}
-                        className={`w-full p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 ${
-                          selectedOption === option
-                            ? 'border-[var(--color-blue)] bg-[var(--color-blue)]/10 shadow-md'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-[var(--color-blue)]/50 hover:bg-gray-50 dark:hover:bg-gray-800'
-                        }`}
-                      >
-                        {selectedOption === option && (
-                          <div className="flex-shrink-0 w-5 h-5 bg-[var(--color-blue)] rounded-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
-                        {selectedOption !== option && (
-                          <div className="flex-shrink-0 w-5 h-5 border-2 border-gray-300 dark:border-gray-600 rounded-full"></div>
-                        )}
-                        <span className="text-sm text-gray-900 dark:text-white flex-1">{option}</span>
-                      </button>
-                    ))}
+                      {/* Zone B: Options list - flexible, can scroll if extreme height */}
+                      <div className="flex-1 min-h-0 overflow-y-auto px-1">
+                        <div className="space-y-[clamp(6px,1vh,12px)]">
+                          {currentIssues.options.map((option, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setSelectedOption(option)}
+                              className={`w-full p-[clamp(8px,2vw,12px)] rounded-xl border-2 text-left transition-all flex items-center gap-3 ${
+                                selectedOption === option
+                                  ? 'border-[var(--color-blue)] bg-[var(--color-blue)]/10 shadow-md'
+                                  : 'border-gray-200 dark:border-gray-700 hover:border-[var(--color-blue)]/50 hover:bg-gray-50 dark:hover:bg-gray-800'
+                              }`}
+                            >
+                              {selectedOption === option && (
+                                <div className="flex-shrink-0 w-5 h-5 bg-[var(--color-blue)] rounded-full flex items-center justify-center">
+                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
+                              {selectedOption !== option && (
+                                <div className="flex-shrink-0 w-5 h-5 border-2 border-gray-300 dark:border-gray-600 rounded-full"></div>
+                              )}
+                              <span className="[font-size:clamp(12px,2vw,14px)] text-gray-900 dark:text-white flex-1">{option}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
             )}
 
-            {/* STEP 2: Dynamic Promises - Image above text, full-width cards */}
+            {/* STEP 2: Dynamic Promises - Compact cards with no-scroll layout */}
             {currentStep === 2 && generatedPromises && (
               <motion.div
                 key="step-2"
@@ -421,80 +499,37 @@ export function OnboardingFlow() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -30 }}
                 transition={{ duration: 0.3 }}
-                className="w-full max-w-4xl mx-auto"
+                className="flex-1 min-h-0 flex flex-col overflow-hidden"
               >
-                <h2 className="text-2xl sm:text-3xl font-bold text-center text-[var(--color-charcoal)] dark:text-white mb-8">
-                  Here's what you'll build with TCP:
-                </h2>
-                
-                <div className="flex flex-col gap-4 sm:gap-6">
-                  {/* Sentence 1: Issue → Solution */}
-                  <div className="w-full flex flex-col lg:flex-row bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden lg:overflow-visible">
-                    {/* Image section - Top on mobile, Left icon on desktop */}
-                    <div className="w-full lg:w-auto aspect-[2/1] sm:aspect-[3/1] lg:aspect-auto flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 p-6 lg:p-0 lg:pt-6 lg:pl-6 lg:pb-6 lg:bg-transparent">
-                      <Image 
-                        src="/slider-work-on-quizz/1.png" 
-                        alt="Solution"
-                        width={160}
-                        height={120}
-                        quality={100}
-                        className="w-24 h-24 sm:w-32 sm:h-32 lg:w-20 lg:h-20 object-contain"
-                      />
-                    </div>
-                    {/* Text section */}
-                    <div className="p-5 sm:p-6 lg:flex-1">
-                      <p className="text-sm sm:text-base text-gray-800 dark:text-gray-200 leading-relaxed">
-                        {generatedPromises.sentence1}
-                      </p>
-                    </div>
-                  </div>
+                {/* Zone A: Header */}
+                <div className="flex-shrink-0 text-center px-[var(--page-x)] py-[var(--page-y)]">
+                  <h2 className="text-[length:var(--title-size)] font-bold text-[var(--color-charcoal)] dark:text-white">
+                    Here's what you'll build with TCP:
+                  </h2>
+                </div>
 
-                  {/* Sentence 2: Techniques */}
-                  <div className="w-full flex flex-col lg:flex-row bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden lg:overflow-visible">
-                    {/* Image section - Top on mobile, Left icon on desktop */}
-                    <div className="w-full lg:w-auto aspect-[2/1] sm:aspect-[3/1] lg:aspect-auto flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 p-6 lg:p-0 lg:pt-6 lg:pl-6 lg:pb-6 lg:bg-transparent">
-                      <Image 
-                        src="/slider-work-on-quizz/2.png" 
-                        alt="Training"
-                        width={160}
-                        height={120}
-                        quality={100}
-                        className="w-24 h-24 sm:w-32 sm:h-32 lg:w-20 lg:h-20 object-contain"
-                      />
-                    </div>
-                    {/* Text section */}
-                    <div className="p-5 sm:p-6 lg:flex-1">
-                      <p className="text-sm sm:text-base text-gray-800 dark:text-gray-200 leading-relaxed">
-                        {generatedPromises.sentence2}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Sentence 3: Consistency + Team */}
-                  <div className="w-full flex flex-col lg:flex-row bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden lg:overflow-visible">
-                    {/* Image section - Top on mobile, Left icon on desktop */}
-                    <div className="w-full lg:w-auto aspect-[2/1] sm:aspect-[3/1] lg:aspect-auto flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 p-6 lg:p-0 lg:pt-6 lg:pl-6 lg:pb-6 lg:bg-transparent">
-                      <Image 
-                        src="/slider-work-on-quizz/3.png" 
-                        alt="Progress"
-                        width={160}
-                        height={120}
-                        quality={100}
-                        className="w-24 h-24 sm:w-32 sm:h-32 lg:w-20 lg:h-20 object-contain"
-                      />
-                    </div>
-                    {/* Text section */}
-                    <div className="p-5 sm:p-6 lg:flex-1">
-                      <p className="text-sm sm:text-base text-gray-800 dark:text-gray-200 leading-relaxed">
-                        {generatedPromises.sentence3}{" "}
-                        <a 
-                          href="/about-project" 
-                          target="_blank"
-                          className="text-[var(--color-blue)] hover:underline font-semibold"
-                        >
-                          Learn about our project →
-                        </a>
-                      </p>
+                {/* Zone B: Card Grid - responsive columns, no-scroll with xshort-snap fallback */}
+                <div className="flex-1 min-h-0 flex items-center justify-center px-[var(--page-x)] overflow-hidden">
+                  <div className="w-full max-w-3xl lg:max-w-6xl h-full flex items-center">
+                    <div className="xshort-snap w-full grid grid-cols-1 gap-[var(--stack-gap)] content-start">
+                      <div className="xshort-item">
+                        <FeatureCard 
+                          icon="/slider-work-on-quizz/1.png"
+                          text={generatedPromises.sentence1}
+                        />
+                      </div>
+                      <div className="xshort-item">
+                        <FeatureCard 
+                          icon="/slider-work-on-quizz/2.png"
+                          text={generatedPromises.sentence2}
+                        />
+                      </div>
+                      <div className="xshort-item">
+                        <FeatureCard 
+                          icon="/slider-work-on-quizz/3.png"
+                          text={`${generatedPromises.sentence3} Learn about our project →`}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -509,26 +544,33 @@ export function OnboardingFlow() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -30 }}
                 transition={{ duration: 0.3 }}
-                className="max-w-md mx-auto"
+                className="flex-1 min-h-0 flex flex-col overflow-hidden"
               >
-                <h2 className="text-3xl font-bold text-center text-[var(--color-charcoal)] dark:text-white mb-8">
-                  How much time can you give per day?
-                </h2>
-                <div className="space-y-2">
-                  {commitmentOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => setSelectedOption(option.id.toString())}
-                      className={`w-full p-3 rounded-xl border-2 transition-all ${
-                        selectedOption === option.id.toString()
-                          ? 'border-[#0073ba] dark:border-[#4bc4dc] bg-[#0073ba]/5 dark:bg-[#4bc4dc]/10'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="text-sm font-bold text-gray-900 dark:text-white">{option.label}</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">{option.subtitle}</div>
-                    </button>
-                  ))}
+                {/* Zone A: Header */}
+                <div className="flex-shrink-0 text-center px-4 sm:px-6 py-3 [@media(max-height:480px)]:py-2">
+                  <h2 className="[font-size:clamp(1.25rem,4vw,1.875rem)] font-bold text-[var(--color-charcoal)] dark:text-white">
+                    How much time can you give per day?
+                  </h2>
+                </div>
+
+                {/* Zone B: Options list - centered */}
+                <div className="flex-1 min-h-0 flex items-center justify-center px-4 sm:px-6 overflow-hidden">
+                  <div className="w-full max-w-md space-y-[clamp(6px,1.5vh,10px)]">
+                    {commitmentOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={() => setSelectedOption(option.id.toString())}
+                        className={`w-full p-[clamp(8px,2vw,12px)] rounded-xl border-2 transition-all ${
+                          selectedOption === option.id.toString()
+                            ? 'border-[#0073ba] dark:border-[#4bc4dc] bg-[#0073ba]/5 dark:bg-[#4bc4dc]/10'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="[font-size:clamp(12px,2vw,14px)] font-bold text-gray-900 dark:text-white">{option.label}</div>
+                        <div className="[font-size:clamp(10px,1.5vw,12px)] text-gray-600 dark:text-gray-400 [@media(max-height:500px)]:hidden">{option.subtitle}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -541,225 +583,226 @@ export function OnboardingFlow() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -30 }}
                 transition={{ duration: 0.3 }}
-                className="max-w-4xl mx-auto flex flex-col gap-8"
-                style={{ '--step4-gap': '2rem' } as React.CSSProperties}
+                className="flex-1 min-h-0 flex flex-col overflow-hidden"
               >
-                <h2 className="text-3xl font-bold text-center text-[var(--color-charcoal)] dark:text-white">
-                  Ready to start?
-                </h2>
+                {/* Zone A: Header */}
+                <div className="flex-shrink-0 text-center px-4 sm:px-6 py-2 md:py-3 [@media(max-height:480px)]:py-1.5">
+                  <h2 className="[font-size:clamp(1.125rem,4vw,1.875rem)] font-bold text-[var(--color-charcoal)] dark:text-white">
+                    Ready to start?
+                  </h2>
+                </div>
                 
-                <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto w-full">
-                  {/* Start Chapter 1 - Free Demo */}
-                  <button
-                    onClick={() => setSelectedOption('chapter-1')}
-                    className={`group relative overflow-hidden rounded-2xl border-2 transition-all hover:scale-105 ${
-                      selectedOption === 'chapter-1'
-                        ? 'border-[var(--color-blue)] bg-[var(--color-blue)]/5 shadow-2xl'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-[var(--color-blue)]/50 shadow-lg'
-                    }`}
-                  >
-                    {/* Illustration - top section */}
-                    <div className="h-64 sm:h-72 bg-gradient-to-br from-[var(--color-blue)]/10 to-[var(--color-blue)]/5 flex overflow-hidden">
-                      <Image 
-                        src="/slider-work-on-quizz/free.png" 
-                        alt="Start Chapter 1"
-                        width={512}
-                        height={512}
-                        quality={100}
-                        priority
-                        className="w-full h-full object-cover object-top"
-                      />
-                    </div>
-                    
-                    {/* Content section */}
-                    <div className="p-6 pt-4 text-left bg-white dark:bg-gray-800">
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-xl font-bold text-[var(--color-charcoal)] dark:text-white">
-                          Start Chapter 1
-                        </h3>
-                        {selectedOption === 'chapter-1' && (
-                          <div className="flex-shrink-0 w-6 h-6 bg-[var(--color-blue)] rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
+                {/* Zone B: Two choice cards - side by side, fluid heights */}
+                <div className="flex-1 min-h-0 flex items-center justify-center px-4 sm:px-6 py-1 md:py-2 overflow-hidden">
+                  <div className="step4-cards-snap grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 lg:gap-[clamp(8px,2vh,24px)] max-w-5xl mx-auto w-full md:max-h-[min(70vh,600px)] lg:h-full">
+                    {/* Start Chapter 1 - Free Demo */}
+                    <button
+                      onClick={() => setSelectedOption('chapter-1')}
+                      className={`step4-card-snap-item group relative overflow-hidden rounded-2xl border-2 transition-all flex flex-col h-full ${
+                        selectedOption === 'chapter-1'
+                          ? 'border-[var(--color-blue)] bg-[var(--color-blue)]/5 shadow-2xl ring-2 ring-offset-1 ring-[var(--color-blue)]/30'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-[var(--color-blue)]/50 shadow-lg'
+                      }`}
+                    >
+                      {/* Illustration - flexible height */}
+                      <div className="h-[clamp(80px,14vh,140px)] md:h-[clamp(140px,22vh,240px)] lg:flex-1 lg:min-h-[80px] lg:h-auto bg-gradient-to-br from-[var(--color-blue)]/10 to-[var(--color-blue)]/5 flex overflow-hidden relative">
+                        <Image 
+                          src="/slider-work-on-quizz/free.png" 
+                          alt="Start Chapter 1"
+                          fill
+                          quality={100}
+                          priority
+                          className="object-contain lg:object-cover lg:object-top"
+                        />
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Free Demo - Start reading immediately
-                      </p>
-                      <ul className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
-                        <li className="flex items-start gap-2">
-                          <span className="text-[var(--color-blue)] mt-0.5">✓</span>
-                          <span>Instant access to Chapter 1</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-[var(--color-blue)] mt-0.5">✓</span>
-                          <span>Learn the fundamentals</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-[var(--color-blue)] mt-0.5">✓</span>
-                          <span>No registration required</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-[var(--color-blue)] mt-0.5">✓</span>
-                          <span>Try before you commit</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </button>
+                      
+                      {/* Content section - fixed height */}
+                      <div className="flex-shrink-0 p-2 md:p-4 lg:p-[clamp(12px,2vw,24px)] pt-1.5 md:pt-3 lg:pt-[clamp(8px,1.5vw,16px)] text-left bg-white dark:bg-gray-800">
+                        <div className="flex items-start justify-between mb-1 md:mb-2">
+                          <h3 className="[font-size:clamp(12px,2.5vw,20px)] font-bold text-[var(--color-charcoal)] dark:text-white line-clamp-1 lg:line-clamp-none">
+                            Start Chapter 1
+                          </h3>
+                          {selectedOption === 'chapter-1' && (
+                            <div className="flex-shrink-0 w-4 h-4 md:w-5 md:h-5 bg-[var(--color-blue)] rounded-full flex items-center justify-center">
+                              <svg className="w-2.5 h-2.5 md:w-3 md:h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <p className="[font-size:clamp(9px,1.8vw,14px)] text-gray-600 dark:text-gray-400 mb-1.5 md:mb-3 [@media(max-height:500px)]:mb-1 line-clamp-1 md:line-clamp-2 lg:line-clamp-none">
+                          Free Demo - Start reading immediately
+                        </p>
+                        <ul className="space-y-0.5 md:space-y-[clamp(4px,1vh,8px)] [font-size:clamp(8.5px,1.5vw,12px)] text-gray-600 dark:text-gray-400">
+                          <li className="flex items-start gap-1 md:gap-2">
+                            <span className="text-[var(--color-blue)] mt-0.5">✓</span>
+                            <span>Instant access to Chapter 1</span>
+                          </li>
+                          <li className="flex items-start gap-1 md:gap-2">
+                            <span className="text-[var(--color-blue)] mt-0.5">✓</span>
+                            <span>Learn the fundamentals</span>
+                          </li>
+                          <li className="hidden md:flex items-start gap-2 [@media(max-height:550px)]:hidden">
+                            <span className="text-[var(--color-blue)] mt-0.5">✓</span>
+                            <span>No registration required</span>
+                          </li>
+                          <li className="hidden lg:flex items-start gap-2 [@media(max-height:550px)]:hidden">
+                            <span className="text-[var(--color-blue)] mt-0.5">✓</span>
+                            <span>Try before you commit</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </button>
 
-                  {/* Register First - Full Access */}
-                  <button
-                    onClick={() => setSelectedOption('full-access')}
-                    className={`group relative overflow-hidden rounded-2xl border-2 transition-all hover:scale-105 ${
-                      selectedOption === 'full-access'
-                        ? 'border-[var(--color-amber)] bg-[var(--color-amber)]/5 shadow-2xl'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-[var(--color-amber)]/50 shadow-lg'
-                    }`}
-                  >
-                    {/* Illustration - top section */}
-                    <div className="h-64 sm:h-72 bg-gradient-to-br from-[var(--color-amber)]/10 to-[var(--color-amber)]/5 flex overflow-hidden relative">
-                      {/* Badge */}
-                      <div className="absolute top-3 right-3 bg-[var(--color-amber)] text-[var(--color-charcoal)] px-3 py-1 rounded-full text-xs font-bold uppercase z-10">
-                        Best Value
+                    {/* Register First - Full Access */}
+                    <button
+                      onClick={() => setSelectedOption('full-access')}
+                      className={`step4-card-snap-item group relative overflow-hidden rounded-2xl border-2 transition-all flex flex-col h-full ${
+                        selectedOption === 'full-access'
+                          ? 'border-[var(--color-amber)] bg-[var(--color-amber)]/5 shadow-2xl ring-2 ring-offset-1 ring-[var(--color-amber)]/30'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-[var(--color-amber)]/50 shadow-lg'
+                      }`}
+                    >
+                      {/* Illustration - flexible height */}
+                      <div className="h-[clamp(80px,14vh,140px)] md:h-[clamp(140px,22vh,240px)] lg:flex-1 lg:min-h-[80px] lg:h-auto bg-gradient-to-br from-[var(--color-amber)]/10 to-[var(--color-amber)]/5 flex overflow-hidden relative">
+                        {/* Badge */}
+                        <div className="absolute top-1 right-1 md:top-2 md:right-2 bg-[var(--color-amber)] text-[var(--color-charcoal)] px-1.5 py-0.5 md:px-2 rounded-full [font-size:clamp(7px,1.5vw,10px)] font-bold uppercase z-10">
+                          Best Value
+                        </div>
+                        <Image 
+                          src="/slider-work-on-quizz/payed.png" 
+                          alt="Register First"
+                          fill
+                          quality={100}
+                          priority
+                          className="object-contain lg:object-cover lg:object-top"
+                        />
                       </div>
-                      <Image 
-                        src="/slider-work-on-quizz/payed.png" 
-                        alt="Register First"
-                        width={512}
-                        height={512}
-                        quality={100}
-                        priority
-                        className="w-full h-full object-cover object-top"
-                      />
-                    </div>
-                    
-                    {/* Content section */}
-                    <div className="p-6 pt-4 text-left bg-white dark:bg-gray-800">
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-xl font-bold text-[var(--color-charcoal)] dark:text-white">
-                          Register First
-                        </h3>
-                        {selectedOption === 'full-access' && (
-                          <div className="flex-shrink-0 w-6 h-6 bg-[var(--color-amber)] rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
+                      
+                      {/* Content section - fixed height */}
+                      <div className="flex-shrink-0 p-2 md:p-4 lg:p-[clamp(12px,2vw,24px)] pt-1.5 md:pt-3 lg:pt-[clamp(8px,1.5vw,16px)] text-left bg-white dark:bg-gray-800">
+                        <div className="flex items-start justify-between mb-1 md:mb-2">
+                          <h3 className="[font-size:clamp(12px,2.5vw,20px)] font-bold text-[var(--color-charcoal)] dark:text-white line-clamp-1 lg:line-clamp-none">
+                            Register First
+                          </h3>
+                          {selectedOption === 'full-access' && (
+                            <div className="flex-shrink-0 w-4 h-4 md:w-5 md:h-5 bg-[var(--color-amber)] rounded-full flex items-center justify-center">
+                              <svg className="w-2.5 h-2.5 md:w-3 md:h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <p className="[font-size:clamp(9px,1.8vw,14px)] text-gray-600 dark:text-gray-400 mb-1.5 md:mb-3 [@media(max-height:500px)]:mb-1 line-clamp-1 md:line-clamp-2 lg:line-clamp-none">
+                          Get full access - All chapters unlocked
+                        </p>
+                        <ul className="space-y-0.5 md:space-y-[clamp(4px,1vh,8px)] [font-size:clamp(8.5px,1.5vw,12px)] text-gray-600 dark:text-gray-400">
+                          <li className="flex items-start gap-1 md:gap-2">
+                            <span className="text-[var(--color-amber)] mt-0.5">✓</span>
+                            <span>All 30 chapters unlocked</span>
+                          </li>
+                          <li className="flex items-start gap-1 md:gap-2">
+                            <span className="text-[var(--color-amber)] mt-0.5">✓</span>
+                            <span>Complete training program</span>
+                          </li>
+                          <li className="hidden md:flex items-start gap-2 [@media(max-height:550px)]:hidden">
+                            <span className="text-[var(--color-amber)] mt-0.5">✓</span>
+                            <span>Lifetime access</span>
+                          </li>
+                          <li className="hidden lg:flex items-start gap-2 [@media(max-height:550px)]:hidden">
+                            <span className="text-[var(--color-amber)] mt-0.5">✓</span>
+                            <span>One-time payment</span>
+                          </li>
+                        </ul>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Get full access - All chapters unlocked
-                      </p>
-                      <ul className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
-                        <li className="flex items-start gap-2">
-                          <span className="text-[var(--color-amber)] mt-0.5">✓</span>
-                          <span>All 30 chapters unlocked</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-[var(--color-amber)] mt-0.5">✓</span>
-                          <span>Complete training program</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-[var(--color-amber)] mt-0.5">✓</span>
-                          <span>Lifetime access</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-[var(--color-amber)] mt-0.5">✓</span>
-                          <span>One-time payment</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
-      </div>
 
-      {/* Navigation buttons - high z-index so never overlayed by logo */}
-      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-[#0a1628]/95 backdrop-blur-lg">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-center gap-4">
-          {/* Info icon with compact tooltip card above button - centered */}
-          <div className="relative">
-            <button
-              onMouseEnter={() => setShowTooltip(true)}
-              onMouseLeave={() => setShowTooltip(false)}
-              onClick={() => setShowTooltip(!showTooltip)}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
-              <Info className="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors" />
-            </button>
-            
-            <AnimatePresence>
-              {showTooltip && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ type: "spring", duration: 0.2 }}
-                  className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-50"
-                  style={{ fontFamily: "'Inter', sans-serif" }}
+          {/* Navigation buttons for Steps 1-4 */}
+          <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-[#0a1628]/95 backdrop-blur-lg mt-4 lg:mt-8 [@media(max-height:740px)]:mt-4">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 py-2 lg:py-3 [@media(max-height:740px)]:py-2 flex items-center justify-center gap-4">
+              {/* Info icon with compact tooltip card above button - centered */}
+              <div className="relative">
+                <button
+                  onMouseEnter={() => setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                  onClick={() => setShowTooltip(!showTooltip)}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 >
-                  {/* Heading above card */}
-                  <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
-                    Data Collection Notice
-                  </h4>
-                  
-                  {/* Compact card */}
-                  <div 
-                    className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-600 transition-all cursor-default"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-blue)]/10 flex items-center justify-center mt-0.5">
-                        <Info className="w-4 h-4 text-[var(--color-blue)]" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                          The information you provide is collected solely to personalize your learning experience. This data enables our platform to recommend tailored activities and learning paths that align with your specific communication development goals.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setShowTooltip(false)}
-                        className="flex-shrink-0 p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors -mt-0.5"
+                  <Info className="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors" />
+                </button>
+                
+                <AnimatePresence>
+                  {showTooltip && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ type: "spring", duration: 0.2 }}
+                      className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-50"
+                      style={{ fontFamily: "'Inter', sans-serif" }}
+                    >
+                      {/* Heading above card */}
+                      <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-1">
+                        Data Collection Notice
+                      </h4>
+                      
+                      {/* Compact card */}
+                      <div 
+                        className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-xl hover:border-gray-300 dark:hover:border-gray-600 transition-all cursor-default"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <X className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-blue)]/10 flex items-center justify-center mt-0.5">
+                            <Info className="w-4 h-4 text-[var(--color-blue)]" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                              The information you provide is collected solely to personalize your learning experience. This data enables our platform to recommend tailored activities and learning paths that align with your specific communication development goals.
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setShowTooltip(false)}
+                            className="flex-shrink-0 p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors -mt-0.5"
+                          >
+                            <X className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
-          {currentStep > 0 && (
-            <button
-              onClick={handleBack}
-              className="px-5 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-white dark:bg-gray-800 text-[var(--color-gray)] border-2 border-[var(--color-gray)] hover:border-[var(--color-charcoal)] shadow-md hover:shadow-lg"
-            >
-              Back
-            </button>
-          )}
-          <motion.button
-            onClick={handleContinue}
-            disabled={currentStep !== 2 && !selectedOption}
-            animate={showShake && (currentStep === 2 || selectedOption) ? {
-              x: [0, -10, 10, -10, 10, 0],
-              transition: { duration: 0.5, repeat: Infinity, repeatDelay: 2 }
-            } : {}}
-            className={`px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all ${
-              currentStep !== 2 && !selectedOption
-                ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg'
-            }`}
-          >
-            Continue
-          </motion.button>
+              <button
+                onClick={handleBack}
+                className="px-4 py-2 md:px-5 md:py-2.5 lg:px-6 lg:py-3 [@media(max-height:740px)]:py-2 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-white dark:bg-gray-800 text-[var(--color-gray)] border-2 border-[var(--color-gray)] hover:border-[var(--color-charcoal)] shadow-md hover:shadow-lg"
+              >
+                Back
+              </button>
+              <motion.button
+                onClick={handleContinue}
+                disabled={currentStep !== 2 && !selectedOption}
+                animate={showShake && (currentStep === 2 || selectedOption) ? {
+                  x: [0, -10, 10, -10, 10, 0],
+                  transition: { duration: 0.5, repeat: Infinity, repeatDelay: 2 }
+                } : {}}
+                className={`px-5 py-2 md:px-6 md:py-2.5 lg:px-8 lg:py-3 [@media(max-height:740px)]:py-2 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all ${
+                  currentStep !== 2 && !selectedOption
+                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                    : 'bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg'
+                }`}
+              >
+                Continue
+              </motion.button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Background decoration */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden -z-0">

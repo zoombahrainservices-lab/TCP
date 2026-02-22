@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { use } from 'react'
 import { completeSectionBlock, hasProofForChapter } from '@/app/actions/chapters'
 import { showXPNotification } from '@/components/gamification/XPNotification'
 import { getClient } from '@/lib/supabase/client'
@@ -47,7 +48,21 @@ function extForMime(mimeType: string): string {
   return 'dat'
 }
 
-export default function ResolutionPage() {
+/** Map chapter number → follow-through URL */
+function getFollowThroughUrl(chapterId: number): string {
+  if (chapterId === 1) return '/chapter/1/follow-through'
+  if (chapterId === 2) return '/read/genius-who-couldnt-speak/follow-through'
+  return `/read/chapter-${chapterId}/follow-through`
+}
+
+export default function ResolutionPage({
+  params,
+}: {
+  params: Promise<{ chapterId: string }>
+}) {
+  const { chapterId: chapterIdStr } = use(params)
+  const chapterId = Number(chapterIdStr)
+
   const router = useRouter()
   const supabase = getClient()
   const [alreadyCompleted, setAlreadyCompleted] = useState<boolean | null>(null)
@@ -56,8 +71,8 @@ export default function ResolutionPage() {
       id: 1,
       type: 'text',
       title: '',
-      notes: ''
-    }
+      notes: '',
+    },
   ])
 
   const [nextId, setNextId] = useState(2)
@@ -70,30 +85,30 @@ export default function ResolutionPage() {
   const chunksRef = useRef<BlobPart[]>([])
   const streamRef = useRef<MediaStream | null>(null)
   const startedAtRef = useRef<number>(0)
+  const draftsRef = useRef(drafts)
+  const mountedRef = useRef(true)
+  draftsRef.current = drafts
 
   useEffect(() => {
+    mountedRef.current = true
     return () => {
-      // Cleanup object URLs + mic stream on unmount
-      setDrafts(prev => {
-        prev.forEach(d => {
-          if (d.previewUrl && d.previewUrl.startsWith('blob:')) URL.revokeObjectURL(d.previewUrl)
-        })
-        return prev
+      mountedRef.current = false
+      draftsRef.current.forEach(d => {
+        if (d.previewUrl && d.previewUrl.startsWith('blob:')) URL.revokeObjectURL(d.previewUrl)
       })
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  
+
   // One-time per chapter: if proof already submitted, show completed view
   useEffect(() => {
-    hasProofForChapter(1).then(setAlreadyCompleted)
-  }, [])
+    hasProofForChapter(chapterId).then(setAlreadyCompleted)
+  }, [chapterId])
 
   // Prefetch next page (follow-through)
   useEffect(() => {
-    router.prefetch('/chapter/1/follow-through')
-  }, [router])
+    router.prefetch(getFollowThroughUrl(chapterId))
+  }, [router, chapterId])
 
   const handleTypeChange = (id: number, type: ResolutionType) => {
     setDrafts(prev =>
@@ -141,8 +156,8 @@ export default function ResolutionPage() {
         id: nextId,
         type: 'text',
         title: '',
-        notes: ''
-      }
+        notes: '',
+      },
     ])
     setNextId(id => id + 1)
   }
@@ -266,117 +281,137 @@ export default function ResolutionPage() {
       setSaveError('Stop recording before saving.')
       return
     }
-    
+
+    const hasContent = drafts.some(
+      d =>
+        (d.type === 'text' && d.notes.trim().length > 0) ||
+        (d.type === 'audio' && d.file) ||
+        (d.type === 'image' && d.file) ||
+        (d.type === 'video' && d.file)
+    )
+    if (!hasContent) {
+      setSaveError('Please add at least one proof entry (text or upload) before continuing.')
+      return
+    }
+
     setIsProcessing(true)
     setSaveError(null)
-    try {
-      // Save identity resolution (chapter 1) using the first text proof, if present
-      const firstTextDraft = drafts.find(d => d.type === 'text' && d.notes.trim().length > 0)
-      if (firstTextDraft) {
-        const identityPayload: IdentityResolutionData = {
-          identity: firstTextDraft.notes.trim(),
-          value1: '',
-          value2: '',
-          value3: '',
-          commitment: '',
-          daily1: '',
-          daily2: '',
-          daily3: '',
-          noLonger: '',
-          why: '',
-        }
-        try {
-          await saveIdentityResolutionForChapter1(identityPayload)
-        } catch (err) {
-          console.error('[Identity] Failed to save identityResolution:', err)
-          // Don’t block the rest of the resolution flow if this fails
-        }
-      }
 
-      // Save audio proofs as artifacts (optional; does not block XP if none)
-      const audioDrafts = drafts.filter(d => d.type === 'audio' && d.file)
-      if (audioDrafts.length > 0) {
-        const { data: userData, error: userErr } = await supabase.auth.getUser()
-        if (userErr) throw userErr
-        const user = userData.user
-        if (!user) throw new Error('You must be signed in to save audio proof.')
+    const followThroughUrl = getFollowThroughUrl(chapterId)
 
-        for (const d of audioDrafts) {
-          const file = d.file!
-          const contentType = file.type || 'application/octet-stream'
-          const ext = extForMime(contentType)
-          const storagePath = `${user.id}/proof-${crypto.randomUUID()}.${ext}`
+    // Navigate immediately for smooth flow — saves run in background
+    router.push(followThroughUrl)
 
-          const { data: upData, error: upErr } = await supabase.storage
-            .from('voice-messages')
-            .upload(storagePath, file, { contentType, upsert: false })
-          if (upErr) throw upErr
+    const firstTextDraft = drafts.find(d => d.type === 'text' && d.notes.trim().length > 0)
 
-          const artifactPayload = {
-            user_id: user.id,
-            chapter_id: 1,
-            type: 'proof',
-            data: {
-              resolutionType: 'audio',
-              title: d.title,
-              notes: d.notes,
-              durationMs: d.durationMs ?? null,
-              storage: {
-                bucket: 'voice-messages',
-                path: upData.path,
-              },
-              contentType,
-            },
+    setTimeout(async () => {
+      try {
+        // Chapter 1 only: save the identity resolution to the dedicated table
+        if (chapterId === 1 && firstTextDraft) {
+          const identityPayload: IdentityResolutionData = {
+            identity: firstTextDraft.notes.trim(),
+            value1: '',
+            value2: '',
+            value3: '',
+            commitment: '',
+            daily1: '',
+            daily2: '',
+            daily3: '',
+            noLonger: '',
+            why: '',
           }
-
-          const { error: artErr } = await supabase.from('artifacts').insert(artifactPayload)
-          if (artErr) throw artErr
+          try {
+            await saveIdentityResolutionForChapter1(identityPayload)
+          } catch (err) {
+            console.error('[Identity] Failed to save identityResolution:', err)
+          }
         }
-      }
 
-      // Complete resolution/proof section
-      router.push('/chapter/1/follow-through')
-      
-      // Complete section in background (setTimeout: browser-safe; setImmediate is Node-only)
-      setTimeout(async () => {
-        try {
-          const result = await completeSectionBlock(1, 'proof')
-          
-          console.log('[XP] Resolution section completion result:', result)
-          
-          if (result.success) {
-            // Show streak/daily XP feedback when awarded
-            if (result.streakResult?.xpAwarded && result.streakResult.xpAwarded > 0) {
-              const codes = result.streakResult.reasonCodes || []
-              const streakXp = result.streakResult.xpAwarded
-              if (codes.includes('milestone')) {
-                showXPNotification(streakXp, `${result.streakResult.milestoneReached}-day streak bonus!`, { reasonCode: 'milestone' })
-              } else {
-                showXPNotification(streakXp, codes.includes('streak_continued') ? 'Streak continued!' : 'Daily activity')
+        if (firstTextDraft) {
+          const { data: userData } = await supabase.auth.getUser()
+          if (userData?.user) {
+            await supabase
+              .from('artifacts')
+              .insert({
+                user_id: userData.user.id,
+                chapter_id: chapterId,
+                type: 'proof',
+                data: { resolutionType: 'text', identity: firstTextDraft.notes.trim() },
+              })
+              .then(({ error }) => {
+                if (error) console.error('[Proof] Text proof:', error)
+              })
+          }
+        }
+
+        const audioDrafts = drafts.filter(d => d.type === 'audio' && d.file)
+        if (audioDrafts.length > 0) {
+          const { data: userData, error: userErr } = await supabase.auth.getUser()
+          if (!userErr && userData?.user) {
+            const user = userData.user
+            for (const d of audioDrafts) {
+              const file = d.file!
+              const contentType = file.type || 'application/octet-stream'
+              const ext = extForMime(contentType)
+              const storagePath = `${user.id}/proof-${crypto.randomUUID()}.${ext}`
+
+              const { data: upData, error: upErr } = await supabase.storage
+                .from('voice-messages')
+                .upload(storagePath, file, { contentType, upsert: false })
+              if (upErr) continue
+
+              const artifactPayload = {
+                user_id: user.id,
+                chapter_id: chapterId,
+                type: 'proof',
+                data: {
+                  resolutionType: 'audio',
+                  title: d.title,
+                  notes: d.notes,
+                  durationMs: d.durationMs ?? null,
+                  storage: {
+                    bucket: 'voice-messages',
+                    path: upData.path,
+                  },
+                  contentType,
+                },
               }
-            }
-            
-            const xp = result.xpResult?.xpAwarded ?? 0
-            if (xp > 0) {
-              showXPNotification(xp, 'Resolution Complete!', { reasonCode: result.reasonCode })
-            } else if (result.reasonCode === 'repeat_completion') {
-              showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+
+              const { error: artErr } = await supabase.from('artifacts').insert(artifactPayload)
+              if (artErr) console.error('[Proof] Audio artifact:', artErr)
             }
           }
-        } catch (error) {
-          console.error('[XP] Error completing resolution:', error)
         }
-      }, 0)
-    } catch (error) {
-      console.error('[XP] Error completing resolution:', error)
-      // If the error is from saving proof, keep the user here to retry.
-      const msg = (error as any)?.message ?? 'Failed to save your proof. Please try again.'
-      setSaveError(msg)
-      setIsProcessing(false)
-      return
-    } finally {
-      setIsProcessing(false)
-    }
+
+        const result = await completeSectionBlock(chapterId, 'proof')
+        if (result && !('error' in result) && result.success) {
+          if (result.streakResult?.xpAwarded && result.streakResult.xpAwarded > 0) {
+            const codes = result.streakResult.reasonCodes || []
+            const streakXp = result.streakResult.xpAwarded
+            if (codes.includes('milestone')) {
+              showXPNotification(streakXp, `${result.streakResult.milestoneReached}-day streak bonus!`, {
+                reasonCode: 'milestone',
+              })
+            } else {
+              showXPNotification(
+                streakXp,
+                codes.includes('streak_continued') ? 'Streak continued!' : 'Daily activity'
+              )
+            }
+          }
+          const xp = result.xpResult?.xpAwarded ?? 0
+          if (xp > 0) {
+            showXPNotification(xp, 'Resolution Complete!', { reasonCode: result.reasonCode })
+          } else if (result.reasonCode === 'repeat_completion') {
+            showXPNotification(0, '', { reasonCode: 'repeat_completion' })
+          }
+        }
+      } catch (error) {
+        console.error('[XP] Error completing resolution:', error)
+      } finally {
+        if (mountedRef.current) setIsProcessing(false)
+      }
+    }, 0)
   }
 
   // Already completed: show read-only message, no form
@@ -417,7 +452,7 @@ export default function ResolutionPage() {
           </p>
         </div>
 
-          {/* Identity + proof UI */}
+        {/* Identity + proof UI */}
         <div className="space-y-6">
           {saveError && (
             <div className="rounded-2xl border border-red-200 bg-red-50 px-5 sm:px-6 py-4 text-sm font-semibold text-red-800">
@@ -436,25 +471,30 @@ export default function ResolutionPage() {
                   identityResolution
                 </h2>
                 <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-300">
-                  This is your anchor statement for Chapter 1. Use it as inspiration for one of your proof entries
-                  below.
+                  This is your anchor statement for Chapter {chapterId}. Use it as inspiration for one of your proof
+                  entries below.
                 </p>
                 <div className="mt-3 rounded-2xl bg-white/90 dark:bg-gray-900/90 border border-amber-100/80 dark:border-amber-500/40 px-4 py-3 shadow-sm">
                   <p className="text-sm sm:text-base text-[var(--color-charcoal)] dark:text-gray-100">
                     <span className="font-bold">Example:&nbsp;</span>
                     <span className="font-semibold">
-                      My focus is [MY GOAL] and I&apos;m committed to achieving it. I take responsibility for my progress
-                      by doing [SPECIFIC ACTION] consistently. I&apos;m removing [DISTRACTIONS / EXCUSES] and staying
-                      disciplined. I know results come from effort. I feel [DETERMINED / FOCUSED] moving forward.
+                      My focus is [MY GOAL] and I&apos;m committed to achieving it. I take responsibility for my
+                      progress by doing [SPECIFIC ACTION] consistently. I&apos;m removing [DISTRACTIONS / EXCUSES] and
+                      staying disciplined. I know results come from effort. I feel [DETERMINED / FOCUSED] moving
+                      forward.
                     </span>
                   </p>
                 </div>
               </div>
             </div>
           </div>
+
           {/* 2nd card: Write your response */}
           {drafts.map((item, idx) => (
-            <div key={item.id} className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
+            <div
+              key={item.id}
+              className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg overflow-hidden"
+            >
               {/* Card header strip */}
               <div className="px-6 sm:px-8 py-6 bg-gradient-to-r from-[#FFFDF5] via-[#FFF8E7] to-[#FFEED0] dark:from-[#2A2416] dark:via-[#2A2416] dark:to-[#3A301A] border-b border-amber-100/70 dark:border-amber-500/40 flex items-start gap-3">
                 <div className="mt-0.5 w-10 h-10 rounded-xl bg-[#ffd93d]/25 flex items-center justify-center flex-shrink-0">
@@ -476,9 +516,7 @@ export default function ResolutionPage() {
                   {/* Proof field */}
                   <div>
                     <div className="flex items-center justify-between gap-3 mb-2">
-                      <span className="text-sm font-bold text-[var(--color-charcoal)] dark:text-white">
-                        Proof
-                      </span>
+                      <span className="text-sm font-bold text-[var(--color-charcoal)] dark:text-white">Proof</span>
                       {drafts.length > 1 && (
                         <button
                           type="button"
@@ -494,7 +532,7 @@ export default function ResolutionPage() {
                     {item.type === 'text' ? (
                       <textarea
                         value={item.notes}
-                        onChange={(e) => handleNotesChange(item.id, e.target.value)}
+                        onChange={e => handleNotesChange(item.id, e.target.value)}
                         rows={4}
                         placeholder="Write your identity statement here"
                         className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-[var(--color-charcoal)] dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#f7b418] resize-none"
@@ -530,12 +568,12 @@ export default function ResolutionPage() {
                         <input
                           type="file"
                           accept={fileAccept(item.type)}
-                          onChange={(e) => handleFileChange(item.id, e.target.files)}
+                          onChange={e => handleFileChange(item.id, e.target.files)}
                           className="block w-full text-xs sm:text-sm text-gray-700 dark:text-gray-200 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#f7b418] file:text-[var(--color-charcoal)] hover:file:bg-[#e5a616] cursor-pointer"
                         />
                         <textarea
                           value={item.notes}
-                          onChange={(e) => handleNotesChange(item.id, e.target.value)}
+                          onChange={e => handleNotesChange(item.id, e.target.value)}
                           rows={3}
                           placeholder="Add a short note about what this proof shows"
                           className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-[var(--color-charcoal)] dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#f7b418] resize-none"
@@ -558,7 +596,11 @@ export default function ResolutionPage() {
                           </div>
                         )}
                         {item.previewUrl && item.type === 'video' && (
-                          <video controls src={item.previewUrl} className="w-full max-h-72 rounded-xl bg-black object-contain" />
+                          <video
+                            controls
+                            src={item.previewUrl}
+                            className="w-full max-h-72 rounded-xl bg-black object-contain"
+                          />
                         )}
                       </div>
                     )}
@@ -569,8 +611,6 @@ export default function ResolutionPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        // Keep the UI exactly like the screenshot: clicking Add Entry adds another blank proof card.
-                        // (Saving to DB can come later.)
                         if (idx === drafts.length - 1) addDraft()
                       }}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#f7b418] hover:bg-[#e5a616] text-[var(--color-charcoal)] font-black text-sm shadow-sm transition"
@@ -584,7 +624,7 @@ export default function ResolutionPage() {
             </div>
           ))}
 
-          {/* + Add Another Proof (link-style like screenshot) */}
+          {/* + Add Another Proof (link-style) */}
           <button
             type="button"
             onClick={addDraft}

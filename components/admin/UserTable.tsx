@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, memo, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Eye, Trash2, Shield } from 'lucide-react'
 import Button from '@/components/ui/Button'
 
@@ -24,8 +25,18 @@ interface UserTableProps {
   onDelete?: (userId: string) => void
 }
 
-export default function UserTable({ users, onDelete }: UserTableProps) {
+// OPTIMIZED: Memoized to prevent unnecessary re-renders
+export default memo(function UserTable({ users, onDelete }: UserTableProps) {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
+  const parentRef = useRef<HTMLDivElement>(null)
+
+  // OPTIMIZED: Virtualize user rows for better performance with large lists
+  const virtualizer = useVirtualizer({
+    count: users.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 73, // Approximate row height in pixels
+    overscan: 5, // Render 5 extra items above/below viewport
+  })
 
   const toggleUser = (userId: string) => {
     const newSelected = new Set(selectedUsers)
@@ -91,8 +102,111 @@ export default function UserTable({ users, onDelete }: UserTableProps) {
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {users.map((user) => {
+        </table>
+        {/* OPTIMIZED: Virtualized tbody with scrollable container */}
+        <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+          <table className="w-full">
+            <tbody style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const user = users[virtualRow.index]
+                const gamification = user.user_gamification?.[0]
+                
+                return (
+                  <tr
+                    key={user.id}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-200 dark:border-gray-700"
+                  >
+                    <td className="px-6 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.has(user.id)}
+                        onChange={() => toggleUser(user.id)}
+                        className="rounded"
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white">
+                          {user.full_name || 'No name'}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {user.email}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        user.role === 'admin' 
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                      }`}>
+                        {user.role === 'admin' && <Shield className="w-3 h-3 mr-1" />}
+                        {user.role || 'student'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      {gamification?.level || 1}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      {gamification?.total_xp || 0}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      {gamification?.current_streak || 0} days
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                      {formatDate(user.created_at)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Link href={`/admin/users/${user.id}`}>
+                          <Button variant="ghost" size="sm">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                        {onDelete && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onDelete(user.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Bulk actions */}
+      {selectedUsers.size > 0 && (
+        <div className="px-6 py-3 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {selectedUsers.size} user(s) selected
+            </span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setSelectedUsers(new Set())}>
+                Clear Selection
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+})
               const gamification = user.user_gamification?.[0]
               
               return (
@@ -175,4 +289,4 @@ export default function UserTable({ users, onDelete }: UserTableProps) {
       )}
     </div>
   )
-}
+})
