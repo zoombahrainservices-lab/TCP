@@ -165,6 +165,12 @@ const chapter1ReadingPages: Array<{ slug: string; title: string; order_index: nu
 
 const chapter1FrameworkIntroBlocks = [
   {
+    type: 'image',
+    src: '/slider-work-on-quizz/chapter1/frameworks/spark.png',
+    alt: 'SPARK Framework',
+    caption: null,
+  },
+  {
     type: 'heading',
     level: 1,
     text: 'THE SPARK FRAMEWORK',

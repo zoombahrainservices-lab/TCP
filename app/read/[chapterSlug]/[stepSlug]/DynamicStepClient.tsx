@@ -26,6 +26,34 @@ function getCanonicalNextUrl(chapterNumber: number, nextStepSlug: string | null)
   return null;
 }
 
+/** Chapter 1 framework (SPARK) uses known image paths under public; DB thumbnail or block src may be missing or broken. */
+const CHAPTER_1_FRAMEWORK_BASE = '/slider-work-on-quizz/chapter1/frameworks';
+function getChapter1FrameworkHeroImage(pageSlug: string | null): string {
+  const map: Record<string, string> = {
+    'spark-intro': 'spark.png',
+    'spark-s': 's.png',
+    'spark-p': 'p.png',
+    'spark-a': 'a.png',
+    'spark-r': 'r.png',
+    'spark-k': 'k.png',
+  };
+  const file = (pageSlug && map[pageSlug]) || 'spark.png';
+  return `${CHAPTER_1_FRAMEWORK_BASE}/${file}`;
+}
+
+/** Chapter 1 techniques: use known image paths so the 1st page (and others) never show a broken hero image. */
+const CHAPTER_1_TECHNIQUES_BASE = '/slider-work-on-quizz/chapter1/technique';
+function getChapter1TechniquesHeroImage(pageSlug: string | null): string {
+  const map: Record<string, string> = {
+    'technique-intro': 'Visual%20Progress.png',
+    'technique-1': 'Substitution%20Game.png',
+    'technique-2': 'The%20Later%20Technique.png',
+    'technique-3': 'Change%20Your%20Environment.png',
+  };
+  const file = (pageSlug && map[pageSlug]) || 'Visual%20Progress.png';
+  return `${CHAPTER_1_TECHNIQUES_BASE}/${file}`;
+}
+
 export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }: Props) {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(0);
@@ -149,7 +177,9 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
   const rawBlocks = (currentPageData?.content ?? []) as any[];
   const firstBlock = rawBlocks[0];
 
-  let heroImageSrc: string = chapter.thumbnail_url || '/placeholder.png';
+  // Use chapter thumbnail or a known-good fallback (placeholder.png does not exist in public)
+  const defaultHeroSrc = '/slider-work-on-quizz/chapter1/frameworks/spark.png';
+  let heroImageSrc: string = chapter.thumbnail_url || defaultHeroSrc;
   let heroImageAlt: string = currentPageData?.title || step.title;
   let contentBlocks: any[] = rawBlocks;
 
@@ -188,6 +218,23 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
         heroImageAlt = previousFirst.alt;
       }
     }
+  }
+
+  // Chapter 1 framework (SPARK): use known image paths so we never show a broken image
+  // (DB may have no image block, or chapter.thumbnail_url / block src may be invalid).
+  const isChapter1Framework =
+    chapter.slug === 'stage-star-silent-struggles' && step.step_type === 'framework';
+  if (isChapter1Framework) {
+    heroImageSrc = getChapter1FrameworkHeroImage(currentPageData?.slug ?? null);
+    heroImageAlt = currentPageData?.title || step.title;
+  }
+
+  // Chapter 1 techniques: same method — use known image paths for the 1st page and others.
+  const isChapter1Techniques =
+    chapter.slug === 'stage-star-silent-struggles' && step.step_type === 'techniques';
+  if (isChapter1Techniques) {
+    heroImageSrc = getChapter1TechniquesHeroImage(currentPageData?.slug ?? null);
+    heroImageAlt = currentPageData?.title || step.title;
   }
 
   // Avoid duplicate heading: if the first content block is already a heading, don't render page title as h1 (content will show it once).
