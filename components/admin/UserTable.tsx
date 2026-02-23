@@ -197,94 +197,11 @@ export default memo(function UserTable({ users, onDelete }: UserTableProps) {
               {selectedUsers.size} user(s) selected
             </span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setSelectedUsers(new Set())}>
+              <Button variant="secondary" size="sm" onClick={() => setSelectedUsers(new Set())}>
                 Clear Selection
               </Button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  )
-})
-              const gamification = user.user_gamification?.[0]
-              
-              return (
-                <tr
-                  key={user.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <td className="px-6 py-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedUsers.has(user.id)}
-                      onChange={() => toggleUser(user.id)}
-                      className="rounded"
-                    />
-                  </td>
-                  <td className="px-6 py-4">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {user.full_name || 'Anonymous'}
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {user.email}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                        ${user.role === 'admin' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100' : ''}
-                        ${user.role === 'mentor' ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-100' : ''}
-                        ${user.role === 'student' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100' : ''}
-                        ${user.role === 'parent' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100' : ''}
-                      `}
-                    >
-                      {user.role === 'admin' && <Shield className="w-3 h-3" />}
-                      {user.role || 'student'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                    {gamification?.level || 1}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                    {gamification?.total_xp?.toLocaleString() || 0}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                    {gamification?.current_streak || 0} 🔥
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    {formatDate(user.created_at)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/admin/users/${user.id}`}
-                        className="text-[var(--color-amber)] hover:text-[#d49f01] transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Link>
-                      {onDelete && (
-                        <button
-                          onClick={() => onDelete(user.id)}
-                          className="text-red-600 hover:text-red-700 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {users.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 dark:text-gray-400">No users found</p>
         </div>
       )}
     </div>

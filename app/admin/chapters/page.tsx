@@ -98,7 +98,8 @@ export default function ChaptersPage() {
       }
       setShowPartEditor(false)
       setEditingPart(null)
-      loadData()
+      queryClient.invalidateQueries({ queryKey: ['parts'] })
+      queryClient.invalidateQueries({ queryKey: ['chapters'] })
     } catch (error) {
       toast.error('Failed to save part')
     }
