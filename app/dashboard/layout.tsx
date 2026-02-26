@@ -37,10 +37,11 @@ export default async function DashboardLayout({
     currentChapterNumber = publishedChapters[publishedChapters.length - 1].chapter_number as number
   }
   const serverCurrentChapter = currentChapterNumber ?? 1
+  const isAdmin = user.role === 'admin'
 
   return (
     <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300" style={{ height: '100dvh' }}>
-      <DashboardNav serverCurrentChapter={serverCurrentChapter} />
+      <DashboardNav serverCurrentChapter={serverCurrentChapter} isAdmin={isAdmin} />
       <MainWithBackground>{children}</MainWithBackground>
     </div>
   )

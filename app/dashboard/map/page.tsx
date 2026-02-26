@@ -1,6 +1,7 @@
 import { requireAuth } from '@/lib/auth/guards'
 import { getCachedAllChapters } from '@/lib/content/cache.server'
 import { getChapterReportsData } from '@/app/actions/gamification'
+import { createClient } from '@/lib/supabase/server'
 import MapClient, { type MapChapter } from './MapClient'
 
 export default async function MapPage() {
@@ -10,6 +11,7 @@ export default async function MapPage() {
     getChapterReportsData(user.id),
     getCachedAllChapters(),
   ])
+  const supabase = await createClient()
 
   const publishedChapters = Array.isArray(allChapters) ? allChapters : []
   const progressList = Array.isArray(chapterReports) ? chapterReports : []
@@ -38,6 +40,23 @@ export default async function MapPage() {
     currentChapterNumber = publishedChapters[publishedChapters.length - 1].chapter_number as number
   }
 
+  const [{ data: allSteps }, { data: allPages }, { data: completedPages }] = await Promise.all([
+    supabase
+      .from('chapter_steps')
+      .select('id, chapter_id, step_type, title, slug, order_index')
+      .order('order_index', { ascending: true }),
+    supabase
+      .from('step_pages')
+      .select('id, step_id, title, slug, order_index')
+      .order('order_index', { ascending: true }),
+    supabase
+      .from('step_completions')
+      .select('page_id')
+      .eq('user_id', user.id),
+  ])
+
+  const completedPageIds = new Set(completedPages?.map((c) => c.page_id) ?? [])
+
   const mapChapters: MapChapter[] = publishedChapters.map((ch) => {
     const chapterNum = ch.chapter_number as number
     const progress = progressByNumber.get(chapterNum)
@@ -58,6 +77,32 @@ export default async function MapPage() {
       status = 'unlocked'
     }
 
+    const chapterSteps = (allSteps ?? [])
+      .filter((step) => step.chapter_id === ch.id)
+      .sort((a, b) => a.order_index - b.order_index)
+
+    const sections = chapterSteps.map((step) => {
+      const pages = (allPages ?? [])
+        .filter((page) => page.step_id === step.id)
+        .sort((a, b) => a.order_index - b.order_index)
+        .map((page) => ({
+          id: page.id,
+          slug: page.slug,
+          title: page.title ?? `Page ${page.order_index}`,
+          order_index: page.order_index,
+          isCompleted: completedPageIds.has(page.id),
+        }))
+
+      return {
+        id: step.id,
+        step_type: step.step_type,
+        title: step.title,
+        slug: step.slug,
+        order_index: step.order_index,
+        pages,
+      }
+    })
+
     return {
       id: ch.id,
       chapter_number: chapterNum,
@@ -65,6 +110,9 @@ export default async function MapPage() {
       title: ch.title,
       framework_code: ch.framework_code ?? null,
       status,
+      completed_count: completedCount,
+      total_sections: totalSections,
+      sections,
     }
   })
 

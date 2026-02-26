@@ -13,9 +13,11 @@ const STORAGE_KEY = 'tcpCurrentChapter'
 type DashboardNavProps = {
   /** When on dashboard, use this so Framework/Techniques/Resolution/Follow-through match current chapter */
   serverCurrentChapter?: number
+  /** Whether the logged-in user has admin role */
+  isAdmin?: boolean
 }
 
-export function DashboardNav({ serverCurrentChapter }: DashboardNavProps = {}) {
+export function DashboardNav({ serverCurrentChapter, isAdmin = false }: DashboardNavProps = {}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [storedChapter, setStoredChapter] = useState<number | null>(null)
@@ -536,12 +538,14 @@ export function DashboardNav({ serverCurrentChapter }: DashboardNavProps = {}) {
                     </svg>
                     <span className="font-semibold">Marketing</span>
                   </Link>
-                  <Link href="/dashboard/reports" onClick={() => setSettingsOpen(false)} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-300">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="font-semibold">Reports</span>
-                  </Link>
+                  {isAdmin && (
+                    <Link href="/admin" onClick={() => setSettingsOpen(false)} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-300">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      <span className="font-semibold">Admin</span>
+                    </Link>
+                  )}
                 </div>
 
                 <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>

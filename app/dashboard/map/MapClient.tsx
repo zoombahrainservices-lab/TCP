@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChapterMarker3D } from '@/components/map/ChapterMarker3D'
+import { X, ChevronDown, BookOpen, CheckSquare, Zap, Lightbulb, Circle as CircleIcon, RotateCcw } from 'lucide-react'
 
 type ChapterStatus = 'locked' | 'unlocked' | 'completed'
 
@@ -13,6 +14,22 @@ export type MapChapter = {
   title: string
   framework_code: string | null
   status: ChapterStatus
+  completed_count: number
+  total_sections: number
+  sections: {
+    id: string
+    step_type: string
+    title: string
+    slug: string
+    order_index: number
+    pages: {
+      id: string
+      slug: string
+      title: string
+      order_index: number
+      isCompleted: boolean
+    }[]
+  }[]
 }
 
 type Point = { x: number; y: number }
@@ -54,6 +71,26 @@ export const BOOK_COLORS = {
   locked: '#9CA3AF',
 }
 
+const sectionIcons: Record<string, any> = {
+  read: BookOpen,
+  self_check: CheckSquare,
+  quiz: Zap,
+  framework: Zap,
+  techniques: Lightbulb,
+  resolution: CircleIcon,
+  follow_through: RotateCcw,
+}
+
+const sectionLabels: Record<string, string> = {
+  read: 'Introduction',
+  self_check: 'Reading',
+  quiz: 'Quiz',
+  framework: 'Exercise',
+  techniques: 'Tip',
+  resolution: 'Insight',
+  follow_through: 'Summary',
+}
+
 // ViewBox: left + top padding; extra bottom padding so last chapter is fully visible.
 const VIEWBOX_PAD_TOP = 140
 const VIEWBOX_PAD_LEFT = 120
@@ -86,10 +123,15 @@ export default function MapClient({ chapters, currentChapterNumber }: MapClientP
   const [points, setPoints] = useState<Point[]>([])
   const [pathLen, setPathLen] = useState<number>(0)
   const [hoveredChapterId, setHoveredChapterId] = useState<string | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(true)
+  const [selectedChapterNumber, setSelectedChapterNumber] = useState<number | null>(currentChapterNumber ?? chapters[0]?.chapter_number ?? null)
 
   const currentChapterId = currentChapterNumber != null
     ? chapters.find((c) => c.chapter_number === currentChapterNumber)?.id ?? null
     : null
+  const selectedChapter = selectedChapterNumber != null
+    ? chapters.find((c) => c.chapter_number === selectedChapterNumber) ?? chapters[0]
+    : chapters[0]
 
   const progressIndex = useMemo(() => {
     if (!currentChapterId) return 0
@@ -130,15 +172,109 @@ export default function MapClient({ chapters, currentChapterNumber }: MapClientP
   }, [pathLen, chapters.length, progressIndex])
 
   const handleChapterClick = (chapter: MapChapter) => {
-    if (chapter.status !== 'locked') {
+    if (chapter.status === 'locked') return
+    const readSection = chapter.sections.find((s) => s.step_type === 'read') ?? chapter.sections[0]
+    if (!readSection) {
       router.push(`/read/${chapter.slug}`)
+      return
     }
+    router.push(`/read/${chapter.slug}/${readSection.slug}`)
+  }
+
+  const handlePageCircleClick = (stepSlug: string, pageOrderIndex: number) => {
+    if (!selectedChapter) return
+    router.push(`/read/${selectedChapter.slug}/${stepSlug}?page=${pageOrderIndex}`)
   }
 
   const markerTitle = (ch: MapChapter) => `Chapter ${ch.chapter_number}`
 
   return (
     <div className="w-full min-h-full">
+      <button
+        onClick={() => setIsDetailsOpen((v) => !v)}
+        className="fixed top-4 right-4 z-[80] flex items-center gap-2 rounded-lg bg-[#ff6a38] px-4 py-2.5 text-sm font-semibold text-white shadow-xl hover:bg-[#e95b2b] transition-colors ring-2 ring-white/80"
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        {isDetailsOpen ? 'Hide Chapter Panel' : 'Show Chapter Panel'}
+      </button>
+
+      {isDetailsOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[55] bg-black/40 md:hidden"
+            onClick={() => setIsDetailsOpen(false)}
+          />
+          <aside className="fixed right-0 top-0 z-[70] h-screen w-[380px] max-w-[95vw] border-l border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900 flex flex-col">
+            <div className="flex items-center justify-between border-b border-gray-200 p-4 dark:border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                CH {selectedChapter?.chapter_number ?? 1}
+              </h2>
+              <button
+                onClick={() => setIsDetailsOpen(false)}
+                className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="relative">
+                <select
+                  value={selectedChapterNumber ?? undefined}
+                  onChange={(e) => setSelectedChapterNumber(Number(e.target.value))}
+                  className="w-full appearance-none rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 pr-9 text-sm font-medium text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                >
+                  {chapters.map((c) => (
+                    <option key={c.id} value={c.chapter_number}>
+                      Chapter {c.chapter_number}: {c.title}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {(selectedChapter?.sections ?? []).map((section, idx) => {
+                const Icon = sectionIcons[section.step_type] ?? BookOpen
+                const label = sectionLabels[section.step_type] ?? section.title
+
+                return (
+                  <div
+                    key={section.id}
+                    className="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50"
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0 text-gray-700 dark:text-gray-200 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                        {idx + 1}. {label}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                      {section.pages.map((page) => (
+                        <button
+                          key={page.id}
+                          onClick={() => handlePageCircleClick(section.slug, page.order_index)}
+                          className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
+                            page.isCompleted
+                              ? 'bg-[#f59e0b]'
+                              : 'bg-[#b8b9bc]'
+                          }`}
+                          title={page.title || `Page ${page.order_index}`}
+                          aria-label={`Open ${section.title} page ${page.order_index}`}
+                        />
+                      ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </aside>
+        </>
+      )}
+
       <div className="px-6 pt-6 pb-2 mb-6">
         <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
           Chapter Map

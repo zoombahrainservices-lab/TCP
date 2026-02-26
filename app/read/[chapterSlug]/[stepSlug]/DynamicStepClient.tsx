@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import ReadingLayout from '@/components/content/ReadingLayout';
@@ -24,12 +24,28 @@ interface Props {
 
 export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, initialAnswers = {} }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [currentPage, setCurrentPage] = useState(0);
   const [userResponses, setUserResponses] = useState<Record<string, any>>(initialAnswers);
   const [isProcessing, setIsProcessing] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
 
   const nextUrl = nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : null;
+
+  // Jump to specific page from URL query param (?page=3)
+  useEffect(() => {
+    const pageParam = searchParams.get('page');
+    if (!pageParam || pages.length === 0) return;
+
+    const pageNumber = Number(pageParam);
+    if (!Number.isFinite(pageNumber) || pageNumber < 1) return;
+
+    // Find page by order_index (1-based)
+    const targetIndex = pages.findIndex((p) => p.order_index === pageNumber);
+    if (targetIndex >= 0 && targetIndex !== currentPage) {
+      setCurrentPage(targetIndex);
+    }
+  }, [searchParams, pages, currentPage]);
 
   // Aggressive prefetching for instant navigation (route code only). Use canonical URL so we never trigger server redirect → MPA → #310.
   useEffect(() => {
@@ -59,11 +75,23 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       }));
     }
     
-    if (currentPage < pages.length - 1) setCurrentPage(currentPage + 1);
+    if (currentPage < pages.length - 1) {
+      setCurrentPage(currentPage + 1);
+      // Clear page query param to avoid conflicts
+      const url = new URL(window.location.href);
+      url.searchParams.delete('page');
+      window.history.replaceState({}, '', url.pathname);
+    }
   };
 
   const handlePrevious = () => {
-    if (currentPage > 0) setCurrentPage(currentPage - 1);
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+      // Clear page query param to avoid conflicts
+      const url = new URL(window.location.href);
+      url.searchParams.delete('page');
+      window.history.replaceState({}, '', url.pathname);
+    }
   };
 
   const handleComplete = async () => {
@@ -139,53 +167,44 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const progress = pages.length ? ((currentPage + 1) / pages.length) * 100 : 0;
 
   // Derive hero image and content blocks so that image is on the LEFT
-  // (like the original Chapter 1 framework/techniques/follow-through).
-  // If a "Your Turn" page has no image, reuse the previous page's image
-  // so S → S Your Turn, N → N Your Turn, etc. share the same art.
-  // Priority: step.hero_image_url → first image block → chapter.hero_image_url → chapter.thumbnail_url → placeholder
+  // Priority: first image block from current page → step.hero_image_url → chapter images → placeholder
+  // CRITICAL: Remove ALL image blocks from content so they never appear on the right
   const rawBlocks = (currentPageData?.content ?? []) as any[];
-  const firstBlock = rawBlocks[0];
-
+  
   let heroImageSrc: string = step.hero_image_url ?? chapter.hero_image_url ?? chapter.thumbnail_url ?? '/placeholder.png';
   let heroImageAlt: string = currentPageData?.title || step.title;
   let contentBlocks: any[] = rawBlocks;
 
-  let imageFromCurrentPage = false;
+  // Find first image block in current page
+  const firstImageBlock = rawBlocks.find(
+    (block) => block && typeof block === 'object' && block.type === 'image' && block.src
+  );
 
-  if (firstBlock && typeof firstBlock === 'object' && firstBlock.type === 'image' && firstBlock.src) {
-    heroImageSrc = firstBlock.src;
-    if (firstBlock.alt) {
-      heroImageAlt = firstBlock.alt;
+  if (firstImageBlock) {
+    // Use the first image found in page content as hero
+    heroImageSrc = firstImageBlock.src;
+    if (firstImageBlock.alt) {
+      heroImageAlt = firstImageBlock.alt;
     }
-    // Do NOT render the hero image again on the right side
-    contentBlocks = rawBlocks.slice(1);
-    imageFromCurrentPage = true;
-  } else if (!firstBlock && currentPage > 0) {
-    // No content blocks at all – fall back to previous page's hero image if it has one
+  } else if (!step.hero_image_url && !chapter.hero_image_url && currentPage > 0) {
+    // No image on current page and no step/chapter hero - try previous page
     const previousPage = pages[currentPage - 1];
     const previousBlocks = (previousPage?.content ?? []) as any[];
-    const previousFirst = previousBlocks[0];
-
-    if (previousFirst && typeof previousFirst === 'object' && previousFirst.type === 'image' && previousFirst.src) {
-      heroImageSrc = previousFirst.src;
-      if (previousFirst.alt) {
-        heroImageAlt = previousFirst.alt;
-      }
-    }
-  } else if (!imageFromCurrentPage && currentPage > 0) {
-    // Page has content but no image as the first block.
-    // For "Your Turn" pages (prompt-only), reuse the previous page's image.
-    const previousPage = pages[currentPage - 1];
-    const previousBlocks = (previousPage?.content ?? []) as any[];
-    const previousFirst = previousBlocks[0];
-
-    if (previousFirst && typeof previousFirst === 'object' && previousFirst.type === 'image' && previousFirst.src) {
-      heroImageSrc = previousFirst.src;
-      if (previousFirst.alt) {
-        heroImageAlt = previousFirst.alt;
+    const previousImageBlock = previousBlocks.find(
+      (block) => block && typeof block === 'object' && block.type === 'image' && block.src
+    );
+    if (previousImageBlock) {
+      heroImageSrc = previousImageBlock.src;
+      if (previousImageBlock.alt) {
+        heroImageAlt = previousImageBlock.alt;
       }
     }
   }
+
+  // Remove ALL image blocks from content (they're shown on left, never on right)
+  contentBlocks = rawBlocks.filter(
+    (block) => !(block && typeof block === 'object' && block.type === 'image')
+  );
 
   // Avoid duplicate heading: if the first content block is already a heading, don't render page title as h1 (content will show it once).
   const firstContentBlock = contentBlocks[0];
