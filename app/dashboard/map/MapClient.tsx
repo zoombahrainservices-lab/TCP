@@ -82,14 +82,24 @@ const sectionIcons: Record<string, any> = {
 }
 
 const sectionLabels: Record<string, string> = {
-  read: 'Introduction',
-  self_check: 'Reading',
+  read: 'Reading',
+  self_check: 'Self-Check',
   quiz: 'Quiz',
-  framework: 'Exercise',
-  techniques: 'Tip',
-  resolution: 'Insight',
-  follow_through: 'Summary',
+  framework: 'Framework',
+  techniques: 'Techniques',
+  resolution: 'Resolution',
+  follow_through: 'Follow-Through',
 }
+
+// Desired section display order
+const SECTION_ORDER = [
+  'read',           // Introduction (Reading icon)
+  'self_check',     // Reading (Self-check icon)
+  'framework',      // Exercise (Framework icon)
+  'techniques',     // Tip (Techniques icon)
+  'resolution',     // Insight (Resolution icon)
+  'follow_through', // Summary (Follow-through icon)
+]
 
 // ViewBox: left + top padding; extra bottom padding so last chapter is fully visible.
 const VIEWBOX_PAD_TOP = 140
@@ -237,7 +247,10 @@ export default function MapClient({ chapters, currentChapterNumber }: MapClientP
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-              {(selectedChapter?.sections ?? []).map((section, idx) => {
+              {SECTION_ORDER
+                .map(stepType => selectedChapter?.sections.find(s => s.step_type === stepType))
+                .filter((section): section is NonNullable<typeof section> => section != null)
+                .map((section, idx) => {
                 const Icon = sectionIcons[section.step_type] ?? BookOpen
                 const label = sectionLabels[section.step_type] ?? section.title
 
@@ -258,7 +271,7 @@ export default function MapClient({ chapters, currentChapterNumber }: MapClientP
                           onClick={() => handlePageCircleClick(section.slug, page.order_index)}
                           className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
                             page.isCompleted
-                              ? 'bg-[#f59e0b]'
+                              ? 'bg-[#FF6A38]'
                               : 'bg-[#b8b9bc]'
                           }`}
                           title={page.title || `Page ${page.order_index}`}
