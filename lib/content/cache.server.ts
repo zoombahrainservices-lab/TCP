@@ -166,6 +166,7 @@ export async function getCachedChapterBundleAdmin(chapterSlug: string) {
   })
 
   const hasValidData = Array.isArray(data) && data.length > 0 && data[0]?.chapter_data
+  const hasRealError = !!error
 
   if (hasValidData) {
     const chapter = data[0].chapter_data as any

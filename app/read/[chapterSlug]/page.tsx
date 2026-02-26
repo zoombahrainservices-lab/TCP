@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCachedChapterBundle } from '@/lib/content/cache.server';
-import { getStepPages } from '@/lib/content/queries';
+import { getStepPages, getNextStep } from '@/lib/content/queries';
 import { getChapterPromptAnswers } from '@/app/actions/prompts';
 import DynamicChapterReadingClient from './DynamicChapterReadingClient';
 
@@ -29,7 +29,7 @@ export default async function DynamicChapterReadingPage({
     redirect('/dashboard');
   }
 
-  const nextStep = steps.find(s => s.order_index === readStep.order_index + 1);
+  const nextStep = await getNextStep(chapter.id, readStep.order_index);
   const nextStepSlug = nextStep?.slug ?? null;
 
   const { data: savedAnswers } = await getChapterPromptAnswers(chapter.chapter_number);

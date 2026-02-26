@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
-import SelfCheckAssessment, { type AssessmentQuestion, type ScoreBandExplanation } from '@/components/assessment/SelfCheckAssessment';
+import SelfCheckAssessment, { type AssessmentQuestion } from '@/components/assessment/SelfCheckAssessment';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
 import { submitAssessment } from '@/app/actions/prompts';
@@ -231,7 +231,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   // - Current letter detection validates against that sequence
   // - If current page's letter is NOT in the sequence (e.g. 'Y' from "Your Turn"), hide strip
   // ============================================================================
-  let frameworkStrip: JSX.Element | null = null;
+  let frameworkStrip: React.ReactNode = null;
   if (step.step_type === 'framework') {
     // STEP 1: Get the canonical framework letter sequence (source of truth)
     const dbFrameworkCode = (chapter.framework_code || '').toUpperCase();

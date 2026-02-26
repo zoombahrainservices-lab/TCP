@@ -194,10 +194,10 @@ const ConditionalBlockSchema: z.ZodType<any> = z.lazy(() => z.object({
 const VariableBlockSchema = z.object({
   type: z.literal('variable'),
   template: z.string(),
-  variables: z.record(z.string()),
+  variables: z.record(z.string(), z.unknown()),
 })
 
-const BlockSchema: z.ZodType<any> = z.discriminatedUnion('type', [
+const BlockSchema: z.ZodType<any> = z.union([
   HeadingBlockSchema,
   ParagraphBlockSchema,
   StoryBlockSchema,

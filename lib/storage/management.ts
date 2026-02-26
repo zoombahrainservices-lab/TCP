@@ -28,7 +28,7 @@ export interface ImageMetadata {
  * List all images in a given path (recursive)
  */
 export async function listAllImages(prefix?: string): Promise<ImageMetadata[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   try {
     const { data: files, error } = await supabase.storage
@@ -80,7 +80,7 @@ export async function listAllImages(prefix?: string): Promise<ImageMetadata[]> {
  * Delete an image from storage
  */
 export async function deleteImage(path: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   try {
     const { error } = await supabase.storage
@@ -103,7 +103,7 @@ export async function deleteImage(path: string): Promise<{ success: boolean; err
  * Get metadata for a specific image
  */
 export async function getImageMetadata(path: string): Promise<ImageMetadata | null> {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   try {
     // Get public URL
@@ -138,7 +138,7 @@ export async function bulkUpload(
   files: File[],
   destinationPath: string
 ): Promise<{ success: boolean; urls: string[]; errors: string[] }> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const urls: string[] = []
   const errors: string[] = []
 
@@ -186,7 +186,7 @@ export async function getStorageUsage(): Promise<{
   totalImages: number
   byChapter: Record<string, { size: number; count: number }>
 }> {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   try {
     const { data: files, error } = await supabase.storage

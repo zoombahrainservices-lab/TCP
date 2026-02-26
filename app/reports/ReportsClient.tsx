@@ -129,6 +129,7 @@ export default function ReportsClient({ chapters, promptAnswers }: ReportsClient
 
                 {/* Report Types */}
                 {chapter.status === 'available' ? (
+                  <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Self-Check Assessment Report */}
                     <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
@@ -245,6 +246,7 @@ export default function ReportsClient({ chapters, promptAnswers }: ReportsClient
                       </div>
                     </div>
                   )}
+                  </>
                 ) : (
                   <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                     <p>

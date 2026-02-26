@@ -2555,7 +2555,7 @@ export async function exportChapter(chapterId: string): Promise<ChapterExportDat
     if (chapter.hero_image_url) imageUrls.add(chapter.hero_image_url)
     if (chapter.pdf_url) imageUrls.add(chapter.pdf_url)
     if (chapter.framework_letter_images) {
-      chapter.framework_letter_images.forEach(url => imageUrls.add(url))
+      chapter.framework_letter_images.forEach((url: string) => imageUrls.add(url))
     }
     
     // Step images
