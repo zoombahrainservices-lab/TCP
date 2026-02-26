@@ -165,6 +165,29 @@ export interface ScriptsBlock {
 }
 
 // ============================================
+// Framework Blocks
+// ============================================
+
+export interface FrameworkIntroBlock {
+  type: 'framework_intro';
+  frameworkCode: string;
+  title: string;
+  description: string;
+  letters: Array<{
+    letter: string;
+    meaning: string;
+  }>;
+}
+
+export interface FrameworkLetterBlock {
+  type: 'framework_letter';
+  letter: string;
+  title: string;
+  content: string;
+  image?: string;
+}
+
+// ============================================
 // Call-to-Action Blocks
 // ============================================
 
@@ -225,7 +248,9 @@ export type Block =
   | CTABlock
   | ButtonBlock
   | ConditionalBlock
-  | VariableBlock;
+  | VariableBlock
+  | FrameworkIntroBlock
+  | FrameworkLetterBlock;
 
 // ============================================
 // Helper Types
@@ -239,6 +264,7 @@ export interface Page {
   order_index: number;
   estimated_minutes: number | null;
   xp_award: number;
+  chunk_id: number | null;
   content: Block[];
   created_at: string;
   updated_at: string;
@@ -253,6 +279,7 @@ export interface Step {
   order_index: number;
   is_required: boolean;
   unlock_rule: any | null;
+  hero_image_url?: string | null;
   created_at: string;
 }
 
@@ -264,9 +291,14 @@ export interface Chapter {
   title: string;
   subtitle: string | null;
   thumbnail_url: string | null;
+  pdf_url: string | null;
+  hero_image_url: string | null;
+  framework_letter_images?: string[] | null;
   order_index: number;
   level_min: number;
   is_published: boolean;
+  framework_code: string | null;
+  framework_letters: string[] | null;
   created_at: string;
   updated_at: string;
 }

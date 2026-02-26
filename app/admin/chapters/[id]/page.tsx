@@ -17,13 +17,17 @@ import {
   getAllPagesForChapter,
   toggleStepRequired,
   reorderSteps,
-  reorderPages
+  reorderPages,
+  adminEnsureRequiredSteps,
+  validateChapterForPublish,
+  publishChapter
 } from '@/app/actions/admin'
 import dynamic from 'next/dynamic'
 import Button from '@/components/ui/Button'
 import StepCard from '@/components/admin/StepCard'
 import StepSettingsModal from '@/components/admin/StepSettingsModal'
-import { ArrowLeft, Plus, Save, Edit, Trash2 } from 'lucide-react'
+import ImageUploadField from '@/components/admin/ImageUploadField'
+import { ArrowLeft, Plus, Save, Edit, Trash2, Check } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
@@ -49,6 +53,8 @@ export default function ChapterEditorPage() {
   const [showStepSettings, setShowStepSettings] = useState(false)
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
   const [currentStepForTemplate, setCurrentStepForTemplate] = useState<string | null>(null)
+  const [publishValidation, setPublishValidation] = useState<{ valid: boolean; errors: string[] } | null>(null)
+  const [showPublishModal, setShowPublishModal] = useState(false)
 
   // Chapter form state
   const [formData, setFormData] = useState({
@@ -58,6 +64,11 @@ export default function ChapterEditorPage() {
     chapter_number: 1,
     part_id: '',
     thumbnail_url: '',
+    framework_code: '',
+    framework_letters: '',
+    framework_letter_images: [] as string[],
+    hero_image_url: '',
+    pdf_url: '',
     level_min: 1,
     order_index: 0,
     is_published: false,
@@ -79,7 +90,11 @@ export default function ChapterEditorPage() {
 
       if (chapterData) {
         setChapter(chapterData)
-        setFormData(chapterData)
+        setFormData({
+          ...chapterData,
+          framework_letters: (chapterData.framework_letters || []).join(', '),
+          framework_letter_images: chapterData.framework_letter_images || [],
+        })
       }
       setParts(partsData || [])
       setSteps(stepsData || [])
@@ -164,7 +179,14 @@ export default function ChapterEditorPage() {
   const handleSaveChapter = async () => {
     setSaving(true)
     try {
-      await updateChapter(chapterId, formData)
+      // Convert framework_letters string to array
+      const dataToSave = {
+        ...formData,
+        framework_letters: formData.framework_letters
+          ? formData.framework_letters.split(',').map(s => s.trim()).filter(Boolean)
+          : [],
+      }
+      await updateChapter(chapterId, dataToSave)
       toast.success('Chapter saved successfully')
       loadData()
     } catch (error) {
@@ -208,13 +230,105 @@ export default function ChapterEditorPage() {
     }
   }
 
+  const handleEnsureRequiredSteps = async () => {
+    try {
+      const result = await adminEnsureRequiredSteps(chapterId)
+      if (result.createdCount > 0) {
+        toast.success(`Created ${result.createdCount} missing step(s)`)
+      } else {
+        toast.success('All required steps already exist')
+      }
+      loadData()
+    } catch (error) {
+      toast.error('Failed to ensure required steps')
+    }
+  }
+
+  const handleUpdatePageMeta = async (pageId: string, data: any) => {
+    try {
+      await updatePage(pageId, data)
+      toast.success('Page metadata updated')
+      loadData()
+    } catch (error) {
+      toast.error('Failed to update page metadata')
+    }
+  }
+
+  const handleValidateForPublish = async () => {
+    try {
+      const validation = await validateChapterForPublish(chapterId)
+      setPublishValidation(validation)
+      setShowPublishModal(true)
+    } catch (error) {
+      toast.error('Failed to validate chapter')
+    }
+  }
+
+  const handlePublish = async () => {
+    try {
+      await publishChapter(chapterId, true)
+      toast.success('Chapter published successfully')
+      setShowPublishModal(false)
+      loadData()
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to publish chapter')
+    }
+  }
+
+  const handleUnpublish = async () => {
+    if (!confirm('Unpublish this chapter? Users will no longer see it.')) return
+    try {
+      await publishChapter(chapterId, false)
+      toast.success('Chapter unpublished')
+      loadData()
+    } catch (error) {
+      toast.error('Failed to unpublish chapter')
+    }
+  }
+
+  // Validation warnings
+  // OPTIMIZED: Memoize expensive validation computation
+  const validationWarnings = useMemo(() => {
+    const warnings: string[] = []
+    
+    // Check for required steps without pages
+    const requiredStepsWithoutPages = steps.filter(
+      step => step.is_required && (pages[step.id] || []).length === 0
+    )
+    if (requiredStepsWithoutPages.length > 0) {
+      warnings.push(`${requiredStepsWithoutPages.length} required step(s) have no pages`)
+    }
+
+    // Check for steps with empty pages
+    const stepsWithEmptyPages = steps.filter(step => {
+      const stepPages = pages[step.id] || []
+      return stepPages.some(page => !page.content || page.content.length === 0)
+    })
+    if (stepsWithEmptyPages.length > 0) {
+      warnings.push(`${stepsWithEmptyPages.length} step(s) have pages with no content blocks`)
+    }
+
+    // Check for pages with low XP
+    const lowXpPages = Object.values(pages).flat().filter(page => !page.xp_award || page.xp_award < 5)
+    if (lowXpPages.length > 0) {
+      warnings.push(`${lowXpPages.length} page(s) have low or no XP awards`)
+    }
+
+    // Check if chapter is published but has warnings
+    if (chapter?.is_published && warnings.length > 0) {
+      warnings.unshift('⚠️ Chapter is published but has issues')
+    }
+
+    return warnings
+  }, [steps, pages, chapter])
+
   // OPTIMIZED: Memoize event handlers to prevent child re-renders
   const handleEditStep = useCallback((step: any) => {
     setEditingStep(step)
     setShowStepSettings(true)
   }, [])
 
-  const handleSaveStepSettings = useCallback(async (data: { title: string; slug: string; is_required: boolean }) => {
+  const handleSaveStepSettings = useCallback(async (data: { title: string; slug: string; is_required: boolean; hero_image_url?: string }) => {
     if (!editingStep) return
 
     try {
@@ -369,42 +483,6 @@ export default function ChapterEditorPage() {
       </div>
     )
   }
-
-  // Validation warnings
-  // OPTIMIZED: Memoize expensive validation computation
-  const validationWarnings = useMemo(() => {
-    const warnings: string[] = []
-    
-    // Check for required steps without pages
-    const requiredStepsWithoutPages = steps.filter(
-      step => step.is_required && (pages[step.id] || []).length === 0
-    )
-    if (requiredStepsWithoutPages.length > 0) {
-      warnings.push(`${requiredStepsWithoutPages.length} required step(s) have no pages`)
-    }
-
-    // Check for steps with empty pages
-    const stepsWithEmptyPages = steps.filter(step => {
-      const stepPages = pages[step.id] || []
-      return stepPages.some(page => !page.content || page.content.length === 0)
-    })
-    if (stepsWithEmptyPages.length > 0) {
-      warnings.push(`${stepsWithEmptyPages.length} step(s) have pages with no content blocks`)
-    }
-
-    // Check for pages with low XP
-    const lowXpPages = Object.values(pages).flat().filter(page => !page.xp_award || page.xp_award < 5)
-    if (lowXpPages.length > 0) {
-      warnings.push(`${lowXpPages.length} page(s) have low or no XP awards`)
-    }
-
-    // Check if chapter is published but has warnings
-    if (chapter?.is_published && warnings.length > 0) {
-      warnings.unshift('⚠️ Chapter is published but has issues')
-    }
-
-    return warnings
-  }, [steps, pages, chapter])
 
   return (
     <div className="p-6 lg:p-8">
@@ -570,30 +648,107 @@ export default function ChapterEditorPage() {
               />
             </div>
 
+            <div className="md:col-span-2">
+              <ImageUploadField
+                label="Thumbnail Image"
+                value={formData.thumbnail_url || ''}
+                onChange={(value) => setFormData({ ...formData, thumbnail_url: value as string })}
+                helperText="Displayed on dashboard cards and chapter list"
+                chapterSlug={chapter?.slug || 'chapter'}
+                stepSlug="metadata"
+                pageOrder={0}
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Thumbnail URL
+                Framework Code
               </label>
               <input
                 type="text"
-                value={formData.thumbnail_url || ''}
-                onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
+                value={formData.framework_code || ''}
+                onChange={(e) => setFormData({ ...formData, framework_code: e.target.value })}
+                placeholder="e.g., SPARK, VOICE"
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.is_published}
-                  onChange={(e) => setFormData({ ...formData, is_published: e.target.checked })}
-                  className="rounded"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Published
-                </span>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Framework Letters
               </label>
+              <input
+                type="text"
+                value={formData.framework_letters || ''}
+                onChange={(e) => setFormData({ ...formData, framework_letters: e.target.value })}
+                placeholder="e.g., S, P, A, R, K"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Comma-separated list of letters
+              </p>
+            </div>
+
+            <div className="md:col-span-2">
+              <ImageUploadField
+                label="Hero Image"
+                value={formData.hero_image_url || ''}
+                onChange={(value) => setFormData({ ...formData, hero_image_url: value as string })}
+                helperText="Fallback image for reading pages (optional)"
+                chapterSlug={chapter?.slug || 'chapter'}
+                stepSlug="metadata"
+                pageOrder={1}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <ImageUploadField
+                label="Chapter PDF"
+                value={formData.pdf_url || ''}
+                onChange={(value) => setFormData({ ...formData, pdf_url: value as string })}
+                accept="application/pdf,.pdf"
+                helperText="Optional PDF download for this chapter"
+                chapterSlug={chapter?.slug || 'chapter'}
+                stepSlug="metadata"
+                pageOrder={2}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <ImageUploadField
+                label="Framework Letter Images"
+                value={formData.framework_letter_images}
+                onChange={(value) => setFormData({ ...formData, framework_letter_images: value as string[] })}
+                multiple
+                helperText="Upload images for each framework letter (e.g., S, P, A, R, K images for SPARK)"
+                chapterSlug={chapter?.slug || 'chapter'}
+                stepSlug="framework"
+                pageOrder={0}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-3">
+                {chapter?.is_published ? (
+                  <>
+                    <span className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 rounded-full text-sm font-medium">
+                      Published
+                    </span>
+                    <Button variant="secondary" size="sm" onClick={handleUnpublish}>
+                      Unpublish
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-sm font-medium">
+                      Draft
+                    </span>
+                    <Button variant="primary" size="sm" onClick={handleValidateForPublish}>
+                      Validate & Publish
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -603,12 +758,18 @@ export default function ChapterEditorPage() {
         <div>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Chapter Steps
+              Chapter Steps & Pages
             </h2>
-            <Button variant="primary" size="sm" onClick={handleCreateStep}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Step
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={handleEnsureRequiredSteps}>
+                <Check className="w-4 h-4 mr-2" />
+                Ensure Required Steps
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleCreateStep}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Step
+              </Button>
+            </div>
           </div>
 
           {steps.length === 0 ? (
@@ -619,46 +780,27 @@ export default function ChapterEditorPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {steps.map((step) => (
-                <div
+              {steps.map((step, index) => (
+                <StepCard
                   key={step.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow p-6"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 rounded text-xs font-medium">
-                          {step.step_type}
-                        </span>
-                        {step.is_required && (
-                          <span className="px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-100 rounded text-xs font-medium">
-                            Required
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                        {step.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {step.slug}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link href={`/admin/chapters/${chapterId}/steps/${step.id}`}>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteStep(step.id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                  step={step}
+                  pages={pages[step.id] || []}
+                  chapterId={chapterId}
+                  isExpanded={expandedSteps.has(step.id)}
+                  canMoveUp={index > 0}
+                  canMoveDown={index < steps.length - 1}
+                  onToggle={() => toggleStep(step.id)}
+                  onAddPage={() => handleCreatePage(step.id)}
+                  onAddFromTemplate={() => handleAddFromTemplate(step.id)}
+                  onEditStep={() => handleEditStep(step)}
+                  onDeleteStep={() => handleDeleteStep(step.id)}
+                  onDeletePage={handleDeletePage}
+                  onUpdatePage={handleUpdatePageMeta}
+                  onMoveUp={() => handleStepMoveUp(step.id)}
+                  onMoveDown={() => handleStepMoveDown(step.id)}
+                  onPageMoveUp={(pageId) => handlePageMoveUp(step.id, pageId)}
+                  onPageMoveDown={(pageId) => handlePageMoveDown(step.id, pageId)}
+                />
               ))}
             </div>
           )}
@@ -694,6 +836,7 @@ export default function ChapterEditorPage() {
                   onEditStep={() => handleEditStep(step)}
                   onDeleteStep={() => handleDeleteStep(step.id)}
                   onDeletePage={handleDeletePage}
+                  onUpdatePage={handleUpdatePageMeta}
                   onMoveUp={() => handleStepMoveUp(step.id)}
                   onMoveDown={() => handleStepMoveDown(step.id)}
                   onPageMoveUp={(pageId) => handlePageMoveUp(step.id, pageId)}
@@ -709,6 +852,7 @@ export default function ChapterEditorPage() {
       <StepSettingsModal
         isOpen={showStepSettings}
         step={editingStep}
+        chapterSlug={chapter?.slug || 'chapter'}
         onClose={() => {
           setShowStepSettings(false)
           setEditingStep(null)
@@ -725,6 +869,61 @@ export default function ChapterEditorPage() {
         }}
         onSelectTemplate={handleApplyTemplate}
       />
+
+      {/* Publish Validation Modal */}
+      {showPublishModal && publishValidation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                {publishValidation.valid ? 'Ready to Publish' : 'Cannot Publish - Validation Errors'}
+              </h2>
+
+              {publishValidation.valid ? (
+                <div className="mb-6">
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                    <p className="text-green-800 dark:text-green-100">
+                      All validation checks passed. This chapter is ready to be published.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-6">
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <h3 className="font-semibold text-red-900 dark:text-red-100 mb-2">
+                      Validation Errors ({publishValidation.errors.length})
+                    </h3>
+                    <ul className="space-y-1">
+                      {publishValidation.errors.map((error, index) => (
+                        <li key={index} className="text-sm text-red-800 dark:text-red-200">
+                          • {error}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowPublishModal(false)}
+                >
+                  Close
+                </Button>
+                {publishValidation.valid && (
+                  <Button
+                    variant="primary"
+                    onClick={handlePublish}
+                  >
+                    Publish Now
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -99,6 +99,7 @@ export default async function ChapterProgressAsync({ userId }: Props) {
         readTime={userProgress.readTime}
         progress={userProgress.progress}
         xpAward={70}
+        continueHref={readingHref}
       />
       <InProgressCard
         chapterNumber={userProgress.currentChapter}

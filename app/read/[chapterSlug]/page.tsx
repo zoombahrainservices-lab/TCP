@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCachedChapterBundle } from '@/lib/content/cache.server';
 import { getStepPages } from '@/lib/content/queries';
+import { getChapterPromptAnswers } from '@/app/actions/prompts';
 import DynamicChapterReadingClient from './DynamicChapterReadingClient';
 
 // ISR: Cache this page for 1 hour (instant subsequent loads)
@@ -25,20 +26,13 @@ export default async function DynamicChapterReadingPage({
 
   const pages = await getStepPages(readStep.id);
   if (!pages.length) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
-        <div className="text-center">
-          <p className="text-gray-700 dark:text-gray-300 mb-4">No content available for this chapter yet.</p>
-          <a href="/dashboard" className="inline-block px-6 py-3 bg-[#ff6a38] text-white rounded-lg hover:bg-[#ff8c38]">
-            Return to Dashboard
-          </a>
-        </div>
-      </div>
-    );
+    redirect('/dashboard');
   }
 
   const nextStep = steps.find(s => s.order_index === readStep.order_index + 1);
   const nextStepSlug = nextStep?.slug ?? null;
+
+  const { data: savedAnswers } = await getChapterPromptAnswers(chapter.chapter_number);
 
   return (
     <DynamicChapterReadingClient
@@ -46,6 +40,7 @@ export default async function DynamicChapterReadingPage({
       readingStep={readStep}
       pages={pages}
       nextStepSlug={nextStepSlug}
+      initialAnswers={savedAnswers}
     />
   );
 }

@@ -1,384 +1,387 @@
-'use client'
+'use client';
 
-import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { submitAssessment, completeSectionBlock } from '@/app/actions/chapters'
-import { showXPNotification } from '@/components/gamification/XPNotification'
-import { writeQueue } from '@/lib/queue/WriteQueue'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { DashboardNav } from '@/components/ui/DashboardNav';
+import { MainWithBackground } from '@/components/dashboard/MainWithBackground';
 
 export interface AssessmentQuestion {
-  id: number
-  question: string
-  low: string
-  high: string
+  id: number;
+  question: string;
+  low: string;
+  high: string;
 }
 
-export interface ScoreBandExplanation {
-  range: string
-  description: string
+interface SelfCheckAssessmentProps {
+  chapterId: number;
+  chapterSlug: string;
+  questions: AssessmentQuestion[];
+  nextStepUrl: string;
+  questionsStepTitle: string;
+  questionsStepSubtitle: string;
+  hasCompletedBefore?: boolean;
+  onSaveAnswers?: (answers: Record<number, number>, totalScore: number) => Promise<{ success: boolean; error?: string }>;
 }
-
-export interface SelfCheckAssessmentProps {
-  chapterId: number
-  /** e.g. "YOUR SELF-CHECK" */
-  introTitle: string
-  /** e.g. "Why This Baseline Matters" */
-  introSubtitle: string
-  /** Intro body: paragraphs and callout (same style as Chapter 1) */
-  introBody: React.ReactNode
-  questions: AssessmentQuestion[]
-  getScoreBand: (score: number) => { band: string; color: string; message: string }
-  maxScore: number
-  /** e.g. "/read/chapter-1/framework" or "/read/genius-who-couldnt-speak/framework" */
-  nextStepUrl: string
-  /** e.g. "Continue to Framework →" */
-  nextStepLabel: string
-  /** "Score Bands Explained" section entries */
-  scoreBandsExplained: ScoreBandExplanation[]
-  /** e.g. "Chapter 1 Self-Check" or "Chapter 2 Self-Check" */
-  questionsStepTitle: string
-  questionsStepSubtitle: string
-}
-
-const QUESTIONS_PER_PAGE = 3
 
 export default function SelfCheckAssessment({
   chapterId,
-  introTitle,
-  introSubtitle,
-  introBody,
+  chapterSlug,
   questions,
-  getScoreBand,
-  maxScore,
   nextStepUrl,
-  nextStepLabel,
-  scoreBandsExplained,
   questionsStepTitle,
   questionsStepSubtitle,
+  hasCompletedBefore = false,
+  onSaveAnswers,
 }: SelfCheckAssessmentProps) {
-  const router = useRouter()
-  // ALL HOOKS AT THE TOP - no conditional execution, no early returns before hooks
-  const [step, setStep] = useState<'intro' | 'questions' | 'results'>('intro')
-  const [questionPage, setQuestionPage] = useState(0)
-  const [responses, setResponses] = useState<Record<number, number>>({})
-  const [isProcessing, setIsProcessing] = useState(false)
-  const cardsScrollRef = useRef<HTMLDivElement>(null)
-  const isMountedRef = useRef(false)
+  const router = useRouter();
+  const [showRetryModal, setShowRetryModal] = useState(hasCompletedBefore);
+  const [step, setStep] = useState<'intro' | 'questions' | 'results'>('intro');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
 
-  // Prefetch next route for instant navigation
-  useEffect(() => {
-    isMountedRef.current = true
-    if (step === 'results') {
-      router.prefetch(nextStepUrl)
-    }
-    return () => {
-      isMountedRef.current = false
-    }
-  }, [step, router, nextStepUrl])
-
-  // Auto-scroll on question page change - with cleanup flag to prevent state updates after unmount
-  useEffect(() => {
-    if (step === 'questions') {
-      cardsScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-    }
-  }, [questionPage, step])
-
-  const totalQuestionPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE)
+  const questionsPerPage = 3;
+  const totalPages = Math.ceil(questions.length / questionsPerPage);
   const currentQuestions = questions.slice(
-    questionPage * QUESTIONS_PER_PAGE,
-    questionPage * QUESTIONS_PER_PAGE + QUESTIONS_PER_PAGE
-  )
+    currentPage * questionsPerPage,
+    (currentPage + 1) * questionsPerPage
+  );
 
-  const handleSliderChange = (questionId: number, value: number) => {
-    if (!isMountedRef.current) return
-    setResponses(prev => ({ ...prev, [questionId]: value }))
-  }
+  const handleAnswer = (questionId: number, value: number) => {
+    setAnswers(prev => ({ ...prev, [questionId]: value }));
+  };
 
-  const allQuestionsAnswered = questions.every(q => responses[q.id] !== undefined)
-  const totalScore = Object.values(responses).reduce((sum, val) => sum + val, 0)
-  const scoreBand = getScoreBand(totalScore)
+  const handleNextPage = async () => {
+    const currentPageQuestions = currentQuestions.map(q => q.id);
+    const allAnswered = currentPageQuestions.every(id => answers[id] !== undefined);
 
-  const handleCompleteAssessment = async () => {
-    if (isProcessing || !isMountedRef.current) return
-    setIsProcessing(true)
-    
-    // Navigate IMMEDIATELY - don't wait for DB operations
-    router.push(nextStepUrl)
-    
-    // Complete all DB operations via write queue (with automatic retry)
-    writeQueue.enqueue(() => submitAssessment(chapterId, 'baseline', responses, totalScore))
-    
-    writeQueue.enqueue(async () => {
-      const sectionResult = await completeSectionBlock(chapterId, 'assessment')
-      
-      if (sectionResult && sectionResult.success) {
-        const xp = (sectionResult as { xpResult?: { xpAwarded?: number }; reasonCode?: string }).xpResult?.xpAwarded ?? 0
-        const reasonCode = (sectionResult as { reasonCode?: string }).reasonCode
-        if (xp > 0) {
-          showXPNotification(xp, 'Self-Check Complete!', { reasonCode: reasonCode as any })
-        } else if (reasonCode === 'repeat_completion') {
-          showXPNotification(0, '', { reasonCode: 'repeat_completion' })
-        }
+    if (!allAnswered) return;
+
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(prev => prev + 1);
+    } else {
+      // All questions answered, save and show results
+      const totalScore = Object.values(answers).reduce((sum, val) => sum + val, 0);
+      if (onSaveAnswers) {
+        await onSaveAnswers(answers, totalScore);
       }
-    })
-    
-    if (isMountedRef.current) {
-      setIsProcessing(false)
+      setStep('results');
     }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+
+  const currentPageQuestions = currentQuestions.map(q => q.id);
+  const allCurrentAnswered = currentPageQuestions.every(id => answers[id] !== undefined);
+
+  const totalScore = Object.values(answers).reduce((sum, val) => sum + val, 0);
+  const maxScore = questions.length * 7;
+
+  // Score band logic
+  const getScoreBand = () => {
+    const percent = (totalScore / maxScore) * 100;
+    if (percent >= 75) return {
+      band: "You're managing it",
+      color: '#16a34a',
+      message: 'Keep building experience and reps.',
+    };
+    if (percent >= 50) return {
+      band: 'Moderate anxiety',
+      color: '#f7b418',
+      message: 'Focus on Techniques #1 and #3.',
+    };
+    if (percent >= 25) return {
+      band: "You're where Tony started",
+      color: '#dc2626',
+      message: 'VOICE framework will help the most here.',
+    };
+    return {
+      band: 'Low anxiety',
+      color: '#0073ba',
+      message: "You're doing well. Keep practicing to stay confident.",
+    };
+  };
+
+  const scoreBand = getScoreBand();
+
+  const scoreBandsExplained = [
+    { range: `${Math.ceil(maxScore * 0.75)}-${maxScore}`, description: "You're managing it. Keep building experience." },
+    { range: `${Math.ceil(maxScore * 0.5)}-${Math.ceil(maxScore * 0.75) - 1}`, description: 'Moderate anxiety. Focus on Techniques #1 and #3.' },
+    { range: `${Math.ceil(maxScore * 0.25)}-${Math.ceil(maxScore * 0.5) - 1}`, description: "You're where Tony started. VOICE framework will help the most." },
+    { range: `1-${Math.ceil(maxScore * 0.25) - 1}`, description: 'Low anxiety. Keep practicing to stay confident.' },
+  ];
+
+  // RETRY MODAL (if user already completed)
+  if (showRetryModal) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-2xl font-black text-[#111827] dark:text-white mb-3">
+            Already Completed
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+            You've already completed this self-check. Do you want to retake it and update your baseline score?
+          </p>
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => {
+                setShowRetryModal(false);
+                setStep('intro');
+              }}
+              className="w-full rounded-xl bg-[#f7b418] hover:bg-[#e5a309] px-6 py-3 text-base font-bold text-black transition-colors"
+            >
+              Yes, Retake Self-Check
+            </button>
+            <button
+              onClick={() => router.push(nextStepUrl)}
+              className="w-full rounded-xl bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 px-6 py-3 text-base font-semibold text-gray-700 dark:text-gray-200 transition-colors"
+            >
+              Skip to Next Step →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <div className={`bg-[var(--color-offwhite)] dark:bg-[#142A4A] flex ${step === 'questions' ? 'h-full min-h-0 overflow-hidden' : 'min-h-screen'}`}>
-      <main className={`flex-1 max-w-4xl mx-auto w-full ${step === 'questions' ? 'h-full min-h-0 overflow-hidden flex flex-col py-4 px-6' : 'p-12'}`}>
-        {/* Intro Step - same style as Chapter 1 */}
-        {step === 'intro' && (
-          <motion.div
-            key="intro"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-8"
-          >
-            <div>
-              <h1 className="text-4xl sm:text-5xl font-black text-[var(--color-charcoal)] dark:text-white mb-4">
-                {introTitle}
-              </h1>
-              <p className="text-xl text-[var(--color-gray)] dark:text-gray-400">
-                {introSubtitle}
-              </p>
-            </div>
+  // INTRO SCREEN
+  if (step === 'intro') {
+    return (
+      <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300" style={{ height: '100dvh' }}>
+        <DashboardNav />
+        <MainWithBackground>
+          <div className="mx-auto max-w-[980px] px-6 py-12 lg:py-16">
+            <h1 className="text-5xl font-black text-[#111827] dark:text-white mb-3">
+              YOUR SELF-CHECK
+            </h1>
+            <h2 className="text-2xl text-gray-500 dark:text-gray-400 mb-10">
+              How intense is your speaking anxiety right now?
+            </h2>
 
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 space-y-6">
-              {introBody}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm mb-8 space-y-6">
+              <p className="text-lg text-gray-800 dark:text-gray-200 leading-relaxed">
+                Before Tony could use VOICE and the techniques, he needed an honest snapshot of where he stood. Not where he wished he was—where he actually was.
+              </p>
+              <p className="text-lg text-gray-800 dark:text-gray-200 leading-relaxed">
+                This isn't a judgment. It's a baseline. Be honest—only you see this. The more accurate you are now, the better your plan will be.
+              </p>
+
+              <div className="bg-[#f7b418]/10 dark:bg-[#f7b418]/20 p-6 rounded-xl border border-[#f7b418]/30">
+                <p className="text-gray-900 dark:text-white font-bold text-lg mb-2">
+                  You'll rate {questions.length} statements from 1 to 7.
+                </p>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Takes about a minute. Your score shows which zone you're in and what to focus on.
+                </p>
+              </div>
             </div>
 
             <button
-              onClick={() => {
-                setStep('questions')
-                setQuestionPage(0)
-              }}
-              className="w-full py-4 px-6 bg-[#f7b418] text-[var(--color-charcoal)] rounded-xl font-bold text-lg hover:bg-[#e5a616] transition shadow-md"
+              onClick={() => setStep('questions')}
+              className="w-full rounded-xl bg-[#f7b418] hover:bg-[#e5a309] px-8 py-4 text-lg font-bold text-black shadow-lg transition-colors"
             >
               Start Self-Check →
             </button>
-          </motion.div>
-        )}
+          </div>
+        </MainWithBackground>
+      </div>
+    );
+  }
 
-        {/* Questions Step - same style as Chapter 1 */}
-        {step === 'questions' && (
-          <motion.div
-            key="questions"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4 flex-1 min-h-0 flex flex-col overflow-hidden"
-          >
-            <div className="flex-shrink-0">
-              <h1 className="text-2xl sm:text-3xl font-black text-[var(--color-charcoal)] dark:text-white mb-1">
-                {questionsStepTitle}
-              </h1>
-              <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-400">
-                {questionsStepSubtitle}
-              </p>
-            </div>
+  // RESULTS SCREEN
+  if (step === 'results') {
+    return (
+      <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300 overflow-hidden" style={{ height: '100dvh' }}>
+        <DashboardNav />
+        <MainWithBackground>
+          <div className="mx-auto flex h-full max-w-[980px] flex-col px-6 py-8 lg:py-10">
+            <h1 className="text-4xl font-black text-[#111827] dark:text-white mb-1">
+              Your Baseline Score
+            </h1>
+            <p className="text-lg text-gray-500 dark:text-gray-400 mb-6">
+              This is your starting point—not your ending point.
+            </p>
 
-            <div className="flex items-center justify-between flex-shrink-0">
-              <p className="text-xs sm:text-sm text-[var(--color-gray)] dark:text-gray-400">
-                Questions {questionPage * QUESTIONS_PER_PAGE + 1}–{Math.min(questionPage * QUESTIONS_PER_PAGE + QUESTIONS_PER_PAGE, questions.length)} of {questions.length}
-              </p>
-              <div className="flex gap-1">
-                {Array.from({ length: totalQuestionPages }).map((_, i) => (
-                  <span
-                    key={i}
-                    className={`h-1.5 rounded-full transition-all ${
-                      i === questionPage ? 'w-5 bg-[#f7b418]' : 'w-1.5 bg-gray-300 dark:bg-gray-600'
-                    }`}
-                  />
-                ))}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm mb-4 text-center">
+              <div className="text-7xl font-black text-[#111827] dark:text-white mb-2">
+                {totalScore}
               </div>
-            </div>
-
-            <div
-              ref={cardsScrollRef}
-              className="space-y-3.5 flex-1 min-h-0 overflow-hidden overflow-x-hidden"
-            >
-              {currentQuestions.map((q, index) => (
-                <motion.div
-                  key={q.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.2, delay: index * 0.03 }}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden flex-shrink-0"
-                >
-                  <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-[#f7b418] text-[var(--color-charcoal)] flex items-center justify-center font-black text-sm flex-shrink-0">
-                      {q.id}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base sm:text-lg font-bold text-[var(--color-charcoal)] dark:text-white leading-tight">
-                        {q.question}
-                      </h3>
-                      <p className="mt-1 text-xs sm:text-sm text-[var(--color-gray)] dark:text-gray-400">
-                        1 = {q.low} · 7 = {q.high}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="p-4 sm:p-5 bg-gray-50/50 dark:bg-gray-800/50">
-                    <div className="px-0.5">
-                      <input
-                        type="range"
-                        min="1"
-                        max="7"
-                        value={responses[q.id] ?? 4}
-                        onChange={(e) => handleSliderChange(q.id, parseInt(e.target.value))}
-                        className="w-full h-3 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer slider slider-compact"
-                        style={{
-                          background: responses[q.id] !== undefined
-                            ? `linear-gradient(to right, #f7b418 0%, #f7b418 ${((responses[q.id] - 1) / 6) * 100}%, #e5e7eb ${((responses[q.id] - 1) / 6) * 100}%, #e5e7eb 100%)`
-                            : undefined
-                        }}
-                      />
-                      <div className="flex justify-between mt-1.5 text-xs sm:text-sm font-bold">
-                        {[1, 2, 3, 4, 5, 6, 7].map((num) => (
-                          <span
-                            key={num}
-                            className={responses[q.id] === num ? 'text-[#f7b418]' : 'text-gray-400 dark:text-gray-500'}
-                          >
-                            {num}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4 pt-2 flex-shrink-0">
-              <button
-                onClick={() => questionPage === 0 ? setStep('intro') : setQuestionPage(questionPage - 1)}
-                className="py-3.5 px-6 bg-gray-200 dark:bg-gray-700 text-[var(--color-charcoal)] dark:text-white rounded-xl font-bold text-base hover:bg-gray-300 dark:hover:bg-gray-600 transition"
-              >
-                ← {questionPage === 0 ? 'Back' : 'Previous'}
-              </button>
-              {questionPage < totalQuestionPages - 1 ? (
-                <button
-                  onClick={() => setQuestionPage(questionPage + 1)}
-                  className="flex-1 py-3.5 px-6 bg-[#f7b418] text-[var(--color-charcoal)] rounded-xl font-bold text-base hover:bg-[#e5a616] transition"
-                >
-                  Next →
-                </button>
-              ) : (
-                <button
-                  onClick={() => setStep('results')}
-                  disabled={!allQuestionsAnswered}
-                  className={`flex-1 py-3.5 px-6 rounded-xl font-bold text-base transition ${
-                    allQuestionsAnswered
-                      ? 'bg-[#f7b418] text-[var(--color-charcoal)] hover:bg-[#e5a616]'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  See My Results →
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Results Step - same style as Chapter 1 */}
-        {step === 'results' && (
-          <motion.div
-            key="results"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-8"
-          >
-            <div>
-              <h1 className="text-5xl font-black text-[var(--color-charcoal)] dark:text-white mb-4">
-                Your Baseline Score
-              </h1>
-              <p className="text-xl text-[var(--color-gray)] dark:text-gray-400">
-                This is your starting point—not your ending point.
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
+                out of {maxScore}
               </p>
-            </div>
 
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-xl text-center border border-gray-200 dark:border-gray-700">
-              <div className="mb-6">
-                <div className="text-7xl font-black text-[var(--color-charcoal)] dark:text-white mb-2">
-                  {totalScore}
-                </div>
-                <div className="text-sm text-[var(--color-gray)] dark:text-gray-400">
-                  out of {maxScore}
-                </div>
-              </div>
-              <div
-                className="inline-block px-8 py-4 rounded-full text-white font-black text-2xl"
+              <div 
+                className="inline-block px-8 py-3 rounded-full text-white font-bold text-lg"
                 style={{ backgroundColor: scoreBand.color }}
               >
                 {scoreBand.band}
               </div>
-              <p className="text-lg text-[var(--color-charcoal)] dark:text-gray-200 mt-6 leading-relaxed">
+
+              <p className="mt-6 text-lg text-gray-700 dark:text-gray-300">
                 {scoreBand.message}
               </p>
             </div>
 
-            <div className="bg-[#f7b418]/10 dark:bg-[#f7b418]/20 p-8 rounded-xl space-y-4 border border-[#f7b418]/30">
-              <h3 className="text-2xl font-black text-[var(--color-charcoal)] dark:text-white">
+            <div className="bg-[#fef3c7] dark:bg-[#78350f]/20 rounded-2xl p-6 mb-4 flex-1 overflow-auto">
+              <h3 className="text-2xl font-black text-[#111827] dark:text-white mb-4">
                 Score Bands Explained
               </h3>
               <div className="space-y-3">
-                {scoreBandsExplained.map((row, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="w-20 text-sm font-bold text-[var(--color-charcoal)] dark:text-white">{row.range}</div>
-                    <div className="flex-1 text-[var(--color-gray)] dark:text-gray-300">{row.description}</div>
+                {scoreBandsExplained.map((band, idx) => (
+                  <div key={idx} className="flex gap-4">
+                    <span className="font-bold text-gray-900 dark:text-white w-24">
+                      {band.range}
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {band.description}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex justify-end">
-              <button
-                onClick={handleCompleteAssessment}
-                disabled={isProcessing}
-                className="py-4 px-8 bg-[#ff6a38] text-white rounded-xl font-bold text-lg hover:bg-[#ff5a28] transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isProcessing ? 'Saving...' : nextStepLabel}
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </main>
+            <button
+              onClick={() => router.push(nextStepUrl)}
+              className="mt-2 w-full rounded-xl bg-[#ff6a38] hover:bg-[#e55a28] px-6 py-3 text-lg font-bold text-white shadow-lg transition-colors"
+            >
+              Continue to Framework →
+            </button>
+          </div>
+        </MainWithBackground>
+      </div>
+    );
+  }
 
-      <style jsx>{`
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: #f7b418;
-          cursor: pointer;
-          border: 3px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-        .slider::-moz-range-thumb {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: #f7b418;
-          cursor: pointer;
-          border: 3px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-        .slider-compact::-webkit-slider-thumb {
-          width: 18px;
-          height: 18px;
-          border-width: 2px;
-        }
-        .slider-compact::-moz-range-thumb {
-          width: 18px;
-          height: 18px;
-          border-width: 2px;
-        }
-      `}</style>
+  // QUESTIONS SCREEN
+  return (
+    <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300" style={{ height: '100dvh' }}>
+      <DashboardNav />
+      <MainWithBackground>
+        <div className="mx-auto max-w-[980px] px-6 py-6 lg:py-8">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-[42px] leading-[1.05] font-extrabold text-[#111827] dark:text-white">
+                {questionsStepTitle}
+              </h1>
+              <p className="mt-1 text-[18px] text-gray-600 dark:text-gray-300">
+                {questionsStepSubtitle}
+              </p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Questions {currentPage * questionsPerPage + 1}-{Math.min((currentPage + 1) * questionsPerPage, questions.length)} of {questions.length}
+              </p>
+            </div>
+            <div className="mt-3 flex items-center gap-1">
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`inline-block h-2 rounded-full transition-all ${
+                    i === currentPage ? 'w-5 bg-[#f7b418]' : 'w-2 bg-gray-300 dark:bg-gray-600'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {currentQuestions.map((q, idx) => (
+              <QuestionCard
+                key={q.id}
+                number={currentPage * questionsPerPage + idx + 1}
+                question={q.question}
+                lowLabel={q.low}
+                highLabel={q.high}
+                value={answers[q.id]}
+                onChange={(val) => handleAnswer(q.id, val)}
+              />
+            ))}
+          </div>
+
+          <div className="mt-5 flex items-center gap-3">
+            <button
+              onClick={handlePrevPage}
+              disabled={currentPage === 0}
+              className="rounded-xl bg-gray-200 px-8 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-700 dark:text-gray-100"
+            >
+              ← Back
+            </button>
+            <button
+              onClick={handleNextPage}
+              disabled={!allCurrentAnswered}
+              className="flex-1 rounded-xl bg-[#f7b418] px-8 py-3 text-sm font-bold text-black hover:bg-[#e5a309] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      </MainWithBackground>
     </div>
-  )
+  );
+}
+
+interface QuestionCardProps {
+  number: number;
+  question: string;
+  lowLabel: string;
+  highLabel: string;
+  value?: number;
+  onChange: (value: number) => void;
+}
+
+function QuestionCard({ number, question, lowLabel, highLabel, value, onChange }: QuestionCardProps) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+      <div className="mb-5 flex items-start gap-3">
+        <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#f7b418] text-base font-bold text-black">
+          {number}
+        </div>
+        <div className="flex-1">
+          <h3 className="text-xl leading-tight font-bold text-[#111827] dark:text-white">
+            {question}
+          </h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            1 = {lowLabel} · 7 = {highLabel}
+          </p>
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100 pt-4 dark:border-gray-800">
+        <input
+          type="range"
+          min="1"
+          max="7"
+          value={value ?? 4}
+          onChange={(e) => onChange(parseInt(e.target.value, 10))}
+          className="h-3 w-full cursor-pointer appearance-none rounded-full bg-gray-200 accent-[#f7b418]"
+          style={{
+            background: (() => {
+              if (value === undefined) {
+                return '#e5e7eb';
+              }
+              const v = value;
+              const percent = ((v - 1) / 6) * 100;
+              return `linear-gradient(to right, #f7b418 0%, #f7b418 ${percent}%, #e5e7eb ${percent}%, #e5e7eb 100%)`;
+            })(),
+          }}
+        />
+        <div className="mt-2 flex justify-between px-1 text-sm font-medium text-gray-500 dark:text-gray-400">
+          {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+            <span
+              key={num}
+              className={
+                value === num
+                  ? 'text-[#f7b418] font-bold'
+                  : 'text-gray-500 dark:text-gray-400'
+              }
+            >
+              {num}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }

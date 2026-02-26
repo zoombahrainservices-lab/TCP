@@ -40,6 +40,8 @@ export const blockTypes: BlockType[] = [
   { type: 'image', name: 'Image', description: 'Upload or link image', icon: ImageIcon, category: 'visual' },
   { type: 'callout', name: 'Callout', description: 'Highlighted box', icon: AlertCircle, category: 'visual' },
   { type: 'list', name: 'List', description: 'Bullet or numbered list', icon: List, category: 'visual' },
+  { type: 'framework_intro', name: 'Framework Intro', description: 'Framework overview + letters', icon: Zap, category: 'visual' },
+  { type: 'framework_letter', name: 'Framework Letter', description: 'Single framework letter card', icon: Type, category: 'visual' },
   
   // Interactive blocks
   { type: 'prompt', name: 'Prompt', description: 'User input field', icon: MessageCircle, category: 'interactive' },

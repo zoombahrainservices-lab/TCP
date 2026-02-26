@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import BlockPalette from './BlockPalette'
 import TemplateSelector from './TemplateSelector'
 import Button from '@/components/ui/Button'
+import BlockRenderer from '@/components/content/BlockRenderer'
+import { validateBlocks } from '@/lib/blocks/validator'
 import { Save, Eye, RotateCcw, Settings, ChevronLeft, ChevronRight, Plus, Trash2, Copy, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -15,6 +17,9 @@ interface Block {
 interface PageContentEditorProps {
   initialContent: Block[]
   pageId: string
+  chapterSlug?: string
+  stepSlug?: string
+  pageOrder?: number
   onSave: (content: Block[]) => Promise<void>
   onClose?: () => void
 }
@@ -22,6 +27,9 @@ interface PageContentEditorProps {
 export default function PageContentEditor({
   initialContent,
   pageId,
+  chapterSlug = 'unknown',
+  stepSlug = 'unknown',
+  pageOrder = 0,
   onSave,
   onClose,
 }: PageContentEditorProps) {
@@ -32,6 +40,7 @@ export default function PageContentEditor({
   const [showPreview, setShowPreview] = useState(true)
   const [showTemplates, setShowTemplates] = useState(false)
   const [selectedBlockIndex, setSelectedBlockIndex] = useState<number | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   // Auto-save every 30 seconds if dirty
   useEffect(() => {
@@ -47,6 +56,14 @@ export default function PageContentEditor({
   const handleSave = async () => {
     setSaving(true)
     try {
+      // Validate blocks before saving
+      const validation = validateBlocks(blocks)
+      if (!validation.valid) {
+        toast.error(`Invalid blocks:\n${validation.errors.join('\n')}`)
+        setSaving(false)
+        return
+      }
+
       await onSave(blocks)
       setIsDirty(false)
       toast.success('Content saved successfully')
@@ -270,6 +287,35 @@ export default function PageContentEditor({
                     <BlockEditor
                       block={block}
                       onChange={(updates) => updateBlock(index, updates)}
+                      onUploadFile={async (file) => {
+                        setUploading(true)
+                        try {
+                          const formData = new FormData()
+                          formData.append('file', file)
+                          formData.append('chapterSlug', chapterSlug)
+                          formData.append('stepSlug', stepSlug)
+                          formData.append('pageOrder', pageOrder.toString())
+
+                          const response = await fetch('/api/admin/upload', {
+                            method: 'POST',
+                            body: formData,
+                          })
+
+                          if (!response.ok) {
+                            const error = await response.json()
+                            throw new Error(error.error || 'Upload failed')
+                          }
+
+                          const { url } = await response.json()
+                          toast.success('Image uploaded successfully')
+                          return url
+                        } catch (error: any) {
+                          toast.error(error.message || 'Upload failed')
+                          throw error
+                        } finally {
+                          setUploading(false)
+                        }
+                      }}
                     />
                   </div>
                 ))}
@@ -285,10 +331,17 @@ export default function PageContentEditor({
               Preview
             </h3>
             <div className="prose dark:prose-invert max-w-none">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Preview will show how content appears to users
-              </p>
-              {/* TODO: Render blocks using BlockRenderer */}
+              {blocks.length === 0 ? (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Add blocks to see preview
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {blocks.map((block, i) => (
+                    <BlockRenderer key={i} block={block as any} />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -309,7 +362,15 @@ export default function PageContentEditor({
 }
 
 // Simple block editor component (will be enhanced with specific editors)
-function BlockEditor({ block, onChange }: { block: Block; onChange: (updates: Partial<Block>) => void }) {
+function BlockEditor({ 
+  block, 
+  onChange, 
+  onUploadFile 
+}: { 
+  block: Block
+  onChange: (updates: Partial<Block>) => void
+  onUploadFile?: (file: File) => Promise<string>
+}) {
   switch (block.type) {
     case 'heading':
       return (
@@ -345,6 +406,177 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (updates: Pa
         />
       )
 
+    case 'story':
+      return (
+        <textarea
+          value={block.text || ''}
+          onChange={(e) => onChange({ text: e.target.value })}
+          placeholder="Story text..."
+          rows={5}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        />
+      )
+
+    case 'framework_intro':
+      return (
+        <div className="space-y-2">
+          <input
+            type="text"
+            value={block.frameworkCode || ''}
+            onChange={(e) => onChange({ frameworkCode: e.target.value })}
+            placeholder="Framework Code (e.g., SPARK)"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          <input
+            type="text"
+            value={block.title || ''}
+            onChange={(e) => onChange({ title: e.target.value })}
+            placeholder="Framework Title"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          <textarea
+            value={block.description || ''}
+            onChange={(e) => onChange({ description: e.target.value })}
+            placeholder="Description"
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          <div className="border-t pt-2">
+            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Framework Letters</p>
+            {(block.letters || []).map((letter: any, idx: number) => (
+              <div key={idx} className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={letter.letter || ''}
+                  onChange={(e) => {
+                    const newLetters = [...(block.letters || [])]
+                    newLetters[idx] = { ...newLetters[idx], letter: e.target.value }
+                    onChange({ letters: newLetters })
+                  }}
+                  placeholder="Letter"
+                  maxLength={1}
+                  className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                />
+                <input
+                  type="text"
+                  value={letter.meaning || ''}
+                  onChange={(e) => {
+                    const newLetters = [...(block.letters || [])]
+                    newLetters[idx] = { ...newLetters[idx], meaning: e.target.value }
+                    onChange({ letters: newLetters })
+                  }}
+                  placeholder="Meaning"
+                  className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                />
+                <button
+                  onClick={() => {
+                    const newLetters = (block.letters || []).filter((_: any, i: number) => i !== idx)
+                    onChange({ letters: newLetters })
+                  }}
+                  className="px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-sm"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => {
+                const newLetters = [...(block.letters || []), { letter: '', meaning: '' }]
+                onChange({ letters: newLetters })
+              }}
+              className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 rounded text-sm hover:bg-blue-200 dark:hover:bg-blue-800"
+            >
+              Add Letter
+            </button>
+          </div>
+        </div>
+      )
+
+    case 'framework_letter':
+      return (
+        <div className="space-y-2">
+          <input
+            type="text"
+            value={block.letter || ''}
+            onChange={(e) => onChange({ letter: e.target.value })}
+            placeholder="Letter (single character)"
+            maxLength={1}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          <input
+            type="text"
+            value={block.title || ''}
+            onChange={(e) => onChange({ title: e.target.value })}
+            placeholder="Title"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          <textarea
+            value={block.content || ''}
+            onChange={(e) => onChange({ content: e.target.value })}
+            placeholder="Content"
+            rows={4}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          <input
+            type="text"
+            value={block.image || ''}
+            onChange={(e) => onChange({ image: e.target.value })}
+            placeholder="Image URL (optional)"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </div>
+      )
+
+    case 'image':
+      return (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={block.src || ''}
+              onChange={(e) => onChange({ src: e.target.value })}
+              placeholder="Image URL (src)"
+              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            />
+            {onUploadFile && (
+              <label className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 cursor-pointer whitespace-nowrap">
+                Upload
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      try {
+                        const url = await onUploadFile(file)
+                        onChange({ src: url })
+                      } catch (error) {
+                        console.error('Upload failed:', error)
+                      }
+                    }
+                  }}
+                />
+              </label>
+            )}
+          </div>
+          <input
+            type="text"
+            value={block.alt || ''}
+            onChange={(e) => onChange({ alt: e.target.value })}
+            placeholder="Alt text"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+          <input
+            type="text"
+            value={block.caption || ''}
+            onChange={(e) => onChange({ caption: e.target.value })}
+            placeholder="Caption (optional)"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </div>
+      )
+
     case 'prompt':
       return (
         <div className="space-y-2">
@@ -362,6 +594,13 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (updates: Pa
             placeholder="Question or label..."
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
+          <textarea
+            value={block.description || ''}
+            onChange={(e) => onChange({ description: e.target.value })}
+            placeholder="Description or helper text (optional)"
+            rows={2}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+          />
           <select
             value={block.input || 'text'}
             onChange={(e) => onChange({ input: e.target.value })}
@@ -371,7 +610,26 @@ function BlockEditor({ block, onChange }: { block: Block; onChange: (updates: Pa
             <option value="textarea">Textarea</option>
             <option value="number">Number</option>
             <option value="select">Select</option>
+            <option value="multiselect">Multi-Select</option>
           </select>
+          {(block.input === 'select' || block.input === 'multiselect') && (
+            <textarea
+              value={(block.options || []).join('\n')}
+              onChange={(e) => onChange({ options: e.target.value.split('\n').filter(Boolean) })}
+              placeholder="Options (one per line)"
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+            />
+          )}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={block.required || false}
+              onChange={(e) => onChange({ required: e.target.checked })}
+              className="rounded border-gray-300 dark:border-gray-600"
+            />
+            <span className="text-gray-700 dark:text-gray-300">Required</span>
+          </label>
         </div>
       )
 
@@ -401,6 +659,8 @@ function createDefaultBlock(type: string): Block {
     checklist: { type: 'checklist', items: [] },
     task_plan: { type: 'task_plan', tasks: [] },
     scripts: { type: 'scripts', scripts: [] },
+    framework_intro: { type: 'framework_intro', frameworkCode: '', title: '', description: '', letters: [] },
+    framework_letter: { type: 'framework_letter', letter: '', title: '', content: '', image: '' },
     cta: { type: 'cta', variant: 'primary', text: '', action: '' },
     button: { type: 'button', variant: 'primary', text: '', href: '' },
   }

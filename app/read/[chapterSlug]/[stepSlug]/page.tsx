@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCachedChapterBundle } from '@/lib/content/cache.server';
 import { getStepPages, getNextStep } from '@/lib/content/queries';
+import { getChapterPromptAnswers } from '@/app/actions/prompts';
 import DynamicStepClient from './DynamicStepClient';
 
 // ISR: Cache this page for 1 hour (instant subsequent loads)
@@ -23,27 +24,41 @@ export default async function DynamicStepPage({
   const step = steps.find(s => s.slug === stepSlug);
   if (!step) redirect(`/read/${chapterSlug}`);
 
-  // For self-check steps, always use the canonical chapter assessment route
-  // so we get the full-page SelfCheckAssessment experience.
-  if (step.step_type === 'self_check' || stepSlug === 'assessment') {
-    redirect(`/chapter/${chapter.chapter_number}/assessment`);
-  }
-
-  // For proof / resolution steps, always use the dedicated proof route
-  // so we get the full Chapter Proof / Resolution experience.
-  if (step.step_type === 'resolution' || stepSlug === 'proof') {
-    redirect(`/chapter/${chapter.chapter_number}/proof`);
-  }
-
   const pages = await getStepPages(step.id);
   if (!pages.length) {
+    // No content yet for this step – show a simple, hook-free "Coming Soon" screen
+    const stepName =
+      step.step_type === 'read' ? 'Reading' :
+      step.step_type === 'self_check' ? 'Self-Check' :
+      step.step_type === 'framework' ? 'Framework' :
+      step.step_type === 'techniques' ? 'Techniques' :
+      step.step_type === 'resolution' ? 'Resolution' :
+      step.step_type === 'follow_through' ? 'Follow-Through' :
+      step.title;
+
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
-        <div className="text-center">
-          <p className="text-gray-700 dark:text-gray-300 mb-4">No content available for this step yet.</p>
-          <a href="/dashboard" className="inline-block px-6 py-3 bg-[#ff6a38] text-white rounded-lg hover:bg-[#ff8c38]">
-            Return to Dashboard
-          </a>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-offwhite)] dark:bg-[#0a1628] px-4">
+        <div className="max-w-xl text-center bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+          <p className="text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+            Chapter {chapter.chapter_number}
+          </p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-3">
+            {chapter.title}
+          </h1>
+          <h2 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
+            {stepName} section coming soon
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            This part of the chapter isn&apos;t ready yet. Check back later while we finish building it.
+          </p>
+          <div className="flex justify-center">
+            <a
+              href="/dashboard"
+              className="inline-flex items-center px-6 py-3 rounded-full bg-[#FF6B35] text-white font-semibold text-sm shadow-md hover:bg-[#FF5722] transition-colors"
+            >
+              Go to dashboard
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -52,12 +67,15 @@ export default async function DynamicStepPage({
   const nextStep = await getNextStep(chapter.id, step.order_index);
   const nextStepSlug = nextStep?.slug ?? null;
 
+  const { data: savedAnswers } = await getChapterPromptAnswers(chapter.chapter_number);
+
   return (
     <DynamicStepClient
       chapter={chapter}
       step={step}
       pages={pages}
       nextStepSlug={nextStepSlug}
+      initialAnswers={savedAnswers}
     />
   );
 }

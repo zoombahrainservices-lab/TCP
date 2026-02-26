@@ -15,6 +15,10 @@ interface ChapterWizardProps {
       slug: string
       part_id: string
       chapter_number: number
+      framework_code?: string
+      framework_letters?: string[]
+      hero_image_url?: string
+      pdf_url?: string
     }
     selectedSteps: string[]
     useTemplates: boolean
@@ -41,6 +45,10 @@ export default function ChapterWizard({ isOpen, parts, onClose, onCreate }: Chap
     slug: '',
     part_id: '',
     chapter_number: 1,
+    framework_code: '',
+    framework_letters: '',
+    hero_image_url: '',
+    pdf_url: '',
   })
 
   // Step 2: Select Steps
@@ -66,14 +74,24 @@ export default function ChapterWizard({ isOpen, parts, onClose, onCreate }: Chap
   const handleCreate = async () => {
     setCreating(true)
     try {
-      await onCreate({
-        basicInfo,
+      // Convert framework_letters string to array
+      const dataToSubmit = {
+        basicInfo: {
+          ...basicInfo,
+          framework_letters: basicInfo.framework_letters
+            ? basicInfo.framework_letters.split(',').map(s => s.trim()).filter(Boolean)
+            : [],
+        },
         selectedSteps,
         useTemplates,
-      })
+      }
+      await onCreate(dataToSubmit)
       // Reset form
       setCurrentStep(1)
-      setBasicInfo({ title: '', subtitle: '', slug: '', part_id: '', chapter_number: 1 })
+      setBasicInfo({ 
+        title: '', subtitle: '', slug: '', part_id: '', chapter_number: 1,
+        framework_code: '', framework_letters: '', hero_image_url: '', pdf_url: ''
+      })
       setSelectedSteps(['read'])
       setUseTemplates(true)
       onClose()
@@ -224,6 +242,61 @@ export default function ChapterWizard({ isOpen, parts, onClose, onCreate }: Chap
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-amber)]"
                   min="1"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Framework Code
+                </label>
+                <input
+                  type="text"
+                  value={basicInfo.framework_code}
+                  onChange={(e) => setBasicInfo({ ...basicInfo, framework_code: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-amber)]"
+                  placeholder="e.g., SPARK, VOICE"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Framework Letters
+                </label>
+                <input
+                  type="text"
+                  value={basicInfo.framework_letters}
+                  onChange={(e) => setBasicInfo({ ...basicInfo, framework_letters: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-amber)]"
+                  placeholder="e.g., S, P, A, R, K"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Comma-separated letters for framework acronym
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Hero Image URL
+                </label>
+                <input
+                  type="text"
+                  value={basicInfo.hero_image_url}
+                  onChange={(e) => setBasicInfo({ ...basicInfo, hero_image_url: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-amber)]"
+                  placeholder="Optional fallback image URL"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  PDF URL
+                </label>
+                <input
+                  type="text"
+                  value={basicInfo.pdf_url}
+                  onChange={(e) => setBasicInfo({ ...basicInfo, pdf_url: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-amber)]"
+                  placeholder="Optional PDF download link"
                 />
               </div>
             </div>

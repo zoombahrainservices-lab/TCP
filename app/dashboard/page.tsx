@@ -1,8 +1,10 @@
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { requireAuth } from '@/lib/auth/guards'
 import { getCachedAllChapters } from '@/lib/content/cache.server'
 import { getChapterReportsData } from '@/app/actions/gamification'
 import CurrentChapterSync from '@/components/dashboard/CurrentChapterSync'
+import { Settings } from 'lucide-react'
 
 // Async components (stream in with Suspense)
 import GamificationAsync from '@/components/dashboard/async/GamificationAsync'
@@ -62,10 +64,9 @@ export default async function DashboardPage() {
 
   const currentChapter = currentChapterNumber ?? 1
   const currentChapterMeta = publishedChapters.find(c => c.chapter_number === currentChapter) ?? publishedChapters[0]
-  const currentChapterSlug = currentChapterMeta?.slug || 
-    (currentChapter === 1 ? 'stage-star-silent-struggles' : 'genius-who-couldnt-speak')
+  const currentChapterSlug = currentChapterMeta?.slug ?? publishedChapters[0]?.slug
 
-  const continueHref = `/read/${currentChapterSlug}`
+  const continueHref = currentChapterSlug ? `/read/${currentChapterSlug}` : '/dashboard'
   const continueLabel = `Continue Chapter ${currentChapter} →`
 
   return (

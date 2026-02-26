@@ -30,10 +30,12 @@ export function ChapterMarker3D({
   title,
   status,
   isCurrent,
+  frameworkCode,
 }: {
   title: string
   status: Status
   isCurrent: boolean
+  frameworkCode?: string | null
 }) {
   const pedestalState: PedestalState =
     status === 'locked' ? 'locked' : isCurrent ? 'current' : status === 'completed' ? 'completed' : 'unlocked'
@@ -75,7 +77,14 @@ export function ChapterMarker3D({
         />
       </div>
 
-      <div className="tcpMarkerLabel">{title}</div>
+      <div className="tcpMarkerLabel">
+        {title}
+        {frameworkCode && (
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mt-0.5">
+            {frameworkCode}
+          </span>
+        )}
+      </div>
     </div>
   )
 }

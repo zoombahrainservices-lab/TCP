@@ -7,7 +7,7 @@ import { X, Download } from 'lucide-react';
 import Image from 'next/image';
 import BlockRenderer from '@/components/content/BlockRenderer';
 import type { Chapter, Step, Page } from '@/lib/content/types';
-import { completeDynamicPage, completeDynamicSection, hasAssessmentForChapter } from '@/app/actions/chapters';
+import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
 import { showXPNotification } from '@/components/gamification/XPNotification';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 
@@ -16,50 +16,26 @@ interface Props {
   readingStep: Step;
   pages: Page[];
   nextStepSlug: string | null;
+  initialAnswers?: Record<string, any>;
 }
 
-export default function DynamicChapterReadingClient({ chapter, readingStep, pages, nextStepSlug }: Props) {
+export default function DynamicChapterReadingClient({ chapter, readingStep, pages, nextStepSlug, initialAnswers = {} }: Props) {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(0);
-  const [userResponses, setUserResponses] = useState<Record<string, any>>({});
+  const [userResponses, setUserResponses] = useState<Record<string, any>>(initialAnswers);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [hasCompletedAssessment, setHasCompletedAssessment] = useState<boolean | null>(null);
   const completedPagesRef = useRef<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   const readingContentRef = useRef<HTMLDivElement>(null);
 
-  // Check if Chapter 1 to determine UI style
-  const isChapter1 = chapter.chapter_number === 1;
+  const canonicalNextUrl = nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : null;
 
-  // Load assessment completion state for Chapter 1 routing logic
-  useEffect(() => {
-    if (isChapter1) {
-      hasAssessmentForChapter(1).then(setHasCompletedAssessment);
-    }
-  }, [isChapter1]);
-
-  // Canonical next URL: avoid redirects → no MPA → no React #310.
-  const canonicalNextUrl =
-    nextStepSlug === 'assessment'
-      ? `/chapter/${chapter.chapter_number}/assessment`
-      : nextStepSlug === 'proof'
-        ? `/chapter/${chapter.chapter_number}/proof`
-        : nextStepSlug
-          ? `/read/${chapter.slug}/${nextStepSlug}`
-          : null;
-
-  // Aggressive prefetching for instant navigation (route code only)
   useEffect(() => {
     if (currentPage >= pages.length - 2) {
-      if (isChapter1) {
-        router.prefetch(`/chapter/${chapter.chapter_number}/assessment`);
-        router.prefetch(`/read/${chapter.slug}/framework`);
-      } else {
-        if (canonicalNextUrl) router.prefetch(canonicalNextUrl);
-        router.prefetch('/dashboard');
-      }
+      if (canonicalNextUrl) router.prefetch(canonicalNextUrl);
+      router.prefetch('/dashboard');
     }
-  }, [currentPage, pages.length, router, isChapter1, chapter.chapter_number, chapter.slug, canonicalNextUrl]);
+  }, [currentPage, pages.length, router, chapter.slug, canonicalNextUrl]);
 
   // Scroll to top when changing pages
   useEffect(() => {
@@ -92,15 +68,10 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
 
     // Last page: INSTANT navigation (no waiting for anything)
     if (currentPage === pages.length - 1) {
-      // Navigate immediately
-      if (isChapter1) {
-        router.push(`/chapter/${chapter.chapter_number}/assessment`);
+      if (canonicalNextUrl) {
+        router.push(canonicalNextUrl);
       } else {
-        if (canonicalNextUrl) {
-          router.push(canonicalNextUrl);
-        } else {
-          router.push('/dashboard');
-        }
+        router.push('/dashboard');
       }
 
       // Complete section in background with retry queue
@@ -139,18 +110,41 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
   const firstBlock = currentPageData?.content?.[0];
   const isTitleSlide = firstBlock && (firstBlock as any).type === 'title_slide';
 
-  // Hero image: page image block, or Ch1 default, or chapter thumbnail (same style for all chapters)
+  // Hero image:
+  // 1) Prefer explicit chapter.hero_image_url (set via admin at chapter level)
+  // 2) Then FIRST image block anywhere in the page content (set per page in admin)
+  // 3) Then chapter.thumbnail_url
+  // 4) Then chapter-specific local fallback (for legacy Chapter 1/2 art)
+  // 5) Finally a generic placeholder
   const rawContent = (currentPageData?.content ?? []) as any[];
-  const pageFirstBlock = rawContent[0];
-  const heroImageSrc =
-    pageFirstBlock?.type === 'image' && pageFirstBlock?.src
-      ? pageFirstBlock.src
-      : chapter.chapter_number === 1
-        ? '/slider-work-on-quizz/chapter1/chaper1-1.jpeg'
-        : chapter.thumbnail_url || '/placeholder.png';
-  const heroImageAlt = pageFirstBlock?.type === 'image' && pageFirstBlock?.alt ? pageFirstBlock.alt : (currentPageData?.title || chapter.title);
+  const firstImageBlock = rawContent.find(
+    (b: any) => b && b.type === 'image' && b.src && typeof b.src === 'string'
+  ) as any | undefined;
 
-  const CHAPTER_1_PDF_PATH = '/chapter/Chapter 1_ From Stage Star to Silent Struggles - Printable (1).pdf';
+  // Legacy local fallbacks only if no DB-driven hero exists
+  let legacyFallback: string | null = null;
+  if (!chapter.hero_image_url && !firstImageBlock?.src) {
+    if (chapter.chapter_number === 1) {
+      legacyFallback = '/slider-work-on-quizz/chapter1/chaper1-1.jpeg';
+    } else if (chapter.chapter_number === 2) {
+      legacyFallback = '/chapter/chapter 2/Nightmare.png';
+    }
+  }
+
+  // Per-page images override chapter-level hero for that specific page
+  const heroImageSrc =
+    (firstImageBlock?.src as string | undefined) ||
+    chapter.hero_image_url ||
+    chapter.thumbnail_url ||
+    legacyFallback ||
+    '/placeholder.png';
+
+  const heroImageAlt =
+    (firstImageBlock?.alt as string | undefined) ||
+    currentPageData?.title ||
+    chapter.title;
+
+  const pdfUrl = chapter.pdf_url;
 
   // Unified reading layout for all chapters (Chapter 1 style + mobile-friendly)
   return (
@@ -259,12 +253,12 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
                 </div>
               </div>
 
-              {/* Navigation + Download (PDF only for Chapter 1) */}
+              {/* Navigation + Download (PDF when chapter.pdf_url is set in DB) */}
               <div className="p-6 sm:p-8 border-t border-gray-700 bg-[#1a1a1a] relative z-10">
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
-                  {isChapter1 && (
+                  {pdfUrl && (
                     <a
-                      href={CHAPTER_1_PDF_PATH}
+                      href={pdfUrl}
                       download
                       className="inline-flex items-center gap-2 rounded-2xl border border-gray-600 px-4 py-2 text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-gray-100 hover:bg-gray-800 transition-colors"
                     >
@@ -312,15 +306,22 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
                     transition={{ duration: 0.2 }}
                     className="max-w-3xl mx-auto"
                   >
-                    {currentPageData?.title && (
-                      <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-charcoal)] dark:text-white mb-6">
-                        {currentPageData.title}
-                      </h2>
-                    )}
+                    {(() => {
+                      const blocks = currentPageData?.content && Array.isArray(currentPageData.content) ? currentPageData.content : [];
+                      const firstRenderedBlock = blocks.find((b: any) => b.type !== 'title_slide' && !(blocks.indexOf(b) === 0 && b.type === 'image'));
+                      const firstBlockIsHeading = firstRenderedBlock && (firstRenderedBlock as any).type === 'heading';
+                      const showPageTitle = currentPageData?.title && !firstBlockIsHeading;
+                      return showPageTitle ? (
+                        <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-charcoal)] dark:text-white mb-6">
+                          {currentPageData.title}
+                        </h2>
+                      ) : null;
+                    })()}
                     {currentPageData?.content && Array.isArray(currentPageData.content) && currentPageData.content.map((block: any, index: number) => {
                       if (block.type === 'title_slide') return null;
-                      // First block image is shown as hero left; don't duplicate in content
-                      if (index === 0 && block.type === 'image') return null;
+                      // All images are used as hero or decorative art on the left;
+                      // reading column should be text-only.
+                      if (block.type === 'image') return null;
                       if (block.type === 'story') {
                         return (
                           <div key={index} className="text-lg leading-relaxed text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
@@ -334,6 +335,9 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
                           block={block}
                           userResponses={userResponses}
                           onResponseChange={handleResponseChange}
+                          chapterId={chapter.chapter_number}
+                          stepId={readingStep.id}
+                          pageId={currentPageData?.id}
                         />
                       );
                     })}

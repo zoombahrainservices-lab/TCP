@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Button from '@/components/ui/Button'
+import ImageUploadField from './ImageUploadField'
 import { X, Save } from 'lucide-react'
 
 interface StepSettingsModalProps {
@@ -13,25 +14,30 @@ interface StepSettingsModalProps {
     slug: string
     order_index: number
     is_required: boolean
+    hero_image_url?: string | null
   } | null
+  chapterSlug?: string
   onClose: () => void
   onSave: (data: {
     title: string
     slug: string
     is_required: boolean
+    hero_image_url?: string
   }) => Promise<void>
 }
 
 export default function StepSettingsModal({
   isOpen,
   step,
+  chapterSlug = 'chapter',
   onClose,
   onSave
 }: StepSettingsModalProps) {
   const [formData, setFormData] = useState({
     title: '',
     slug: '',
-    is_required: true
+    is_required: true,
+    hero_image_url: ''
   })
   const [saving, setSaving] = useState(false)
 
@@ -40,7 +46,8 @@ export default function StepSettingsModal({
       setFormData({
         title: step.title,
         slug: step.slug,
-        is_required: step.is_required
+        is_required: step.is_required,
+        hero_image_url: step.hero_image_url || ''
       })
     }
   }, [step])
@@ -130,6 +137,19 @@ export default function StepSettingsModal({
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               URL-friendly identifier (lowercase, hyphens only)
             </p>
+          </div>
+
+          {/* Hero Image */}
+          <div>
+            <ImageUploadField
+              label="Hero Image"
+              value={formData.hero_image_url}
+              onChange={(value) => setFormData({ ...formData, hero_image_url: value as string })}
+              helperText="Optional hero image for this step"
+              chapterSlug={chapterSlug}
+              stepSlug={step?.slug || 'step'}
+              pageOrder={0}
+            />
           </div>
 
           {/* Required Toggle */}

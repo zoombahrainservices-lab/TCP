@@ -7,10 +7,19 @@ import type { ChapterReportMeta } from '@/app/actions/reports'
 
 interface ReportsClientProps {
   chapters: ChapterReportMeta[]
+  promptAnswers: any[]
 }
 
-export default function ReportsClient({ chapters }: ReportsClientProps) {
+export default function ReportsClient({ chapters, promptAnswers }: ReportsClientProps) {
   const [downloading, setDownloading] = useState<string | null>(null)
+
+  const answersByChapter = promptAnswers.reduce((acc: Record<number, any[]>, answer) => {
+    if (!acc[answer.chapter_id]) {
+      acc[answer.chapter_id] = []
+    }
+    acc[answer.chapter_id].push(answer)
+    return acc
+  }, {})
 
   const handleDownload = async (url: string, filename: string) => {
     setDownloading(filename)
@@ -217,6 +226,25 @@ export default function ReportsClient({ chapters }: ReportsClientProps) {
                       </button>
                     </div>
                   </div>
+
+                  {/* Prompt Answers Section */}
+                  {answersByChapter[chapter.chapterId] && answersByChapter[chapter.chapterId].length > 0 && (
+                    <div className="mt-6 border-t border-slate-200 dark:border-slate-700 pt-6">
+                      <h3 className="font-bold text-slate-900 dark:text-white mb-4">Your Answers</h3>
+                      <div className="space-y-4">
+                        {answersByChapter[chapter.chapterId].map((answer: any) => (
+                          <div key={answer.id} className="border-l-4 border-blue-500 dark:border-blue-400 pl-4 py-2">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
+                              {answer.prompt_key}
+                            </p>
+                            <p className="text-slate-900 dark:text-white">
+                              {typeof answer.answer === 'string' ? answer.answer : JSON.stringify(answer.answer)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 ) : (
                   <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                     <p>

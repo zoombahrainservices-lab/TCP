@@ -12,9 +12,11 @@ export default async function AdminLayout({
 
   return (
     <QueryProvider>
-      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+        {/* Fixed Sidebar */}
         <AdminSidebar />
-        <main className="flex-1 lg:ml-0">
+        {/* Scrollable Content Area */}
+        <main className="flex-1 overflow-y-auto lg:ml-0">
           {children}
         </main>
       </div>

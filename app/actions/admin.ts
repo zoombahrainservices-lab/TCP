@@ -420,16 +420,27 @@ export async function adjustUserXP(userId: string, amount: number, reason: strin
     // Calculate new level
     const newLevel = Math.floor(Math.pow(newXP / 100, 0.45)) + 1
 
-    // Update gamification
-    const { error: updateError } = await admin
-      .from('user_gamification')
-      .update({ 
-        total_xp: newXP,
-        level: newLevel,
-      })
-      .eq('user_id', userId)
-
-    if (updateError) throw updateError
+    if (gamification) {
+      const { error: updateError } = await admin
+        .from('user_gamification')
+        .update({ 
+          total_xp: newXP,
+          level: newLevel,
+        })
+        .eq('user_id', userId)
+      if (updateError) throw updateError
+    } else {
+      const { error: insertError } = await admin
+        .from('user_gamification')
+        .insert({
+          user_id: userId,
+          total_xp: newXP,
+          level: newLevel,
+          current_streak: 0,
+          longest_streak: 0,
+        })
+      if (insertError) throw insertError
+    }
 
     // Log the XP change
     const { error: logError } = await admin
@@ -718,6 +729,10 @@ export async function createChapterWithSteps(data: {
     slug: string
     part_id: string
     chapter_number: number
+    framework_code?: string
+    framework_letters?: string[]
+    hero_image_url?: string
+    pdf_url?: string
   }
   selectedSteps: string[]
   useTemplates: boolean
@@ -904,41 +919,95 @@ export async function deleteChapter(chapterId: string) {
   }
 }
 
-export async function duplicateChapter(chapterId: string) {
+export async function validateChapterForPublish(chapterId: string): Promise<{
+  valid: boolean
+  errors: string[]
+}> {
   await requireAuth('admin')
   const admin = createAdminClient()
 
+  const errors: string[] = []
+
   try {
-    // Get original chapter
-    const { data: original, error: fetchError } = await admin
-      .from('chapters')
-      .select('*')
-      .eq('id', chapterId)
-      .single()
+    // Get chapter steps
+    const { data: steps, error: stepsError } = await admin
+      .from('chapter_steps')
+      .select('id, step_type, title')
+      .eq('chapter_id', chapterId)
+      .order('order_index')
 
-    if (fetchError) throw fetchError
+    if (stepsError) {
+      errors.push('Failed to fetch chapter steps')
+      return { valid: false, errors }
+    }
 
-    // Create duplicate
-    const { data: duplicate, error: createError } = await admin
-      .from('chapters')
-      .insert({
-        ...original,
-        id: undefined,
-        title: `${original.title} (Copy)`,
-        slug: `${original.slug}-copy`,
-        is_published: false,
-      })
-      .select()
-      .single()
+    // Check for all 6 canonical step types
+    const REQUIRED_STEP_TYPES = ['read', 'self_check', 'framework', 'techniques', 'resolution', 'follow_through']
+    const existingStepTypes = new Set(steps?.map(s => s.step_type) || [])
+    const missingStepTypes = REQUIRED_STEP_TYPES.filter(type => !existingStepTypes.has(type))
+    
+    if (missingStepTypes.length > 0) {
+      errors.push(`Missing required steps: ${missingStepTypes.join(', ')}`)
+    }
 
-    if (createError) throw createError
+    // Check that each step has at least 1 page
+    for (const step of steps || []) {
+      const { data: pages, error: pagesError } = await admin
+        .from('step_pages')
+        .select('id, content')
+        .eq('step_id', step.id)
 
-    revalidatePath('/admin/chapters')
+      if (pagesError) {
+        errors.push(`Failed to check pages for step "${step.title}"`)
+        continue
+      }
 
-    return { success: true, chapter: duplicate }
+      if (!pages || pages.length === 0) {
+        errors.push(`Step "${step.title}" has no pages`)
+        continue
+      }
+
+      // Check that every page has valid block JSON
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i]
+        
+        if (!page.content || !Array.isArray(page.content)) {
+          errors.push(`Step "${step.title}", Page ${i + 1}: Invalid content structure`)
+          continue
+        }
+
+        if (page.content.length === 0) {
+          errors.push(`Step "${step.title}", Page ${i + 1}: No content blocks`)
+          continue
+        }
+
+        // Validate blocks using Zod validator
+        const { validateBlocks } = await import('@/lib/blocks/validator')
+        const validation = validateBlocks(page.content)
+        
+        if (!validation.valid) {
+          errors.push(`Step "${step.title}", Page ${i + 1}: ${validation.errors[0]}`)
+        }
+
+        // Check that all prompt blocks have non-empty IDs
+        for (const block of page.content) {
+          if (block.type === 'prompt' && (!block.id || block.id.trim() === '')) {
+            errors.push(`Step "${step.title}", Page ${i + 1}: Prompt block missing required ID`)
+          }
+        }
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    }
   } catch (error) {
-    console.error('Error duplicating chapter:', error)
-    throw error
+    console.error('Error validating chapter:', error)
+    return {
+      valid: false,
+      errors: ['Validation failed: ' + (error as Error).message],
+    }
   }
 }
 
@@ -947,6 +1016,14 @@ export async function publishChapter(chapterId: string, isPublished: boolean) {
   const admin = createAdminClient()
 
   try {
+    // Validate before publishing
+    if (isPublished) {
+      const validation = await validateChapterForPublish(chapterId)
+      if (!validation.valid) {
+        throw new Error(`Cannot publish: ${validation.errors.join('; ')}`)
+      }
+    }
+
     const { error } = await admin
       .from('chapters')
       .update({ is_published: isPublished })
@@ -1103,6 +1180,14 @@ export async function updatePageContent(pageId: string, content: any[]) {
   const admin = createAdminClient()
 
   try {
+    // Validate blocks before saving
+    const { validateBlocks } = await import('@/lib/blocks/validator')
+    const validation = validateBlocks(content)
+    
+    if (!validation.valid) {
+      throw new Error(`Invalid block content: ${validation.errors.join('; ')}`)
+    }
+
     const { error } = await admin
       .from('step_pages')
       .update({ content })
@@ -1136,6 +1221,81 @@ export async function toggleStepRequired(stepId: string, isRequired: boolean) {
     return { success: true }
   } catch (error) {
     console.error('Error toggling step required:', error)
+    throw error
+  }
+}
+
+export async function adminEnsureRequiredSteps(chapterId: string) {
+  await requireAuth('admin')
+  const admin = createAdminClient()
+
+  const CANONICAL_STEPS = [
+    { step_type: 'read',          slug: 'read',          title: 'Reading',      order_index: 0 },
+    { step_type: 'self_check',    slug: 'assessment',    title: 'Self-Check',   order_index: 1 },
+    { step_type: 'framework',     slug: 'framework',     title: 'Framework',    order_index: 2 },
+    { step_type: 'techniques',    slug: 'techniques',    title: 'Techniques',   order_index: 3 },
+    { step_type: 'resolution',    slug: 'proof',         title: 'Resolution',   order_index: 4 },
+    { step_type: 'follow_through',slug: 'follow-through',title: 'Follow-Through',order_index: 5 },
+  ]
+
+  try {
+    // Fetch existing steps for this chapter
+    const { data: existingSteps, error: fetchError } = await admin
+      .from('chapter_steps')
+      .select('step_type')
+      .eq('chapter_id', chapterId)
+
+    if (fetchError) throw fetchError
+
+    const existingStepTypes = new Set(existingSteps?.map(s => s.step_type) || [])
+
+    // Find missing steps
+    const missingSteps = CANONICAL_STEPS.filter(cs => !existingStepTypes.has(cs.step_type))
+
+    // Insert missing steps
+    let createdCount = 0
+    if (missingSteps.length > 0) {
+      const stepsToInsert = missingSteps.map(step => ({
+        chapter_id: chapterId,
+        step_type: step.step_type,
+        slug: step.slug,
+        title: step.title,
+        order_index: step.order_index,
+        is_required: true,
+      }))
+
+      const { error: insertError } = await admin
+        .from('chapter_steps')
+        .insert(stepsToInsert)
+
+      if (insertError) throw insertError
+      createdCount = stepsToInsert.length
+    }
+
+    // Update order_index for all steps to match canonical order
+    const { data: allSteps, error: allStepsError } = await admin
+      .from('chapter_steps')
+      .select('id, step_type')
+      .eq('chapter_id', chapterId)
+
+    if (allStepsError) throw allStepsError
+
+    for (const step of allSteps || []) {
+      const canonical = CANONICAL_STEPS.find(cs => cs.step_type === step.step_type)
+      if (canonical) {
+        await admin
+          .from('chapter_steps')
+          .update({ order_index: canonical.order_index })
+          .eq('id', step.id)
+      }
+    }
+
+    revalidatePath('/admin/chapters')
+    revalidatePath(`/admin/chapters/${chapterId}`)
+
+    return { success: true, createdCount }
+  } catch (error) {
+    console.error('Error ensuring required steps:', error)
     throw error
   }
 }
@@ -1395,9 +1555,19 @@ export async function getXPSystemStats() {
     })
 
     // Top users by XP
-    const topUsers = gamification
+    const topUsersRaw = gamification
       ?.sort((a, b) => (b.total_xp || 0) - (a.total_xp || 0))
       .slice(0, 10) || []
+
+    const topUserIds = topUsersRaw.map((u: any) => u.user_id).filter(Boolean)
+    const { data: topProfiles } = topUserIds.length > 0
+      ? await admin.from('profiles').select('id, full_name, email').in('id', topUserIds)
+      : { data: [] }
+
+    const topUsers = topUsersRaw.map((u: any) => ({
+      ...u,
+      profiles: topProfiles?.find((p: any) => p.id === u.user_id),
+    }))
 
     return {
       totalXP,
@@ -1570,6 +1740,211 @@ export async function deleteBadge(badgeId: number) {
     return { success: true }
   } catch (error) {
     console.error('Error deleting badge:', error)
+    throw error
+  }
+}
+
+export async function setUserXP(userId: string, newTotalXP: number, reason: string) {
+  await requireAuth('admin')
+  const admin = createAdminClient()
+
+  try {
+    newTotalXP = Math.max(0, Math.floor(newTotalXP))
+    const newLevel = Math.floor(Math.pow(newTotalXP / 100, 0.45)) + 1
+
+    const { data: existing } = await admin
+      .from('user_gamification')
+      .select('total_xp')
+      .eq('user_id', userId)
+      .single()
+
+    const currentXP = existing?.total_xp || 0
+    const amount = newTotalXP - currentXP
+
+    if (existing) {
+      const { error: updateError } = await admin
+        .from('user_gamification')
+        .update({ total_xp: newTotalXP, level: newLevel })
+        .eq('user_id', userId)
+      if (updateError) throw updateError
+    } else {
+      const { error: insertError } = await admin
+        .from('user_gamification')
+        .insert({
+          user_id: userId,
+          total_xp: newTotalXP,
+          level: newLevel,
+          current_streak: 0,
+          longest_streak: 0,
+        })
+      if (insertError) throw insertError
+    }
+
+    if (amount !== 0) {
+      await admin.from('xp_logs').insert({
+        user_id: userId,
+        reason: 'manual_adjustment',
+        amount,
+        metadata: { admin_reason: reason },
+      })
+    }
+
+    revalidatePath('/admin/xp')
+    revalidatePath(`/admin/users/${userId}`)
+    return { success: true, newXP: newTotalXP, newLevel }
+  } catch (error) {
+    console.error('Error setting user XP:', error)
+    throw error
+  }
+}
+
+export async function deleteXPLog(logId: string) {
+  await requireAuth('admin')
+  const admin = createAdminClient()
+
+  try {
+    const { error } = await admin.from('xp_logs').delete().eq('id', logId)
+    if (error) throw error
+    revalidatePath('/admin/xp')
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting XP log:', error)
+    throw error
+  }
+}
+
+export async function getUserBadges(userId: string) {
+  await requireAuth('admin')
+  const admin = createAdminClient()
+
+  try {
+    const { data: userBadges, error } = await admin
+      .from('user_badges')
+      .select('*, badges(*)')
+      .eq('user_id', userId)
+    if (error) throw error
+    return userBadges || []
+  } catch (error) {
+    console.error('Error fetching user badges:', error)
+    throw error
+  }
+}
+
+export async function getChapterXPOverview() {
+  await requireAuth('admin')
+  const admin = createAdminClient()
+
+  try {
+    const [{ data: chapters, error: chaptersError }, { data: steps, error: stepsError }, { data: pages, error: pagesError }] =
+      await Promise.all([
+        admin
+          .from('chapters')
+          .select('id, chapter_number, title')
+          .order('chapter_number', { ascending: true }),
+        admin
+          .from('chapter_steps')
+          .select('id, chapter_id'),
+        admin
+          .from('step_pages')
+          .select('step_id, xp_award'),
+      ])
+
+    if (chaptersError) throw chaptersError
+    if (stepsError) throw stepsError
+    if (pagesError) throw pagesError
+
+    const stepToChapter = new Map<string, string>()
+    steps?.forEach((s: any) => {
+      if (s.id && s.chapter_id) {
+        stepToChapter.set(s.id, s.chapter_id)
+      }
+    })
+
+    const chapterStats: Record<
+      string,
+      { pageCount: number; totalXP: number; minXP: number | null; maxXP: number | null }
+    > = {}
+
+    pages?.forEach((p: any) => {
+      const chapterId = stepToChapter.get(p.step_id)
+      if (!chapterId) return
+
+      const xp = typeof p.xp_award === 'number' ? p.xp_award : 0
+      const stats = chapterStats[chapterId] || {
+        pageCount: 0,
+        totalXP: 0,
+        minXP: null,
+        maxXP: null,
+      }
+
+      stats.pageCount += 1
+      stats.totalXP += xp
+      stats.minXP = stats.minXP === null ? xp : Math.min(stats.minXP, xp)
+      stats.maxXP = stats.maxXP === null ? xp : Math.max(stats.maxXP, xp)
+
+      chapterStats[chapterId] = stats
+    })
+
+    return (
+      chapters?.map((c: any) => {
+        const stats = chapterStats[c.id] || {
+          pageCount: 0,
+          totalXP: 0,
+          minXP: null,
+          maxXP: null,
+        }
+        const avgXP = stats.pageCount > 0 ? stats.totalXP / stats.pageCount : 0
+
+        return {
+          id: c.id,
+          chapter_number: c.chapter_number,
+          title: c.title,
+          pageCount: stats.pageCount,
+          totalXP: stats.totalXP,
+          avgXP,
+          minXP: stats.minXP,
+          maxXP: stats.maxXP,
+        }
+      }) || []
+    )
+  } catch (error) {
+    console.error('Error fetching chapter XP overview:', error)
+    throw error
+  }
+}
+
+export async function setChapterXPForAllPages(chapterId: string, xpPerPage: number) {
+  await requireAuth('admin')
+  const admin = createAdminClient()
+
+  try {
+    const safeXP = Math.max(0, Math.floor(xpPerPage))
+
+    const { data: steps, error: stepsError } = await admin
+      .from('chapter_steps')
+      .select('id')
+      .eq('chapter_id', chapterId)
+
+    if (stepsError) throw stepsError
+
+    const stepIds = (steps || []).map((s: any) => s.id).filter(Boolean)
+    if (stepIds.length === 0) {
+      return { success: true, updatedPages: 0 }
+    }
+
+    const { error: updateError } = await admin
+      .from('step_pages')
+      .update({ xp_award: safeXP })
+      .in('step_id', stepIds)
+
+    if (updateError) throw updateError
+
+    revalidatePath('/admin/xp')
+    revalidatePath('/admin/chapters')
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error setting chapter XP for pages:', error)
     throw error
   }
 }
@@ -1823,5 +2198,563 @@ export async function duplicatePage(pageId: string) {
   } catch (error) {
     console.error('Error duplicating page:', error)
     throw error
+  }
+}
+
+// ============================================
+// Storage Management Actions
+// ============================================
+
+export async function listStorageImages(path?: string) {
+  'use server'
+  await requireAuth('admin')
+  
+  const { listAllImages } = await import('@/lib/storage/management')
+  return await listAllImages(path)
+}
+
+export async function deleteStorageImage(path: string) {
+  'use server'
+  await requireAuth('admin')
+  
+  const { deleteImage } = await import('@/lib/storage/management')
+  return await deleteImage(path)
+}
+
+export async function getStorageImageUrl(path: string) {
+  'use server'
+  await requireAuth('admin')
+  
+  const admin = createAdminClient()
+  const { data: { publicUrl } } = admin.storage
+    .from('chapter-assets')
+    .getPublicUrl(path)
+  
+  return publicUrl
+}
+
+export async function getImageUsage(imageUrl: string) {
+  'use server'
+  await requireAuth('admin')
+  
+  const admin = createAdminClient()
+  
+  try {
+    const { data: references, error } = await admin
+      .from('image_references')
+      .select(`
+        *,
+        chapters!image_references_chapter_id_fkey(id, title, chapter_number),
+        chapter_steps!image_references_step_id_fkey(id, title, step_type),
+        step_pages!image_references_page_id_fkey(id, title)
+      `)
+      .eq('image_url', imageUrl)
+    
+    if (error) {
+      console.error('Error fetching image usage:', error)
+      return []
+    }
+    
+    return references || []
+  } catch (error) {
+    console.error('Exception getting image usage:', error)
+    return []
+  }
+}
+
+// ============================================
+// Chapter Duplication
+// ============================================
+
+export async function duplicateChapter(chapterId: string, newChapterNumber: number) {
+  'use server'
+  await requireAuth('admin')
+  
+  const admin = createAdminClient()
+  
+  try {
+    // 1. Fetch source chapter
+    const { data: sourceChapter, error: chapterError } = await admin
+      .from('chapters')
+      .select('*')
+      .eq('id', chapterId)
+      .single()
+    
+    if (chapterError || !sourceChapter) {
+      throw new Error('Source chapter not found')
+    }
+    
+    // 2. Fetch all steps
+    const { data: sourceSteps, error: stepsError } = await admin
+      .from('chapter_steps')
+      .select('*')
+      .eq('chapter_id', chapterId)
+      .order('order_index')
+    
+    if (stepsError) {
+      throw new Error(`Failed to fetch steps: ${stepsError.message}`)
+    }
+    
+    // 3. Fetch all pages for all steps
+    const stepIds = (sourceSteps || []).map(s => s.id)
+    const { data: sourcePages, error: pagesError } = await admin
+      .from('step_pages')
+      .select('*')
+      .in('step_id', stepIds)
+      .order('order_index')
+    
+    if (pagesError) {
+      throw new Error(`Failed to fetch pages: ${pagesError.message}`)
+    }
+    
+    // 4. Create new chapter
+    const newSlug = `${sourceChapter.slug}-copy-${Date.now()}`
+    const { data: newChapter, error: createChapterError } = await admin
+      .from('chapters')
+      .insert({
+        part_id: sourceChapter.part_id,
+        chapter_number: newChapterNumber,
+        slug: newSlug,
+        title: `${sourceChapter.title} (Copy)`,
+        subtitle: sourceChapter.subtitle,
+        thumbnail_url: sourceChapter.thumbnail_url,
+        hero_image_url: sourceChapter.hero_image_url,
+        pdf_url: sourceChapter.pdf_url,
+        framework_code: sourceChapter.framework_code,
+        framework_letters: sourceChapter.framework_letters,
+        framework_letter_images: sourceChapter.framework_letter_images,
+        order_index: newChapterNumber,
+        level_min: sourceChapter.level_min,
+        is_published: false, // Start as draft
+      })
+      .select()
+      .single()
+    
+    if (createChapterError || !newChapter) {
+      throw new Error(`Failed to create chapter: ${createChapterError?.message}`)
+    }
+    
+    // 5. Clone all steps
+    const stepIdMap: Record<string, string> = {}
+    
+    for (const sourceStep of sourceSteps || []) {
+      const { data: newStep, error: createStepError } = await admin
+        .from('chapter_steps')
+        .insert({
+          chapter_id: newChapter.id,
+          step_type: sourceStep.step_type,
+          title: sourceStep.title,
+          slug: sourceStep.slug,
+          order_index: sourceStep.order_index,
+          is_required: sourceStep.is_required,
+          hero_image_url: sourceStep.hero_image_url,
+          unlock_rule: sourceStep.unlock_rule,
+        })
+        .select()
+        .single()
+      
+      if (createStepError || !newStep) {
+        throw new Error(`Failed to create step: ${createStepError?.message}`)
+      }
+      
+      stepIdMap[sourceStep.id] = newStep.id
+    }
+    
+    // 6. Clone all pages
+    for (const sourcePage of sourcePages || []) {
+      const newStepId = stepIdMap[sourcePage.step_id]
+      if (!newStepId) continue
+      
+      // Deep clone content blocks (this also clones image URLs)
+      const clonedContent = JSON.parse(JSON.stringify(sourcePage.content))
+      
+      const { error: createPageError } = await admin
+        .from('step_pages')
+        .insert({
+          step_id: newStepId,
+          slug: sourcePage.slug,
+          title: sourcePage.title,
+          order_index: sourcePage.order_index,
+          estimated_minutes: sourcePage.estimated_minutes,
+          xp_award: sourcePage.xp_award,
+          chunk_id: sourcePage.chunk_id,
+          content: clonedContent,
+        })
+      
+      if (createPageError) {
+        throw new Error(`Failed to create page: ${createPageError.message}`)
+      }
+    }
+    
+    revalidatePath('/admin/chapters')
+    
+    return { success: true, chapterId: newChapter.id, slug: newChapter.slug }
+  } catch (error: any) {
+    console.error('Error duplicating chapter:', error)
+    throw new Error(error.message || 'Failed to duplicate chapter')
+  }
+}
+
+// ============================================
+// Bulk Operations
+// ============================================
+
+export async function bulkPublishChapters(chapterIds: string[], isPublished: boolean) {
+  'use server'
+  await requireAuth('admin')
+  
+  const admin = createAdminClient()
+  
+  try {
+    const { error } = await admin
+      .from('chapters')
+      .update({ is_published: isPublished })
+      .in('id', chapterIds)
+    
+    if (error) {
+      throw new Error(error.message)
+    }
+    
+    revalidatePath('/admin/chapters')
+    
+    return { success: true, count: chapterIds.length }
+  } catch (error: any) {
+    console.error('Error bulk publishing chapters:', error)
+    throw new Error(error.message || 'Failed to bulk publish')
+  }
+}
+
+export async function bulkDeleteChapters(chapterIds: string[]) {
+  'use server'
+  await requireAuth('admin')
+  
+  const admin = createAdminClient()
+  
+  try {
+    // Delete chapters (cascade will handle steps and pages)
+    const { error } = await admin
+      .from('chapters')
+      .delete()
+      .in('id', chapterIds)
+    
+    if (error) {
+      throw new Error(error.message)
+    }
+    
+    revalidatePath('/admin/chapters')
+    
+    return { success: true, count: chapterIds.length }
+  } catch (error: any) {
+    console.error('Error bulk deleting chapters:', error)
+    throw new Error(error.message || 'Failed to bulk delete')
+  }
+}
+
+// ============================================
+// Import/Export
+// ============================================
+
+export interface ChapterExportData {
+  version: string
+  chapter: {
+    chapter_number: number
+    slug: string
+    title: string
+    subtitle: string | null
+    thumbnail_url: string | null
+    hero_image_url: string | null
+    pdf_url: string | null
+    framework_code: string | null
+    framework_letters: string[] | null
+    framework_letter_images: string[] | null
+    level_min: number
+    part_id: string
+  }
+  steps: Array<{
+    step_type: string
+    title: string
+    slug: string
+    order_index: number
+    is_required: boolean
+    hero_image_url: string | null
+    unlock_rule: any | null
+    pages: Array<{
+      slug: string
+      title: string | null
+      order_index: number
+      estimated_minutes: number | null
+      xp_award: number
+      chunk_id: number | null
+      content: any[]
+    }>
+  }>
+  images: Array<{
+    originalPath: string
+    filename: string
+    url: string
+  }>
+}
+
+export async function exportChapter(chapterId: string): Promise<ChapterExportData> {
+  'use server'
+  await requireAuth('admin')
+  
+  const admin = createAdminClient()
+  
+  try {
+    // Fetch chapter
+    const { data: chapter, error: chapterError } = await admin
+      .from('chapters')
+      .select('*')
+      .eq('id', chapterId)
+      .single()
+    
+    if (chapterError || !chapter) {
+      throw new Error('Chapter not found')
+    }
+    
+    // Fetch all steps
+    const { data: steps, error: stepsError } = await admin
+      .from('chapter_steps')
+      .select('*')
+      .eq('chapter_id', chapterId)
+      .order('order_index')
+    
+    if (stepsError) {
+      throw new Error(`Failed to fetch steps: ${stepsError.message}`)
+    }
+    
+    // Fetch all pages for all steps
+    const stepIds = (steps || []).map(s => s.id)
+    const { data: pages, error: pagesError } = stepIds.length > 0
+      ? await admin
+          .from('step_pages')
+          .select('*')
+          .in('step_id', stepIds)
+          .order('order_index')
+      : { data: [], error: null }
+    
+    if (pagesError) {
+      throw new Error(`Failed to fetch pages: ${pagesError.message}`)
+    }
+    
+    // Group pages by step
+    const pagesByStep: Record<string, any[]> = {}
+    for (const page of pages || []) {
+      if (!pagesByStep[page.step_id]) {
+        pagesByStep[page.step_id] = []
+      }
+      pagesByStep[page.step_id].push(page)
+    }
+    
+    // Collect all image URLs from chapter and content
+    const imageUrls = new Set<string>()
+    
+    // Chapter images
+    if (chapter.thumbnail_url) imageUrls.add(chapter.thumbnail_url)
+    if (chapter.hero_image_url) imageUrls.add(chapter.hero_image_url)
+    if (chapter.pdf_url) imageUrls.add(chapter.pdf_url)
+    if (chapter.framework_letter_images) {
+      chapter.framework_letter_images.forEach(url => imageUrls.add(url))
+    }
+    
+    // Step images
+    for (const step of steps || []) {
+      if (step.hero_image_url) imageUrls.add(step.hero_image_url)
+    }
+    
+    // Page content images
+    for (const page of pages || []) {
+      if (page.content && Array.isArray(page.content)) {
+        for (const block of page.content) {
+          if (block.type === 'image' && block.src) {
+            imageUrls.add(block.src)
+          }
+        }
+      }
+    }
+    
+    // Format image metadata
+    const images = Array.from(imageUrls).map(url => ({
+      originalPath: url,
+      filename: url.split('/').pop() || url,
+      url
+    }))
+    
+    // Build export data
+    const exportData: ChapterExportData = {
+      version: '1.0',
+      chapter: {
+        chapter_number: chapter.chapter_number,
+        slug: chapter.slug,
+        title: chapter.title,
+        subtitle: chapter.subtitle,
+        thumbnail_url: chapter.thumbnail_url,
+        hero_image_url: chapter.hero_image_url,
+        pdf_url: chapter.pdf_url,
+        framework_code: chapter.framework_code,
+        framework_letters: chapter.framework_letters,
+        framework_letter_images: chapter.framework_letter_images,
+        level_min: chapter.level_min,
+        part_id: chapter.part_id,
+      },
+      steps: (steps || []).map(step => ({
+        step_type: step.step_type,
+        title: step.title,
+        slug: step.slug,
+        order_index: step.order_index,
+        is_required: step.is_required,
+        hero_image_url: step.hero_image_url,
+        unlock_rule: step.unlock_rule,
+        pages: (pagesByStep[step.id] || []).map(page => ({
+          slug: page.slug,
+          title: page.title,
+          order_index: page.order_index,
+          estimated_minutes: page.estimated_minutes,
+          xp_award: page.xp_award,
+          chunk_id: page.chunk_id,
+          content: page.content,
+        })),
+      })),
+      images,
+    }
+    
+    return exportData
+  } catch (error: any) {
+    console.error('Error exporting chapter:', error)
+    throw new Error(error.message || 'Failed to export chapter')
+  }
+}
+
+export async function exportMultipleChapters(chapterIds: string[]): Promise<ChapterExportData[]> {
+  'use server'
+  await requireAuth('admin')
+  
+  try {
+    const exports: ChapterExportData[] = []
+    
+    for (const chapterId of chapterIds) {
+      const exportData = await exportChapter(chapterId)
+      exports.push(exportData)
+    }
+    
+    return exports
+  } catch (error: any) {
+    console.error('Error exporting multiple chapters:', error)
+    throw new Error(error.message || 'Failed to export chapters')
+  }
+}
+
+export async function importChapter(data: ChapterExportData): Promise<string> {
+  'use server'
+  await requireAuth('admin')
+  
+  const admin = createAdminClient()
+  
+  try {
+    // Validate version
+    if (data.version !== '1.0') {
+      throw new Error(`Unsupported export version: ${data.version}`)
+    }
+    
+    // Check if part exists
+    const { data: partExists, error: partError } = await admin
+      .from('parts')
+      .select('id')
+      .eq('id', data.chapter.part_id)
+      .single()
+    
+    if (partError || !partExists) {
+      throw new Error('Part not found. Please create the required part first.')
+    }
+    
+    // Find next available chapter number
+    const { data: existingChapters } = await admin
+      .from('chapters')
+      .select('chapter_number')
+      .order('chapter_number', { ascending: false })
+      .limit(1)
+    
+    const maxChapterNumber = existingChapters?.[0]?.chapter_number || 0
+    const newChapterNumber = maxChapterNumber + 1
+    
+    // Generate unique slug
+    const timestamp = Date.now()
+    const newSlug = `${data.chapter.slug}-imported-${timestamp}`
+    
+    // Create new chapter
+    const { data: newChapter, error: createChapterError } = await admin
+      .from('chapters')
+      .insert({
+        part_id: data.chapter.part_id,
+        chapter_number: newChapterNumber,
+        slug: newSlug,
+        title: `${data.chapter.title} (Imported)`,
+        subtitle: data.chapter.subtitle,
+        thumbnail_url: data.chapter.thumbnail_url,
+        hero_image_url: data.chapter.hero_image_url,
+        pdf_url: data.chapter.pdf_url,
+        framework_code: data.chapter.framework_code,
+        framework_letters: data.chapter.framework_letters,
+        framework_letter_images: data.chapter.framework_letter_images,
+        order_index: newChapterNumber,
+        level_min: data.chapter.level_min,
+        is_published: false,
+      })
+      .select()
+      .single()
+    
+    if (createChapterError || !newChapter) {
+      throw new Error(`Failed to create chapter: ${createChapterError?.message}`)
+    }
+    
+    // Create steps with pages
+    for (const stepData of data.steps) {
+      const { data: newStep, error: createStepError } = await admin
+        .from('chapter_steps')
+        .insert({
+          chapter_id: newChapter.id,
+          step_type: stepData.step_type,
+          title: stepData.title,
+          slug: stepData.slug,
+          order_index: stepData.order_index,
+          is_required: stepData.is_required,
+          hero_image_url: stepData.hero_image_url,
+          unlock_rule: stepData.unlock_rule,
+        })
+        .select()
+        .single()
+      
+      if (createStepError || !newStep) {
+        throw new Error(`Failed to create step: ${createStepError?.message}`)
+      }
+      
+      // Create pages for this step
+      for (const pageData of stepData.pages) {
+        const { error: createPageError } = await admin
+          .from('step_pages')
+          .insert({
+            step_id: newStep.id,
+            slug: pageData.slug,
+            title: pageData.title,
+            order_index: pageData.order_index,
+            estimated_minutes: pageData.estimated_minutes,
+            xp_award: pageData.xp_award,
+            chunk_id: pageData.chunk_id,
+            content: pageData.content,
+          })
+        
+        if (createPageError) {
+          throw new Error(`Failed to create page: ${createPageError.message}`)
+        }
+      }
+    }
+    
+    revalidatePath('/admin/chapters')
+    
+    return newChapter.id
+  } catch (error: any) {
+    console.error('Error importing chapter:', error)
+    throw new Error(error.message || 'Failed to import chapter')
   }
 }

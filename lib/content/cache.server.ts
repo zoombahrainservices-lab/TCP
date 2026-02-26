@@ -44,21 +44,53 @@ function createServiceClient() {
 export async function getCachedChapterBundle(chapterSlug: string) {
   const supabase = createServiceClient()
 
+  // Primary path: use the RPC for best performance
   const { data, error } = await supabase.rpc('get_chapter_bundle', {
     chapter_slug: chapterSlug,
   })
 
-  if (error || !data?.[0]) {
-    return { chapter: null, steps: [], error }
+  const hasValidData = Array.isArray(data) && data.length > 0 && data[0]?.chapter_data
+
+  if (hasValidData) {
+    const chapter = data[0].chapter_data as any
+    const steps = data[0].steps_data as any[]
+
+    return {
+      chapter,
+      steps,
+      error: null,
+    }
   }
 
-  const chapter = data[0].chapter_data as any
-  const steps = data[0].steps_data as any[]
+  // Fallback path: if the RPC is missing or misconfigured, fall back to direct queries
+
+  const { data: chapterRows, error: chapterError } = await supabase
+    .from('chapters')
+    .select('*')
+    .eq('slug', chapterSlug)
+    .eq('is_published', true)
+    .limit(1)
+
+  if (chapterError || !chapterRows || chapterRows.length === 0) {
+    return { chapter: null, steps: [], error: chapterError || error }
+  }
+
+  const chapter = chapterRows[0] as any
+
+  const { data: stepsRows, error: stepsError } = await supabase
+    .from('chapter_steps')
+    .select('*')
+    .eq('chapter_id', chapter.id)
+    .order('order_index', { ascending: true })
+
+  if (stepsError) {
+    console.error('getCachedChapterBundle: error fetching steps in fallback', stepsError)
+  }
 
   return {
     chapter,
-    steps,
-    error: null,
+    steps: (stepsRows as any[]) || [],
+    error: stepsError || chapterError || error || null,
   }
 }
 
@@ -100,4 +132,86 @@ export async function getCachedAllChapters() {
   }
 
   return data || []
+}
+
+/**
+ * Get published chapter by chapter_number (for legacy /chapter/[chapterId] routes).
+ */
+export async function getCachedChapterByNumber(chapterNumber: number) {
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase
+    .from('chapters')
+    .select('id, slug, chapter_number')
+    .eq('chapter_number', chapterNumber)
+    .eq('is_published', true)
+    .single()
+
+  if (error || !data) {
+    return null
+  }
+
+  return data
+}
+
+/**
+ * Get chapter bundle for admin preview (includes unpublished chapters).
+ */
+export async function getCachedChapterBundleAdmin(chapterSlug: string) {
+  const supabase = createServiceClient()
+
+  // Primary path: use RPC (ignores is_published so drafts can be previewed)
+  const { data, error } = await supabase.rpc('get_chapter_bundle', {
+    chapter_slug: chapterSlug,
+  })
+
+  const hasValidData = Array.isArray(data) && data.length > 0 && data[0]?.chapter_data
+
+  if (hasValidData) {
+    const chapter = data[0].chapter_data as any
+    const steps = data[0].steps_data as any[]
+
+    return {
+      chapter,
+      steps,
+      error: null,
+    }
+  }
+
+  // Fallback path for admin preview if RPC is missing/misconfigured
+  if (hasRealError) {
+    console.error(
+      'getCachedChapterBundleAdmin: RPC get_chapter_bundle failed or returned no data, falling back to direct queries',
+      error
+    )
+  }
+
+  const { data: chapterRows, error: chapterError } = await supabase
+    .from('chapters')
+    .select('*')
+    .eq('slug', chapterSlug)
+    .limit(1)
+
+  if (chapterError || !chapterRows || chapterRows.length === 0) {
+    console.error('getCachedChapterBundleAdmin: failed to fetch chapter via fallback', chapterError || error)
+    return null
+  }
+
+  const chapter = chapterRows[0] as any
+
+  const { data: stepsRows, error: stepsError } = await supabase
+    .from('chapter_steps')
+    .select('*')
+    .eq('chapter_id', chapter.id)
+    .order('order_index', { ascending: true })
+
+  if (stepsError) {
+    console.error('getCachedChapterBundleAdmin: error fetching steps in fallback', stepsError)
+  }
+
+  return {
+    chapter,
+    steps: (stepsRows as any[]) || [],
+    error: stepsError || chapterError || error || null,
+  }
 }

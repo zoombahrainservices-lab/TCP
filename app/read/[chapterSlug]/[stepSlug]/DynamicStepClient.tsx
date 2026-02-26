@@ -3,10 +3,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
+import SelfCheckAssessment, { type AssessmentQuestion, type ScoreBandExplanation } from '@/components/assessment/SelfCheckAssessment';
 import type { Chapter, Step, Page } from '@/lib/content/types';
-import { submitAssessment, completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
+import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
+import { submitAssessment } from '@/app/actions/prompts';
 import { showXPNotification } from '@/components/gamification/XPNotification';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 import toast from 'react-hot-toast';
@@ -16,52 +19,17 @@ interface Props {
   step: Step;
   pages: Page[];
   nextStepSlug: string | null;
+  initialAnswers?: Record<string, any>;
 }
 
-// Steps that the server redirects — use canonical URL so we never trigger redirect → MPA → React #310.
-function getCanonicalNextUrl(chapterNumber: number, nextStepSlug: string | null): string | null {
-  if (!nextStepSlug) return null;
-  if (nextStepSlug === 'assessment') return `/chapter/${chapterNumber}/assessment`;
-  if (nextStepSlug === 'proof') return `/chapter/${chapterNumber}/proof`;
-  return null;
-}
-
-/** Chapter 1 framework (SPARK) uses known image paths under public; DB thumbnail or block src may be missing or broken. */
-const CHAPTER_1_FRAMEWORK_BASE = '/slider-work-on-quizz/chapter1/frameworks';
-function getChapter1FrameworkHeroImage(pageSlug: string | null): string {
-  const map: Record<string, string> = {
-    'spark-intro': 'spark.png',
-    'spark-s': 's.png',
-    'spark-p': 'p.png',
-    'spark-a': 'a.png',
-    'spark-r': 'r.png',
-    'spark-k': 'k.png',
-  };
-  const file = (pageSlug && map[pageSlug]) || 'spark.png';
-  return `${CHAPTER_1_FRAMEWORK_BASE}/${file}`;
-}
-
-/** Chapter 1 techniques: use known image paths so the 1st page (and others) never show a broken hero image. */
-const CHAPTER_1_TECHNIQUES_BASE = '/slider-work-on-quizz/chapter1/technique';
-function getChapter1TechniquesHeroImage(pageSlug: string | null): string {
-  const map: Record<string, string> = {
-    'technique-intro': 'Visual%20Progress.png',
-    'technique-1': 'Substitution%20Game.png',
-    'technique-2': 'The%20Later%20Technique.png',
-    'technique-3': 'Change%20Your%20Environment.png',
-  };
-  const file = (pageSlug && map[pageSlug]) || 'Visual%20Progress.png';
-  return `${CHAPTER_1_TECHNIQUES_BASE}/${file}`;
-}
-
-export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }: Props) {
+export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, initialAnswers = {} }: Props) {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(0);
-  const [userResponses, setUserResponses] = useState<Record<string, any>>({});
+  const [userResponses, setUserResponses] = useState<Record<string, any>>(initialAnswers);
   const [isProcessing, setIsProcessing] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
 
-  const nextUrl = getCanonicalNextUrl(chapter.chapter_number, nextStepSlug) ?? (nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : null);
+  const nextUrl = nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : null;
 
   // Aggressive prefetching for instant navigation (route code only). Use canonical URL so we never trigger server redirect → MPA → #310.
   useEffect(() => {
@@ -174,12 +142,11 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
   // (like the original Chapter 1 framework/techniques/follow-through).
   // If a "Your Turn" page has no image, reuse the previous page's image
   // so S → S Your Turn, N → N Your Turn, etc. share the same art.
+  // Priority: step.hero_image_url → first image block → chapter.hero_image_url → chapter.thumbnail_url → placeholder
   const rawBlocks = (currentPageData?.content ?? []) as any[];
   const firstBlock = rawBlocks[0];
 
-  // Use chapter thumbnail or a known-good fallback (placeholder.png does not exist in public)
-  const defaultHeroSrc = '/slider-work-on-quizz/chapter1/frameworks/spark.png';
-  let heroImageSrc: string = chapter.thumbnail_url || defaultHeroSrc;
+  let heroImageSrc: string = step.hero_image_url ?? chapter.hero_image_url ?? chapter.thumbnail_url ?? '/placeholder.png';
   let heroImageAlt: string = currentPageData?.title || step.title;
   let contentBlocks: any[] = rawBlocks;
 
@@ -220,31 +187,229 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
     }
   }
 
-  // Chapter 1 framework (SPARK): use known image paths so we never show a broken image
-  // (DB may have no image block, or chapter.thumbnail_url / block src may be invalid).
-  const isChapter1Framework =
-    chapter.slug === 'stage-star-silent-struggles' && step.step_type === 'framework';
-  if (isChapter1Framework) {
-    heroImageSrc = getChapter1FrameworkHeroImage(currentPageData?.slug ?? null);
-    heroImageAlt = currentPageData?.title || step.title;
-  }
-
-  // Chapter 1 techniques: same method — use known image paths for the 1st page and others.
-  const isChapter1Techniques =
-    chapter.slug === 'stage-star-silent-struggles' && step.step_type === 'techniques';
-  if (isChapter1Techniques) {
-    heroImageSrc = getChapter1TechniquesHeroImage(currentPageData?.slug ?? null);
-    heroImageAlt = currentPageData?.title || step.title;
-  }
-
   // Avoid duplicate heading: if the first content block is already a heading, don't render page title as h1 (content will show it once).
   const firstContentBlock = contentBlocks[0];
-  const firstBlockIsHeading =
-    firstContentBlock &&
-    typeof firstContentBlock === 'object' &&
-    (firstContentBlock as { type?: string }).type === 'heading';
+  const firstBlockType =
+    firstContentBlock && typeof firstContentBlock === 'object'
+      ? (firstContentBlock as { type?: string }).type
+      : undefined;
+  const firstBlockIsHeading = firstBlockType === 'heading';
   const showPageTitle = currentPageData?.title && !firstBlockIsHeading;
 
+  // ============================================================================
+  // FRAMEWORK PROGRESS STRIP (SPARK / VOICE / any framework)
+  // ============================================================================
+  // Algorithm: letter-based (not page-based) to ignore "Your Turn" pages
+  // 
+  // Multi-angle analysis:
+  // 1. ROUTING: All framework pages share step_type='framework', including "Your Turn"
+  // 2. STATE: Current letter must map to the framework acronym (S/P/A/R/K or V/O/I/C/E)
+  // 3. INDEX MAPPING: "Your Turn" pages must NOT contribute to letter sequence
+  // 4. UI RENDERING: Strip only shows on letter pages; hidden on intro/"Your Turn"
+  //
+  // Solution: 
+  // - Letter sequence comes from chapter.framework_code (SPARK/VOICE)
+  // - Current letter detection validates against that sequence
+  // - If current page's letter is NOT in the sequence (e.g. 'Y' from "Your Turn"), hide strip
+  // ============================================================================
+  let frameworkStrip: JSX.Element | null = null;
+  if (step.step_type === 'framework') {
+    // STEP 1: Get the canonical framework letter sequence (source of truth)
+    const dbFrameworkCode = (chapter.framework_code || '').toUpperCase();
+    let frameworkLetters: string[] = [];
+
+    if (dbFrameworkCode && dbFrameworkCode.length > 0) {
+      // Primary: Use chapter.framework_code (e.g., "SPARK" → ['S','P','A','R','K'])
+      frameworkLetters = dbFrameworkCode.split('');
+    } else {
+      // Fallback: Scan pages for framework_letter blocks ONLY (ignore headings to avoid "Your Turn")
+      const lettersFromFrameworkBlocks: string[] = [];
+      for (const page of pages) {
+        const pageBlocks = (page.content ?? []) as any[];
+        const first = pageBlocks[0];
+        
+        // CRITICAL: Only include pages with explicit framework_letter block type
+        // This excludes "Your Turn" pages (which use heading/prompt blocks)
+        if (first && typeof first === 'object' && (first as any).type === 'framework_letter') {
+          const letter = String((first as any).letter || '').toUpperCase();
+          if (letter && !lettersFromFrameworkBlocks.includes(letter)) {
+            lettersFromFrameworkBlocks.push(letter);
+          }
+        }
+      }
+      frameworkLetters = lettersFromFrameworkBlocks;
+    }
+
+    // STEP 2: Determine current letter for THIS page
+    let currentLetter: string | null = null;
+    
+    if (firstBlockType === 'framework_letter') {
+      // Explicit framework_letter block (VOICE uses this)
+      currentLetter = (((firstContentBlock as any).letter as string | undefined) || '').toUpperCase() || null;
+    } else if (firstBlockType === 'heading') {
+      // Heading-based inference (SPARK uses this, but also matches "Your Turn")
+      const headingText = ((firstContentBlock as any).text as string | undefined) || '';
+      
+      // Extract first letter from heading patterns like "S — Surface the Pattern"
+      const match = headingText.match(/^([A-Z])\s*[—\-]/);
+      if (match) {
+        currentLetter = match[1].toUpperCase();
+      } else {
+        // Fallback: first capital letter (but we'll validate it below)
+        const fallbackMatch = headingText.match(/[A-Z]/);
+        currentLetter = fallbackMatch ? fallbackMatch[0].toUpperCase() : null;
+      }
+    }
+
+    // STEP 3: Validate current letter against framework sequence
+    // If current letter is NOT in the framework (e.g., 'Y' from "Your Turn" is not in SPARK),
+    // hide the strip on this page
+    const currentIndex = currentLetter && frameworkLetters.length > 0 
+      ? frameworkLetters.indexOf(currentLetter) 
+      : -1;
+
+    // STEP 4: Render strip only if we have a valid framework letter match
+    if (currentIndex >= 0) {
+      frameworkStrip = (
+        <div className="mt-3 mb-4 flex justify-start">
+          <div className="inline-flex items-center gap-3 rounded-full bg-white/80 dark:bg-gray-900/80 px-4 py-2 border border-amber-100 dark:border-amber-900/40">
+            {frameworkLetters.map((ch, idx) => {
+              const isCurrent = idx === currentIndex;
+              const isCompleted = idx < currentIndex;
+              const isFuture = idx > currentIndex;
+
+              return (
+                <span
+                  key={ch + idx}
+                  className={[
+                    'text-sm sm:text-base font-bold tracking-wide',
+                    isCurrent && 'text-[#f7b418]',
+                    isCompleted && !isCurrent && 'text-[#f7b418]/80',
+                    isFuture && 'text-gray-400',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {ch}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+    // else: strip is null (hidden) on intro/"Your Turn"/any non-letter page
+  }
+
+  const isSelfCheck = step.step_type === 'self_check';
+
+  // Self-check: use old-style SelfCheckAssessment component with slider questions
+  if (isSelfCheck) {
+    // Convert ALL self-check pages' blocks to question format
+    const questions: AssessmentQuestion[] = [];
+    let questionCounter = 1;
+
+    // Extract questions from ALL pages' scale_questions blocks
+    for (const page of pages) {
+      const pageBlocks = (page.content ?? []) as any[];
+      for (const block of pageBlocks) {
+        if (block && typeof block === 'object' && block.type === 'scale_questions') {
+          const scaleBlock = block as any;
+          if (scaleBlock.questions && Array.isArray(scaleBlock.questions)) {
+            for (const q of scaleBlock.questions) {
+              // Clean up question text: remove any inline "(1 = ..., 7 = ...)" hints
+              const rawText = q.text || q.question || '';
+              const cleanedText = rawText.replace(/\(1\s*=\s*[^)]*\)/i, '').trim();
+
+              // Normalize labels: always show Rarely / Always in UI
+              const rawMin = (scaleBlock.scale?.minLabel as string | undefined) || '';
+              const rawMax = (scaleBlock.scale?.maxLabel as string | undefined) || '';
+              const lowLabel =
+                rawMin.toLowerCase() === 'low' || rawMin.trim() === ''
+                  ? 'Rarely'
+                  : rawMin;
+              const highLabel =
+                rawMax.toLowerCase() === 'high' || rawMax.trim() === ''
+                  ? 'Always'
+                  : rawMax;
+
+              questions.push({
+                id: questionCounter++,
+                question: cleanedText,
+                low: lowLabel,
+                high: highLabel,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback: if no questions found, create 3 default questions
+    if (questions.length === 0) {
+      questions.push(
+        {
+          id: 1,
+          question: 'I avoid speaking situations when possible',
+          low: 'Rarely',
+          high: 'Always',
+        },
+        {
+          id: 2,
+          question: 'My mind goes blank when speaking',
+          low: 'Never',
+          high: 'Every time',
+        },
+        {
+          id: 3,
+          question: 'Physical symptoms (shaking/racing heart) overwhelm me',
+          low: 'Manageable',
+          high: 'Paralyzing',
+        },
+      );
+    }
+
+    // Check if user has completed this self-check before
+    const selfCheckKey = `ch${chapter.chapter_number}_self_check_baseline`;
+    const hasCompletedBefore = !!(initialAnswers && initialAnswers[selfCheckKey]);
+    
+    console.log('Self-check setup:', { 
+      chapterNumber: chapter.chapter_number, 
+      selfCheckKey, 
+      hasCompletedBefore,
+      initialAnswersKeys: initialAnswers ? Object.keys(initialAnswers) : []
+    });
+
+    // Save answers callback
+    const handleSaveAnswers = async (answers: Record<number, number>, totalScore: number) => {
+      console.log('Saving self-check answers:', { chapterNumber: chapter.chapter_number, totalScore });
+      const result = await submitAssessment(chapter.chapter_number, 'baseline', answers, totalScore);
+      
+      if (!result.success) {
+        console.error('Failed to save self-check:', result.error);
+        toast.error('Failed to save your answers. Please try again.');
+      } else {
+        console.log('Self-check saved successfully');
+      }
+      
+      return result;
+    };
+
+    return (
+      <SelfCheckAssessment
+        chapterId={chapter.chapter_number}
+        chapterSlug={chapter.slug}
+        questions={questions}
+        nextStepUrl={nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : '/dashboard'}
+        questionsStepTitle={`Chapter ${chapter.chapter_number} Self-Check`}
+        questionsStepSubtitle="Rate each statement from 1 to 7. Be honest—only you see this."
+        hasCompletedBefore={hasCompletedBefore}
+        onSaveAnswers={handleSaveAnswers}
+      />
+    );
+  }
+
+  // Other steps: use image left, content right layout
   return (
     <ReadingLayout currentProgress={progress} onClose={() => router.push('/dashboard')}>
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
@@ -269,6 +434,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
                 <p className="text-sm text-[#ff6a38] font-semibold uppercase tracking-wide mb-2">
                   {step.title}
                 </p>
+                {frameworkStrip}
                 {showPageTitle && (
                   <h1 className="text-3xl md:text-4xl font-bold text-[#2a2416] dark:text-white">
                     {currentPageData.title}
@@ -281,6 +447,9 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug }
                   block={block}
                   userResponses={userResponses}
                   onResponseChange={handleResponseChange}
+                  chapterId={chapter.chapter_number}
+                  stepId={step.id}
+                  pageId={currentPageData?.id}
                 />
               ))}
             </div>

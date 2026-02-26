@@ -1,6 +1,9 @@
 'use client';
 
+import { useCallback } from 'react';
 import { Block } from '@/lib/blocks/types';
+import { debounce } from '@/lib/utils/debounce';
+import { savePromptAnswer } from '@/app/actions/prompts';
 
 // Import all block components
 import HeadingBlock from './blocks/HeadingBlock';
@@ -21,18 +24,41 @@ import CTABlock from './blocks/CTABlock';
 import ButtonBlock from './blocks/ButtonBlock';
 import ConditionalBlock from './blocks/ConditionalBlock';
 import VariableBlock from './blocks/VariableBlock';
+import FrameworkIntroBlock from './blocks/FrameworkIntroBlock';
+import FrameworkLetterBlock from './blocks/FrameworkLetterBlock';
 
 interface BlockRendererProps {
   block: Block;
   userResponses?: Record<string, any>;
   onResponseChange?: (promptId: string, value: any) => void;
+  chapterId?: number;
+  stepId?: string;
+  pageId?: string;
 }
 
 export default function BlockRenderer({
   block,
   userResponses,
   onResponseChange,
+  chapterId,
+  stepId,
+  pageId,
 }: BlockRendererProps) {
+  const debouncedSave = useCallback(
+    debounce(async (promptKey: string, answer: any) => {
+      if (chapterId) {
+        await savePromptAnswer({
+          promptKey,
+          chapterId,
+          stepId,
+          pageId,
+          answer,
+        });
+      }
+    }, 1000),
+    [chapterId, stepId, pageId]
+  );
+
   // Safety check
   if (!block || !block.type) {
     console.warn('BlockRenderer: Invalid block received', block);
@@ -70,7 +96,10 @@ export default function BlockRenderer({
           <PromptBlock
             {...block}
             value={userResponses?.[block.id]}
-            onChange={(value) => onResponseChange?.(block.id, value)}
+            onChange={(value) => {
+              onResponseChange?.(block.id, value);
+              debouncedSave(block.id, value);
+            }}
           />
         );
 
@@ -124,6 +153,12 @@ export default function BlockRenderer({
 
       case 'variable':
         return <VariableBlock {...block} userResponses={userResponses} />;
+
+      case 'framework_intro':
+        return <FrameworkIntroBlock {...block} />;
+
+      case 'framework_letter':
+        return <FrameworkLetterBlock {...block} />;
 
       default:
         console.warn(`BlockRenderer: Unknown block type "${(block as any).type}"`);

@@ -41,7 +41,7 @@ export default function CalloutBlock({ variant, title, text, icon }: CalloutBloc
     },
   };
 
-  const style = variantStyles[variant];
+  const style = variantStyles[variant] ?? variantStyles.tip;
 
   return (
     <div className={`callout-block mb-6 p-6 rounded-lg border-l-4 ${style.bg} ${style.border}`}>
