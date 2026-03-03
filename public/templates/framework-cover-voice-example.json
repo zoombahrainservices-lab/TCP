@@ -1,0 +1,35 @@
+{
+  "type": "framework_cover",
+  "frameworkCode": "VOICE",
+  "frameworkTitle": "The VOICE Framework",
+  "frameworkLabel": "FRAMEWORK: VOICE",
+  "accentColor": "#3b82f6",
+  "backgroundColor": "#eff6ff",
+  "letters": [
+    {
+      "letter": "V",
+      "meaning": "Validate the Experience",
+      "color": "#3b82f6"
+    },
+    {
+      "letter": "O",
+      "meaning": "Open Communication Channels",
+      "color": "#3b82f6"
+    },
+    {
+      "letter": "I",
+      "meaning": "Identify Support Networks",
+      "color": "#3b82f6"
+    },
+    {
+      "letter": "C",
+      "meaning": "Create Action Plans",
+      "color": "#3b82f6"
+    },
+    {
+      "letter": "E",
+      "meaning": "Empower Through Education",
+      "color": "#3b82f6"
+    }
+  ]
+}

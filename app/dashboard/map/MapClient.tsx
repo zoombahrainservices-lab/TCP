@@ -196,6 +196,11 @@ export default function MapClient({ chapters, currentChapterNumber }: MapClientP
     router.push(`/read/${selectedChapter.slug}/${stepSlug}?page=${pageOrderIndex}`)
   }
 
+  const handleSectionClick = (stepSlug: string) => {
+    if (!selectedChapter) return
+    router.push(`/read/${selectedChapter.slug}/${stepSlug}`)
+  }
+
   const markerTitle = (ch: MapChapter) => `Chapter ${ch.chapter_number}`
 
   return (
@@ -254,6 +259,9 @@ export default function MapClient({ chapters, currentChapterNumber }: MapClientP
                 const Icon = sectionIcons[section.step_type] ?? BookOpen
                 const label = sectionLabels[section.step_type] ?? section.title
 
+                const isChapterLocked = selectedChapter?.status === 'locked'
+                const hasPages = section.pages.length > 0
+
                 return (
                   <div
                     key={section.id}
@@ -265,19 +273,60 @@ export default function MapClient({ chapters, currentChapterNumber }: MapClientP
                         {idx + 1}. {label}
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
-                      {section.pages.map((page) => (
+                      {hasPages ? (
+                        section.pages.map((page) => {
+                          const isLocked = isChapterLocked
+                          const isClickable = !isLocked
+                          return (
+                            <button
+                              key={page.id}
+                              onClick={() => isClickable && handlePageCircleClick(section.slug, page.order_index)}
+                              disabled={isLocked}
+                              style={{
+                                backgroundColor: page.isCompleted
+                                  ? '#FF6A38'
+                                  : isLocked
+                                  ? '#D1D5DB'
+                                  : '#B8B9BC'
+                              }}
+                              className={`h-7 w-7 rounded-full transition-all ${
+                                page.isCompleted
+                                  ? 'hover:scale-110 shadow-lg hover:brightness-110'
+                                  : isLocked
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : 'hover:scale-110 hover:brightness-95'
+                              }`}
+                              title={
+                                isLocked
+                                  ? `🔒 Chapter ${selectedChapter.chapter_number} is locked`
+                                  : page.isCompleted
+                                  ? `✓ ${page.title || `Page ${page.order_index}`} (Completed)`
+                                  : page.title || `Page ${page.order_index}`
+                              }
+                              aria-label={`${isLocked ? 'Locked: ' : ''}${page.isCompleted ? 'Completed: ' : ''}${section.title} page ${page.order_index}`}
+                            />
+                          )
+                        })
+                      ) : (
                         <button
-                          key={page.id}
-                          onClick={() => handlePageCircleClick(section.slug, page.order_index)}
-                          className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
-                            page.isCompleted
-                              ? 'bg-[#FF6A38]'
-                              : 'bg-[#b8b9bc]'
+                          onClick={() => !isChapterLocked && handleSectionClick(section.slug)}
+                          disabled={isChapterLocked}
+                          style={{
+                            backgroundColor: isChapterLocked ? '#D1D5DB' : '#B8B9BC'
+                          }}
+                          className={`h-7 w-7 rounded-full transition-all ${
+                            isChapterLocked
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'hover:scale-110 hover:brightness-95'
                           }`}
-                          title={page.title || `Page ${page.order_index}`}
-                          aria-label={`Open ${section.title} page ${page.order_index}`}
+                          title={
+                            isChapterLocked
+                              ? `🔒 Chapter ${selectedChapter.chapter_number} is locked`
+                              : `${label} (opens section)`
+                          }
+                          aria-label={`${section.title} section`}
                         />
-                      ))}
+                      )}
                       </div>
                     </div>
                   </div>

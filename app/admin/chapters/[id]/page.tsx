@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { 
   getChapter, 
   getAllParts, 
@@ -27,6 +27,7 @@ import Button from '@/components/ui/Button'
 import StepCard from '@/components/admin/StepCard'
 import StepSettingsModal from '@/components/admin/StepSettingsModal'
 import ImageUploadField from '@/components/admin/ImageUploadField'
+import { AdminErrorBoundary } from '@/components/admin/AdminErrorBoundary'
 import { ArrowLeft, Plus, Save, Edit, Trash2, Check } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -39,6 +40,7 @@ const TemplateSelector = dynamic(() => import('@/components/admin/TemplateSelect
 export default function ChapterEditorPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const chapterId = params.id as string
 
   const [chapter, setChapter] = useState<any>(null)
@@ -48,13 +50,41 @@ export default function ChapterEditorPage() {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState<'settings' | 'steps' | 'content'>('settings')
+  
+  // OPTIMIZED: Get initial tab from URL or default to 'steps' (most common use case)
+  const initialTab = (searchParams.get('tab') as 'settings' | 'steps' | 'content') || 'steps'
+  const [activeTab, setActiveTab] = useState<'settings' | 'steps' | 'content'>(initialTab)
+  
   const [editingStep, setEditingStep] = useState<any>(null)
   const [showStepSettings, setShowStepSettings] = useState(false)
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
   const [currentStepForTemplate, setCurrentStepForTemplate] = useState<string | null>(null)
   const [publishValidation, setPublishValidation] = useState<{ valid: boolean; errors: string[] } | null>(null)
   const [showPublishModal, setShowPublishModal] = useState(false)
+  
+  // OPTIMIZED: Track pending operations for loading indicators
+  const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set())
+
+  // OPTIMIZED: Update URL when tab changes (for back button support)
+  const handleTabChange = useCallback((newTab: 'settings' | 'steps' | 'content') => {
+    setActiveTab(newTab)
+    const url = new URL(window.location.href)
+    url.searchParams.set('tab', newTab)
+    window.history.replaceState({}, '', url.toString())
+  }, [])
+
+  // Helper functions for tracking operations
+  const addPendingOperation = useCallback((id: string) => {
+    setPendingOperations(prev => new Set(prev).add(id))
+  }, [])
+
+  const removePendingOperation = useCallback((id: string) => {
+    setPendingOperations(prev => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+  }, [])
 
   // Chapter form state
   const [formData, setFormData] = useState({
@@ -134,49 +164,158 @@ export default function ChapterEditorPage() {
     }
   }
   
-  const toggleStep = (stepId: string) => {
-    const newExpanded = new Set(expandedSteps)
-    if (newExpanded.has(stepId)) {
-      newExpanded.delete(stepId)
-    } else {
-      newExpanded.add(stepId)
+  // OPTIMIZED: Selective refresh functions (replace loadData)
+  const refreshPages = useCallback(async (stepId: string) => {
+    try {
+      const updatedPages = await getAllPagesForStep(stepId)
+      setPages(prev => ({ ...prev, [stepId]: updatedPages }))
+    } catch (error) {
+      console.error('Error refreshing pages:', error)
     }
-    setExpandedSteps(newExpanded)
-  }
+  }, [])
+
+  const refreshSteps = useCallback(async () => {
+    try {
+      const updatedSteps = await getAllStepsForChapter(chapterId)
+      setSteps(updatedSteps)
+    } catch (error) {
+      console.error('Error refreshing steps:', error)
+    }
+  }, [chapterId])
+
+  const refreshChapter = useCallback(async () => {
+    try {
+      const updatedChapter = await getChapter(chapterId)
+      if (updatedChapter) {
+        setChapter(updatedChapter)
+        setFormData({
+          ...updatedChapter,
+          framework_letters: (updatedChapter.framework_letters || []).join(', '),
+          framework_letter_images: updatedChapter.framework_letter_images || [],
+        })
+      }
+    } catch (error) {
+      console.error('Error refreshing chapter:', error)
+    }
+  }, [chapterId])
+
+  // OPTIMIZED: Memoized toggleStep callback
+  const toggleStep = useCallback((stepId: string) => {
+    setExpandedSteps(prev => {
+      const newExpanded = new Set(prev)
+      if (newExpanded.has(stepId)) {
+        newExpanded.delete(stepId)
+      } else {
+        newExpanded.add(stepId)
+      }
+      return newExpanded
+    })
+  }, [])
   
-  const handleCreatePage = async (stepId: string) => {
+  // OPTIMIZED: Optimistic page creation with instant UI update
+  const handleCreatePage = useCallback(async (stepId: string) => {
     const title = prompt('Enter page title:')
     if (!title) return
     
+    const tempId = `temp-${Date.now()}`
+    const newPage = {
+      id: tempId,
+      title,
+      slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      order_index: (pages[stepId] || []).length,
+      estimated_minutes: 5,
+      xp_award: 10,
+      content: [],
+      step_id: stepId,
+      chunk_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      _isPending: true, // Mark as pending for UI indication
+    }
+    
+    // OPTIMISTIC UPDATE: Instantly add to UI
+    setPages(prev => ({
+      ...prev,
+      [stepId]: [...(prev[stepId] || []), newPage]
+    }))
+    
+    // Track pending operation
+    addPendingOperation(tempId)
+    
     try {
-      await createPage(stepId, {
+      // Background server call
+      const result = await createPage(stepId, {
         title,
-        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        order_index: (pages[stepId] || []).length,
+        slug: newPage.slug,
+        order_index: newPage.order_index,
         estimated_minutes: 5,
         xp_award: 10,
         content: [],
       })
+      
+      // Replace temp with real data (remove pending flag)
+      setPages(prev => ({
+        ...prev,
+        [stepId]: prev[stepId].map(p => 
+          p.id === tempId ? { ...result.page } : p
+        )
+      }))
+      
       toast.success('Page created successfully')
-      loadData()
     } catch (error) {
+      // ROLLBACK: Remove temp page on error
+      setPages(prev => ({
+        ...prev,
+        [stepId]: prev[stepId].filter(p => p.id !== tempId)
+      }))
       toast.error('Failed to create page')
+      console.error('Error creating page:', error)
+    } finally {
+      removePendingOperation(tempId)
     }
-  }
+  }, [pages, addPendingOperation, removePendingOperation])
   
-  const handleDeletePage = async (pageId: string) => {
+  // OPTIMIZED: Optimistic page deletion with instant UI update
+  const handleDeletePage = useCallback(async (pageId: string) => {
     if (!confirm('Are you sure you want to delete this page?')) return
     
+    // Find the step containing this page
+    let targetStepId: string | null = null
+    let removedPage: any = null
+    
+    for (const [stepId, stepPages] of Object.entries(pages)) {
+      const page = stepPages.find(p => p.id === pageId)
+      if (page) {
+        targetStepId = stepId
+        removedPage = page
+        break
+      }
+    }
+    
+    if (!targetStepId || !removedPage) return
+    
+    // OPTIMISTIC UPDATE: Instantly remove from UI
+    setPages(prev => ({
+      ...prev,
+      [targetStepId!]: prev[targetStepId!].filter(p => p.id !== pageId)
+    }))
+    
     try {
+      // Background server call
       await deletePage(pageId)
       toast.success('Page deleted successfully')
-      loadData()
     } catch (error) {
+      // ROLLBACK: Restore page on error
+      setPages(prev => ({
+        ...prev,
+        [targetStepId!]: [...prev[targetStepId!], removedPage].sort((a, b) => a.order_index - b.order_index)
+      }))
       toast.error('Failed to delete page')
+      console.error('Error deleting page:', error)
     }
-  }
+  }, [pages])
 
-  const handleSaveChapter = async () => {
+  const handleSaveChapter = useCallback(async () => {
     setSaving(true)
     try {
       // Convert framework_letters string to array
@@ -188,49 +327,105 @@ export default function ChapterEditorPage() {
       }
       await updateChapter(chapterId, dataToSave)
       toast.success('Chapter saved successfully')
-      loadData()
+      // OPTIMIZED: Only refresh chapter data, not everything
+      refreshChapter()
     } catch (error) {
       toast.error('Failed to save chapter')
     } finally {
       setSaving(false)
     }
-  }
+  }, [formData, chapterId, refreshChapter])
 
-  const handleCreateStep = async () => {
+  // OPTIMIZED: Optimistic step creation
+  const handleCreateStep = useCallback(async () => {
     const stepType = prompt('Enter step type (read, self_check, framework, techniques, resolution, follow_through):')
     if (!stepType) return
 
     const title = prompt('Enter step title:')
     if (!title) return
 
+    const tempId = `temp-${Date.now()}`
+    const newStep = {
+      id: tempId,
+      step_type: stepType,
+      title,
+      slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      order_index: steps.length,
+      is_required: true,
+      chapter_id: chapterId,
+      unlock_rule: null,
+      hero_image_url: null,
+      created_at: new Date().toISOString(),
+    }
+
+    // OPTIMISTIC UPDATE: Instantly add to UI
+    setSteps(prev => [...prev, newStep])
+    setPages(prev => ({ ...prev, [tempId]: [] }))
+
     try {
-      await createStep(chapterId, {
+      const result = await createStep(chapterId, {
         step_type: stepType,
         title,
-        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        order_index: steps.length,
+        slug: newStep.slug,
+        order_index: newStep.order_index,
         is_required: true,
       })
+      
+      // Replace temp with real data
+      setSteps(prev => prev.map(s => s.id === tempId ? result.step : s))
+      setPages(prev => {
+        const newPages = { ...prev }
+        if (result.step.id !== tempId) {
+          newPages[result.step.id] = prev[tempId] || []
+          delete newPages[tempId]
+        }
+        return newPages
+      })
+      
       toast.success('Step created successfully')
-      loadData()
     } catch (error) {
+      // ROLLBACK: Remove temp step on error
+      setSteps(prev => prev.filter(s => s.id !== tempId))
+      setPages(prev => {
+        const newPages = { ...prev }
+        delete newPages[tempId]
+        return newPages
+      })
       toast.error('Failed to create step')
+      console.error('Error creating step:', error)
     }
-  }
+  }, [steps, chapterId])
 
-  const handleDeleteStep = async (stepId: string) => {
+  // OPTIMIZED: Optimistic step deletion
+  const handleDeleteStep = useCallback(async (stepId: string) => {
     if (!confirm('Are you sure you want to delete this step?')) return
+
+    const removedStep = steps.find(s => s.id === stepId)
+    const removedPages = pages[stepId] || []
+    
+    if (!removedStep) return
+
+    // OPTIMISTIC UPDATE: Instantly remove from UI
+    setSteps(prev => prev.filter(s => s.id !== stepId))
+    setPages(prev => {
+      const newPages = { ...prev }
+      delete newPages[stepId]
+      return newPages
+    })
 
     try {
       await deleteStep(stepId)
       toast.success('Step deleted successfully')
-      loadData()
     } catch (error) {
+      // ROLLBACK: Restore step and pages on error
+      setSteps(prev => [...prev, removedStep].sort((a, b) => a.order_index - b.order_index))
+      setPages(prev => ({ ...prev, [stepId]: removedPages }))
       toast.error('Failed to delete step')
+      console.error('Error deleting step:', error)
     }
-  }
+  }, [steps, pages])
 
-  const handleEnsureRequiredSteps = async () => {
+  const handleEnsureRequiredSteps = useCallback(async () => {
     try {
       const result = await adminEnsureRequiredSteps(chapterId)
       if (result.createdCount > 0) {
@@ -238,23 +433,55 @@ export default function ChapterEditorPage() {
       } else {
         toast.success('All required steps already exist')
       }
-      loadData()
+      // OPTIMIZED: Only refresh steps, not everything
+      refreshSteps()
     } catch (error) {
       toast.error('Failed to ensure required steps')
     }
-  }
+  }, [chapterId, refreshSteps])
 
-  const handleUpdatePageMeta = async (pageId: string, data: any) => {
+  // OPTIMIZED: Optimistic page metadata update
+  const handleUpdatePageMeta = useCallback(async (pageId: string, data: any) => {
+    // Find the step containing this page
+    let targetStepId: string | null = null
+    let originalPage: any = null
+    
+    for (const [stepId, stepPages] of Object.entries(pages)) {
+      const page = stepPages.find(p => p.id === pageId)
+      if (page) {
+        targetStepId = stepId
+        originalPage = page
+        break
+      }
+    }
+    
+    if (!targetStepId || !originalPage) return
+    
+    // OPTIMISTIC UPDATE: Instantly update in UI
+    setPages(prev => ({
+      ...prev,
+      [targetStepId!]: prev[targetStepId!].map(p =>
+        p.id === pageId ? { ...p, ...data } : p
+      )
+    }))
+    
     try {
       await updatePage(pageId, data)
       toast.success('Page metadata updated')
-      loadData()
     } catch (error) {
+      // ROLLBACK: Restore original data on error
+      setPages(prev => ({
+        ...prev,
+        [targetStepId!]: prev[targetStepId!].map(p =>
+          p.id === pageId ? originalPage : p
+        )
+      }))
       toast.error('Failed to update page metadata')
+      console.error('Error updating page metadata:', error)
     }
-  }
+  }, [pages])
 
-  const handleValidateForPublish = async () => {
+  const handleValidateForPublish = useCallback(async () => {
     try {
       const validation = await validateChapterForPublish(chapterId)
       setPublishValidation(validation)
@@ -262,29 +489,31 @@ export default function ChapterEditorPage() {
     } catch (error) {
       toast.error('Failed to validate chapter')
     }
-  }
+  }, [chapterId])
 
-  const handlePublish = async () => {
+  const handlePublish = useCallback(async () => {
     try {
       await publishChapter(chapterId, true)
       toast.success('Chapter published successfully')
       setShowPublishModal(false)
-      loadData()
+      // OPTIMIZED: Only refresh chapter data
+      refreshChapter()
     } catch (error: any) {
       toast.error(error.message || 'Failed to publish chapter')
     }
-  }
+  }, [chapterId, refreshChapter])
 
-  const handleUnpublish = async () => {
+  const handleUnpublish = useCallback(async () => {
     if (!confirm('Unpublish this chapter? Users will no longer see it.')) return
     try {
       await publishChapter(chapterId, false)
       toast.success('Chapter unpublished')
-      loadData()
+      // OPTIMIZED: Only refresh chapter data
+      refreshChapter()
     } catch (error) {
       toast.error('Failed to unpublish chapter')
     }
-  }
+  }, [chapterId, refreshChapter])
 
   // Validation warnings
   // OPTIMIZED: Memoize expensive validation computation
@@ -331,22 +560,38 @@ export default function ChapterEditorPage() {
   const handleSaveStepSettings = useCallback(async (data: { title: string; slug: string; is_required: boolean; hero_image_url?: string }) => {
     if (!editingStep) return
 
+    const originalStep = steps.find(s => s.id === editingStep.id)
+    if (!originalStep) return
+
+    // OPTIMISTIC UPDATE: Instantly update in UI
+    setSteps(prev => prev.map(s => 
+      s.id === editingStep.id ? { ...s, ...data } : s
+    ))
+
     try {
       await updateStep(editingStep.id, data)
       if (data.is_required !== editingStep.is_required) {
         await toggleStepRequired(editingStep.id, data.is_required)
       }
       toast.success('Step updated successfully')
-      loadData()
+      setShowStepSettings(false)
+      setEditingStep(null)
     } catch (error) {
+      // ROLLBACK: Restore original step on error
+      setSteps(prev => prev.map(s => 
+        s.id === editingStep.id ? originalStep : s
+      ))
       toast.error('Failed to update step')
+      console.error('Error updating step:', error)
     }
-  }, [editingStep])
+  }, [editingStep, steps])
 
+  // OPTIMIZED: Optimistic step reordering
   const handleStepMoveUp = useCallback(async (stepId: string) => {
     const stepIndex = steps.findIndex(s => s.id === stepId)
     if (stepIndex <= 0) return
 
+    const originalSteps = [...steps]
     const newOrder = [...steps]
     const temp = newOrder[stepIndex]
     newOrder[stepIndex] = newOrder[stepIndex - 1]
@@ -357,19 +602,26 @@ export default function ChapterEditorPage() {
       order_index: index
     }))
 
+    // OPTIMISTIC UPDATE: Instantly reorder in UI
+    setSteps(newOrder)
+
     try {
       await reorderSteps(chapterId, orderUpdates)
       toast.success('Step reordered')
-      loadData()
     } catch (error) {
+      // ROLLBACK: Restore original order on error
+      setSteps(originalSteps)
       toast.error('Failed to reorder step')
+      console.error('Error reordering step:', error)
     }
   }, [steps, chapterId])
 
+  // OPTIMIZED: Optimistic step reordering (down)
   const handleStepMoveDown = useCallback(async (stepId: string) => {
     const stepIndex = steps.findIndex(s => s.id === stepId)
     if (stepIndex >= steps.length - 1) return
 
+    const originalSteps = [...steps]
     const newOrder = [...steps]
     const temp = newOrder[stepIndex]
     newOrder[stepIndex] = newOrder[stepIndex + 1]
@@ -380,20 +632,27 @@ export default function ChapterEditorPage() {
       order_index: index
     }))
 
+    // OPTIMISTIC UPDATE: Instantly reorder in UI
+    setSteps(newOrder)
+
     try {
       await reorderSteps(chapterId, orderUpdates)
       toast.success('Step reordered')
-      loadData()
     } catch (error) {
+      // ROLLBACK: Restore original order on error
+      setSteps(originalSteps)
       toast.error('Failed to reorder step')
+      console.error('Error reordering step:', error)
     }
   }, [steps, chapterId])
 
+  // OPTIMIZED: Optimistic page reordering
   const handlePageMoveUp = useCallback(async (stepId: string, pageId: string) => {
     const stepPages = pages[stepId] || []
     const pageIndex = stepPages.findIndex(p => p.id === pageId)
     if (pageIndex <= 0) return
 
+    const originalPages = { ...pages }
     const newOrder = [...stepPages]
     const temp = newOrder[pageIndex]
     newOrder[pageIndex] = newOrder[pageIndex - 1]
@@ -404,20 +663,27 @@ export default function ChapterEditorPage() {
       order_index: index
     }))
 
+    // OPTIMISTIC UPDATE: Instantly reorder in UI
+    setPages(prev => ({ ...prev, [stepId]: newOrder }))
+
     try {
       await reorderPages(stepId, orderUpdates)
       toast.success('Page reordered')
-      loadData()
     } catch (error) {
+      // ROLLBACK: Restore original order on error
+      setPages(originalPages)
       toast.error('Failed to reorder page')
+      console.error('Error reordering page:', error)
     }
   }, [pages])
 
+  // OPTIMIZED: Optimistic page reordering (down)
   const handlePageMoveDown = useCallback(async (stepId: string, pageId: string) => {
     const stepPages = pages[stepId] || []
     const pageIndex = stepPages.findIndex(p => p.id === pageId)
     if (pageIndex >= stepPages.length - 1) return
 
+    const originalPages = { ...pages }
     const newOrder = [...stepPages]
     const temp = newOrder[pageIndex]
     newOrder[pageIndex] = newOrder[pageIndex + 1]
@@ -428,12 +694,17 @@ export default function ChapterEditorPage() {
       order_index: index
     }))
 
+    // OPTIMISTIC UPDATE: Instantly reorder in UI
+    setPages(prev => ({ ...prev, [stepId]: newOrder }))
+
     try {
       await reorderPages(stepId, orderUpdates)
       toast.success('Page reordered')
-      loadData()
     } catch (error) {
+      // ROLLBACK: Restore original order on error
+      setPages(originalPages)
       toast.error('Failed to reorder page')
+      console.error('Error reordering page:', error)
     }
   }, [pages])
 
@@ -448,29 +719,108 @@ export default function ChapterEditorPage() {
     const title = prompt('Enter page title:')
     if (!title) return
 
+    const tempId = `temp-${Date.now()}`
+    const newPage = {
+      id: tempId,
+      title,
+      slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      order_index: (pages[currentStepForTemplate] || []).length,
+      estimated_minutes: 5,
+      xp_award: 10,
+      content: templateBlocks,
+      step_id: currentStepForTemplate,
+      chunk_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    // OPTIMISTIC UPDATE: Instantly add to UI
+    setPages(prev => ({
+      ...prev,
+      [currentStepForTemplate]: [...(prev[currentStepForTemplate] || []), newPage]
+    }))
+
     try {
-      await createPage(currentStepForTemplate, {
+      const result = await createPage(currentStepForTemplate, {
         title,
-        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        order_index: (pages[currentStepForTemplate] || []).length,
+        slug: newPage.slug,
+        order_index: newPage.order_index,
         estimated_minutes: 5,
         xp_award: 10,
         content: templateBlocks,
       })
+      
+      // Replace temp with real data
+      setPages(prev => ({
+        ...prev,
+        [currentStepForTemplate]: prev[currentStepForTemplate].map(p => 
+          p.id === tempId ? result.page : p
+        )
+      }))
+      
       toast.success('Page created from template')
-      loadData()
     } catch (error) {
+      // ROLLBACK: Remove temp page on error
+      setPages(prev => ({
+        ...prev,
+        [currentStepForTemplate]: prev[currentStepForTemplate].filter(p => p.id !== tempId)
+      }))
       toast.error('Failed to create page')
+      console.error('Error creating page from template:', error)
     }
   }, [currentStepForTemplate, pages])
 
+  // OPTIMIZED: Stable callback creators for StepCard props (prevent re-renders)
+  const createToggleCallback = useCallback((stepId: string) => () => toggleStep(stepId), [toggleStep])
+  const createAddPageCallback = useCallback((stepId: string) => () => handleCreatePage(stepId), [handleCreatePage])
+  const createAddFromTemplateCallback = useCallback((stepId: string) => () => handleAddFromTemplate(stepId), [handleAddFromTemplate])
+  const createEditStepCallback = useCallback((step: any) => () => handleEditStep(step), [handleEditStep])
+  const createDeleteStepCallback = useCallback((stepId: string) => () => handleDeleteStep(stepId), [handleDeleteStep])
+  const createStepMoveUpCallback = useCallback((stepId: string) => () => handleStepMoveUp(stepId), [handleStepMoveUp])
+  const createStepMoveDownCallback = useCallback((stepId: string) => () => handleStepMoveDown(stepId), [handleStepMoveDown])
+  const createPageMoveUpCallback = useCallback((stepId: string) => (pageId: string) => handlePageMoveUp(stepId, pageId), [handlePageMoveUp])
+  const createPageMoveDownCallback = useCallback((stepId: string) => (pageId: string) => handlePageMoveDown(stepId, pageId), [handlePageMoveDown])
+
+  // Skeleton loader for chapter editor
   if (loading) {
     return (
-      <div className="p-6 lg:p-8">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-amber)]"></div>
+      <AdminErrorBoundary fallbackMessage="An error occurred while loading this chapter.">
+        <div className="p-6 lg:p-8">
+          {/* Header Skeleton */}
+          <div className="mb-8 animate-pulse">
+            <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                <div className="h-4 w-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              </div>
+              <div className="h-10 w-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            </div>
+          </div>
+
+          {/* Tabs Skeleton */}
+          <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+            <div className="flex gap-8 animate-pulse">
+              <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            </div>
+          </div>
+
+          {/* Content Skeleton */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 animate-pulse space-y-4">
+            <div className="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded mb-6"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i}>
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                  <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      </AdminErrorBoundary>
     )
   }
 
@@ -485,7 +835,8 @@ export default function ChapterEditorPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
+    <AdminErrorBoundary fallbackMessage="An error occurred while editing this chapter. Your changes may have been saved.">
+      <div className="p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
         <Link
@@ -537,7 +888,7 @@ export default function ChapterEditorPage() {
           {['settings', 'steps', 'content'].map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab as any)}
+              onClick={() => handleTabChange(tab as any)}
               className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors capitalize
                 ${activeTab === tab
                   ? 'border-[var(--color-amber)] text-[var(--color-amber)]'
@@ -789,17 +1140,17 @@ export default function ChapterEditorPage() {
                   isExpanded={expandedSteps.has(step.id)}
                   canMoveUp={index > 0}
                   canMoveDown={index < steps.length - 1}
-                  onToggle={() => toggleStep(step.id)}
-                  onAddPage={() => handleCreatePage(step.id)}
-                  onAddFromTemplate={() => handleAddFromTemplate(step.id)}
-                  onEditStep={() => handleEditStep(step)}
-                  onDeleteStep={() => handleDeleteStep(step.id)}
+                  onToggle={createToggleCallback(step.id)}
+                  onAddPage={createAddPageCallback(step.id)}
+                  onAddFromTemplate={createAddFromTemplateCallback(step.id)}
+                  onEditStep={createEditStepCallback(step)}
+                  onDeleteStep={createDeleteStepCallback(step.id)}
                   onDeletePage={handleDeletePage}
                   onUpdatePage={handleUpdatePageMeta}
-                  onMoveUp={() => handleStepMoveUp(step.id)}
-                  onMoveDown={() => handleStepMoveDown(step.id)}
-                  onPageMoveUp={(pageId) => handlePageMoveUp(step.id, pageId)}
-                  onPageMoveDown={(pageId) => handlePageMoveDown(step.id, pageId)}
+                  onMoveUp={createStepMoveUpCallback(step.id)}
+                  onMoveDown={createStepMoveDownCallback(step.id)}
+                  onPageMoveUp={createPageMoveUpCallback(step.id)}
+                  onPageMoveDown={createPageMoveDownCallback(step.id)}
                 />
               ))}
             </div>
@@ -830,17 +1181,17 @@ export default function ChapterEditorPage() {
                   isExpanded={expandedSteps.has(step.id)}
                   canMoveUp={index > 0}
                   canMoveDown={index < steps.length - 1}
-                  onToggle={() => toggleStep(step.id)}
-                  onAddPage={() => handleCreatePage(step.id)}
-                  onAddFromTemplate={() => handleAddFromTemplate(step.id)}
-                  onEditStep={() => handleEditStep(step)}
-                  onDeleteStep={() => handleDeleteStep(step.id)}
+                  onToggle={createToggleCallback(step.id)}
+                  onAddPage={createAddPageCallback(step.id)}
+                  onAddFromTemplate={createAddFromTemplateCallback(step.id)}
+                  onEditStep={createEditStepCallback(step)}
+                  onDeleteStep={createDeleteStepCallback(step.id)}
                   onDeletePage={handleDeletePage}
                   onUpdatePage={handleUpdatePageMeta}
-                  onMoveUp={() => handleStepMoveUp(step.id)}
-                  onMoveDown={() => handleStepMoveDown(step.id)}
-                  onPageMoveUp={(pageId) => handlePageMoveUp(step.id, pageId)}
-                  onPageMoveDown={(pageId) => handlePageMoveDown(step.id, pageId)}
+                  onMoveUp={createStepMoveUpCallback(step.id)}
+                  onMoveDown={createStepMoveDownCallback(step.id)}
+                  onPageMoveUp={createPageMoveUpCallback(step.id)}
+                  onPageMoveDown={createPageMoveDownCallback(step.id)}
                 />
               ))}
             </div>
@@ -925,5 +1276,6 @@ export default function ChapterEditorPage() {
         </div>
       )}
     </div>
+    </AdminErrorBoundary>
   )
 }

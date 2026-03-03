@@ -1,12 +1,13 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient as createSupabaseServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+// Primary export used across the app
 export async function createClient() {
   // cookies() is synchronous in Next.js 15+ but async in 14
   // We'll use await for compatibility
   const cookieStore = await cookies()
 
-  return createServerClient(
+  return createSupabaseServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -26,4 +27,10 @@ export async function createClient() {
       },
     }
   )
+}
+
+// Backwards-compatible alias so older code importing `createServerClient`
+// from this module still works.
+export async function createServerClient() {
+  return createClient()
 }

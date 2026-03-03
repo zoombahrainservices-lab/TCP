@@ -659,11 +659,20 @@ export async function getChapter(chapterId: string) {
   const admin = createAdminClient()
 
   try {
-    const { data, error } = await admin
-      .from('chapters')
-      .select('*')
-      .eq('id', chapterId)
-      .single()
+    // Support both UUID chapter IDs and numeric chapter numbers (e.g. "1")
+    const isNumericId = /^\d+$/.test(chapterId)
+
+    let query = admin.from('chapters').select('*')
+
+    if (isNumericId) {
+      // When a plain number like "1" is passed, treat it as chapter_number
+      query = query.eq('chapter_number', Number(chapterId))
+    } else {
+      // Otherwise assume it's the UUID primary key
+      query = query.eq('id', chapterId)
+    }
+
+    const { data, error } = await query.single()
 
     if (error) {
       console.error('Error fetching chapter:', error)
@@ -682,10 +691,20 @@ export async function getAllStepsForChapter(chapterId: string) {
   const admin = createAdminClient()
 
   try {
+    // Support both UUID chapter IDs and numeric chapter numbers (e.g. "1")
+    let realChapterId = chapterId
+    const isNumericId = /^\d+$/.test(chapterId)
+
+    if (isNumericId) {
+      // Reuse getChapter, which already handles numeric IDs via chapter_number
+      const chapter = await getChapter(chapterId)
+      realChapterId = chapter.id
+    }
+
     const { data, error } = await admin
       .from('chapter_steps')
       .select('*')
-      .eq('chapter_id', chapterId)
+      .eq('chapter_id', realChapterId)
       .order('order_index')
 
     if (error) {
@@ -1057,7 +1076,7 @@ export async function createStep(chapterId: string, data: any) {
 
     if (error) throw error
 
-    revalidatePath(`/admin/chapters/${chapterId}`)
+    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
 
     return { success: true, step }
   } catch (error) {
@@ -1078,7 +1097,7 @@ export async function updateStep(stepId: string, data: any) {
 
     if (error) throw error
 
-    revalidatePath('/admin/chapters')
+    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
 
     return { success: true }
   } catch (error) {
@@ -1099,7 +1118,7 @@ export async function deleteStep(stepId: string) {
 
     if (error) throw error
 
-    revalidatePath('/admin/chapters')
+    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
 
     return { success: true }
   } catch (error) {
@@ -1124,7 +1143,7 @@ export async function createPage(stepId: string, data: any) {
 
     if (error) throw error
 
-    revalidatePath('/admin/chapters')
+    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
 
     return { success: true, page }
   } catch (error) {
@@ -1145,7 +1164,7 @@ export async function updatePage(pageId: string, data: any) {
 
     if (error) throw error
 
-    revalidatePath('/admin/chapters')
+    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
 
     return { success: true }
   } catch (error) {
@@ -1166,7 +1185,7 @@ export async function deletePage(pageId: string) {
 
     if (error) throw error
 
-    revalidatePath('/admin/chapters')
+    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
 
     return { success: true }
   } catch (error) {
@@ -1305,7 +1324,11 @@ export async function reorderSteps(chapterId: string, stepOrder: { id: string; o
   const admin = createAdminClient()
 
   try {
-    // Update each step's order_index
+    // NOTE: We only need to update the order_index column.
+    // Using simple sequential updates here keeps the query
+    // shape identical to the original implementation and
+    // avoids NOT NULL constraint issues that can happen
+    // when upserting without all required columns.
     for (const step of stepOrder) {
       const { error } = await admin
         .from('chapter_steps')
@@ -1316,7 +1339,7 @@ export async function reorderSteps(chapterId: string, stepOrder: { id: string; o
       if (error) throw error
     }
 
-    revalidatePath('/admin/chapters')
+    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
 
     return { success: true }
   } catch (error) {
@@ -1330,7 +1353,9 @@ export async function reorderPages(stepId: string, pageOrder: { id: string; orde
   const admin = createAdminClient()
 
   try {
-    // Update each page's order_index
+    // Same reasoning as reorderSteps: only order_index changes,
+    // so a focused update keeps us clear of NOT NULL constraints
+    // on other required columns like title/slug/content.
     for (const page of pageOrder) {
       const { error } = await admin
         .from('step_pages')
@@ -1341,7 +1366,7 @@ export async function reorderPages(stepId: string, pageOrder: { id: string; orde
       if (error) throw error
     }
 
-    revalidatePath('/admin/chapters')
+    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
 
     return { success: true }
   } catch (error) {

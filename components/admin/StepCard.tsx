@@ -25,6 +25,12 @@ interface Page {
   xp_award?: number
   chunk_id?: number | null
   content: any[]
+  _isPending?: boolean // Flag for optimistic updates
+  // Title styling options
+  title_color?: string // Hex color for title
+  title_size?: 'small' | 'medium' | 'large' | 'xl' // Title size
+  title_font_weight?: 'normal' | 'medium' | 'semibold' | 'bold' | 'extrabold' // Font weight
+  title_alignment?: 'left' | 'center' | 'right' // Text alignment
 }
 
 interface StepCardProps {
@@ -249,10 +255,15 @@ export default memo(function StepCard({
               {pages.map((page, index) => (
                 <div
                   key={page.id}
-                  className="border border-gray-200 dark:border-gray-700 rounded-lg hover:border-[var(--color-amber)] transition-colors"
+                  className={`border border-gray-200 dark:border-gray-700 rounded-lg hover:border-[var(--color-amber)] transition-colors ${
+                    page._isPending ? 'opacity-60 animate-pulse' : ''
+                  }`}
                 >
                   <div className="flex items-center justify-between p-3">
                     <div className="flex items-center gap-3 flex-1">
+                      {page._isPending && (
+                        <div className="w-1 h-8 bg-amber-500 rounded animate-pulse" />
+                      )}
                       <div className="flex flex-col gap-0.5">
                         <button
                           onClick={() => onPageMoveUp(page.id)}
@@ -294,7 +305,7 @@ export default memo(function StepCard({
                         <Edit className="w-4 h-4 mr-1" />
                         Metadata
                       </Button>
-                      <Link href={`/admin/chapters/${chapterId}/pages/${page.id}/edit`}>
+                      <Link href={`/admin/chapters/${chapterId}/pages/${page.id}/edit?from=steps&returnUrl=${encodeURIComponent(`/admin/chapters/${chapterId}?tab=steps`)}`}>
                         <Button variant="primary" size="sm">
                           <FileEdit className="w-4 h-4 mr-1" />
                           Edit Content
@@ -313,6 +324,82 @@ export default memo(function StepCard({
                   {/* Metadata Editor */}
                   {editingPageId === page.id && (
                     <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
+                      {/* Page Title Styling Section */}
+                      <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                        <h4 className="text-sm font-bold text-amber-900 dark:text-amber-100 mb-3 flex items-center gap-2">
+                          <FileText className="w-4 h-4" />
+                          Page Title Styling
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Title Color
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="color"
+                                value={editingPageData.title_color || '#1f2937'}
+                                onChange={(e) => setEditingPageData({ ...editingPageData, title_color: e.target.value })}
+                                className="w-12 h-8 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                              />
+                              <input
+                                type="text"
+                                value={editingPageData.title_color || '#1f2937'}
+                                onChange={(e) => setEditingPageData({ ...editingPageData, title_color: e.target.value })}
+                                placeholder="#1f2937"
+                                className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Title Size
+                            </label>
+                            <select
+                              value={editingPageData.title_size || 'large'}
+                              onChange={(e) => setEditingPageData({ ...editingPageData, title_size: e.target.value as any })}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            >
+                              <option value="small">Small (text-2xl)</option>
+                              <option value="medium">Medium (text-3xl)</option>
+                              <option value="large">Large (text-4xl)</option>
+                              <option value="xl">Extra Large (text-5xl)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Font Weight
+                            </label>
+                            <select
+                              value={editingPageData.title_font_weight || 'bold'}
+                              onChange={(e) => setEditingPageData({ ...editingPageData, title_font_weight: e.target.value as any })}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            >
+                              <option value="normal">Normal</option>
+                              <option value="medium">Medium</option>
+                              <option value="semibold">Semi Bold</option>
+                              <option value="bold">Bold</option>
+                              <option value="extrabold">Extra Bold</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Alignment
+                            </label>
+                            <select
+                              value={editingPageData.title_alignment || 'left'}
+                              onChange={(e) => setEditingPageData({ ...editingPageData, title_alignment: e.target.value as any })}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            >
+                              <option value="left">Left</option>
+                              <option value="center">Center</option>
+                              <option value="right">Right</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Basic Page Settings */}
                       <div className="grid grid-cols-2 gap-3 mb-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">

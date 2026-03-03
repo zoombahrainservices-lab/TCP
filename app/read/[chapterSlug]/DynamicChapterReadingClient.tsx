@@ -3,9 +3,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { X, Download } from 'lucide-react';
+import { X, Download, Menu } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import BlockRenderer from '@/components/content/BlockRenderer';
+import ChapterCoverPage from '@/components/content/ChapterCoverPage';
+import AdminEditButton from '@/components/admin/AdminEditButton';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
 import { showXPNotification } from '@/components/gamification/XPNotification';
@@ -21,9 +25,12 @@ interface Props {
 
 export default function DynamicChapterReadingClient({ chapter, readingStep, pages, nextStepSlug, initialAnswers = {} }: Props) {
   const router = useRouter();
-  const [currentPage, setCurrentPage] = useState(0);
+  const pathname = usePathname();
+  // Start at -1 to show cover page first
+  const [currentPage, setCurrentPage] = useState(-1);
   const [userResponses, setUserResponses] = useState<Record<string, any>>(initialAnswers);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   const readingContentRef = useRef<HTMLDivElement>(null);
@@ -50,6 +57,12 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
 
   const handleNext = async () => {
     if (isProcessing) return;
+
+    // If on cover page (-1), just move to first actual page (0)
+    if (currentPage === -1) {
+      setCurrentPage(0);
+      return;
+    }
 
     const currentPageData = pages[currentPage];
     
@@ -96,26 +109,25 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
   };
 
   const handlePrevious = () => {
-    if (currentPage > 0) setCurrentPage(currentPage - 1);
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    } else if (currentPage === 0) {
+      // Go back to cover page
+      setCurrentPage(-1);
+    }
   };
 
   const handleClose = () => {
     router.push('/dashboard');
   };
 
-  const currentPageData = pages[currentPage];
-  const progress = pages.length ? ((currentPage + 1) / pages.length) * 100 : 0;
+  const currentPageData = pages[currentPage >= 0 ? currentPage : 0];
+  // Include cover page in progress calculation
+  const totalPages = pages.length + 1; // +1 for cover page
+  const currentPageIndex = currentPage + 1; // currentPage is -1 for cover, so +1 makes it 0-indexed for progress
+  const progress = totalPages ? ((currentPageIndex + 1) / totalPages) * 100 : 0;
 
-  // Check if current page is a title slide
-  const firstBlock = currentPageData?.content?.[0];
-  const isTitleSlide = firstBlock && (firstBlock as any).type === 'title_slide';
-
-  // Hero image:
-  // 1) Prefer explicit chapter.hero_image_url (set via admin at chapter level)
-  // 2) Then FIRST image block anywhere in the page content (set per page in admin)
-  // 3) Then chapter.thumbnail_url
-  // 4) Then chapter-specific local fallback (for legacy Chapter 1/2 art)
-  // 5) Finally a generic placeholder
+  // Hero image (only for content pages, not cover)
   const rawContent = (currentPageData?.content ?? []) as any[];
   const firstImageBlock = rawContent.find(
     (b: any) => b && b.type === 'image' && b.src && typeof b.src === 'string'
@@ -194,88 +206,14 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
 
       {/* Content - scrollable on mobile */}
       <div ref={contentRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          {isTitleSlide ? (
-            // TITLE SLIDE
-            <motion.div
-              key="title-slide"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="min-h-full w-full bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a] flex flex-col relative overflow-hidden"
-            >
-              {/* Decorative Hollow Dots Pattern */}
-              <div className="absolute inset-0 opacity-20">
-                {Array.from({ length: 20 }).map((_, i) => {
-                  const seed = (i + 1) * 7919;
-                  const w = 50 + (seed % 100);
-                  const h = 50 + ((seed * 31) % 100);
-                  const left = seed % 100;
-                  const top = (seed * 17) % 100;
-                  const opacity = 0.2 + ((seed % 30) / 100);
-                  return (
-                    <div
-                      key={i}
-                      className="absolute rounded-full border-2 border-gray-600"
-                      style={{
-                        width: `${w}px`,
-                        height: `${h}px`,
-                        left: `${left}%`,
-                        top: `${top}%`,
-                        opacity
-                      }}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* Title Content */}
-              <div className="flex-1 flex items-center justify-center relative z-10 py-12">
-                <div className="text-center px-6 sm:px-12 max-w-4xl">
-                  <div className="mb-6 sm:mb-8">
-                    <span className="text-[var(--color-amber)] text-2xl sm:text-4xl font-bold tracking-widest">
-                      CHAPTER {chapter.chapter_number}
-                    </span>
-                  </div>
-                  <h1 className="text-white font-bold text-4xl sm:text-6xl lg:text-7xl leading-tight mb-8 sm:mb-12">
-                    {chapter.title}
-                  </h1>
-                  <div className="flex items-center justify-center gap-3 mt-8 sm:mt-16">
-                    {pages.map((_, i) => (
-                      <div 
-                        key={i}
-                        className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${
-                          i === currentPage ? 'bg-[var(--color-amber)]' : 'bg-gray-600'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Navigation + Download (PDF when chapter.pdf_url is set in DB) */}
-              <div className="p-6 sm:p-8 border-t border-gray-700 bg-[#1a1a1a] relative z-10">
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
-                  {pdfUrl && (
-                    <a
-                      href={pdfUrl}
-                      download
-                      className="inline-flex items-center gap-2 rounded-2xl border border-gray-600 px-4 py-2 text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-gray-100 hover:bg-gray-800 transition-colors"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Download chapter PDF</span>
-                    </a>
-                  )}
-                  <button
-                    onClick={handleNext}
-                    disabled={isProcessing}
-                    className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-2xl font-bold text-xs sm:text-sm uppercase tracking-wide transition-all bg-[var(--color-amber)] hover:opacity-90 text-[var(--color-charcoal)] shadow-md hover:shadow-lg disabled:opacity-50"
-                  >
-                    Continue
-                  </button>
-                </div>
-              </div>
-            </motion.div>
+          {currentPage === -1 ? (
+            // CHAPTER COVER PAGE
+            <ChapterCoverPage
+              chapterNumber={chapter.chapter_number}
+              title={chapter.title}
+              subtitle={chapter.subtitle}
+              onContinue={handleNext}
+            />
           ) : (
             // CONTENT SLIDES - Image left, Text right (mobile: stacked, same as Ch1)
             <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
@@ -346,13 +284,20 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
                 {/* Bottom navigation - inside right panel */}
                 <div className="flex-shrink-0 p-4 sm:p-6 lg:p-8 border-t border-[#E5D5B0] dark:border-[#4A3B1E] bg-[#FFFAED] dark:bg-[#1A1410] safe-area-pb">
                   <div className="flex items-center justify-center gap-4 sm:gap-6 max-w-3xl mx-auto">
-                    {currentPage > 0 && (
+                    {(currentPage > 0 || currentPage === 0) && (
                       <button
                         onClick={handlePrevious}
                         className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
                       >
                         Previous
                       </button>
+                    )}
+                    {currentPage >= 0 && currentPageData && chapter.id && (
+                      <AdminEditButton
+                        chapterId={chapter.id}
+                        pageId={currentPageData.id}
+                        stepId={readingStep.id}
+                      />
                     )}
                     <button
                       onClick={handleNext}

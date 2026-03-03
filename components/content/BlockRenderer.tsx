@@ -24,6 +24,7 @@ import CTABlock from './blocks/CTABlock';
 import ButtonBlock from './blocks/ButtonBlock';
 import ConditionalBlock from './blocks/ConditionalBlock';
 import VariableBlock from './blocks/VariableBlock';
+import FrameworkCoverBlock from './blocks/FrameworkCoverBlock';
 import FrameworkIntroBlock from './blocks/FrameworkIntroBlock';
 import FrameworkLetterBlock from './blocks/FrameworkLetterBlock';
 
@@ -154,11 +155,19 @@ export default function BlockRenderer({
       case 'variable':
         return <VariableBlock {...block} userResponses={userResponses} />;
 
+      case 'framework_cover':
+        return <FrameworkCoverBlock {...block} />;
+
       case 'framework_intro':
         return <FrameworkIntroBlock {...block} />;
 
       case 'framework_letter':
         return <FrameworkLetterBlock {...block} />;
+
+      case 'title_slide':
+        // Title slides are now handled by ChapterCoverPage component
+        // Silently ignore these blocks in content
+        return null;
 
       default:
         console.warn(`BlockRenderer: Unknown block type "${(block as any).type}"`);

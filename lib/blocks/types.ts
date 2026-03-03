@@ -168,6 +168,20 @@ export interface ScriptsBlock {
 // Framework Blocks
 // ============================================
 
+export interface FrameworkCoverBlock {
+  type: 'framework_cover';
+  frameworkCode: string; // "SPARK" or "VOICE"
+  frameworkTitle: string; // "The SPARK Framework"
+  frameworkLabel?: string; // "FRAMEWORK: SPARK" (optional top label)
+  letters: Array<{
+    letter: string;
+    meaning: string;
+    color?: string; // Optional custom color per letter
+  }>;
+  accentColor?: string; // Default: #f7b418
+  backgroundColor?: string; // Default: #FFF8E7
+}
+
 export interface FrameworkIntroBlock {
   type: 'framework_intro';
   frameworkCode: string;
@@ -249,6 +263,7 @@ export type Block =
   | ButtonBlock
   | ConditionalBlock
   | VariableBlock
+  | FrameworkCoverBlock
   | FrameworkIntroBlock
   | FrameworkLetterBlock;
 

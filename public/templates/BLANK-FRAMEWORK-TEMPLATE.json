@@ -1,0 +1,40 @@
+{
+  "type": "framework_cover",
+  "frameworkCode": "CHANGE-ME",
+  "frameworkTitle": "The [YOUR FRAMEWORK] Framework",
+  "frameworkLabel": "FRAMEWORK: [YOUR FRAMEWORK]",
+  "accentColor": "#f7b418",
+  "backgroundColor": "#FFF8E7",
+  "letters": [
+    {
+      "letter": "L",
+      "meaning": "First Letter Meaning",
+      "color": "#f7b418"
+    },
+    {
+      "letter": "E",
+      "meaning": "Second Letter Meaning",
+      "color": "#f7b418"
+    },
+    {
+      "letter": "T",
+      "meaning": "Third Letter Meaning",
+      "color": "#f7b418"
+    },
+    {
+      "letter": "T",
+      "meaning": "Fourth Letter Meaning",
+      "color": "#f7b418"
+    },
+    {
+      "letter": "E",
+      "meaning": "Fifth Letter Meaning",
+      "color": "#f7b418"
+    },
+    {
+      "letter": "R",
+      "meaning": "Sixth Letter Meaning",
+      "color": "#f7b418"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "type": "framework_cover",
+  "frameworkCode": "VOICE",
+  "frameworkTitle": "The VOICE Framework",
+  "accentColor": "#10b981",
+  "backgroundColor": "#ECFDF5",
+  "letters": [
+    {
+      "letter": "V",
+      "meaning": "Validate Your Experience",
+      "color": "#10b981"
+    },
+    {
+      "letter": "O",
+      "meaning": "Organize Your Thoughts",
+      "color": "#10b981"
+    },
+    {
+      "letter": "I",
+      "meaning": "Integrate New Patterns",
+      "color": "#10b981"
+    },
+    {
+      "letter": "C",
+      "meaning": "Connect with Others",
+      "color": "#10b981"
+    },
+    {
+      "letter": "E",
+      "meaning": "Express Authentically",
+      "color": "#10b981"
+    }
+  ]
+}

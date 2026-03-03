@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Save, Eye } from 'lucide-react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
@@ -15,6 +15,7 @@ const ContentEditor = dynamic(() => import('@/components/admin/ContentEditor'), 
 export default function PageContentEditorPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const chapterId = params.id as string
   const pageId = params.pageId as string
 
@@ -26,6 +27,30 @@ export default function PageContentEditorPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [previewMode, setPreviewMode] = useState(false)
+
+  const from = searchParams.get('from')
+  const returnUrlParam = searchParams.get('returnUrl')
+
+  const handleBack = () => {
+    if (returnUrlParam) {
+      // Prefer explicit returnUrl when provided
+      router.push(returnUrlParam)
+      return
+    }
+
+    if (from === 'steps') {
+      router.push(`/admin/chapters/${chapterId}?tab=steps`)
+      return
+    }
+
+    if (from === 'reading' && chapter?.slug) {
+      router.push(`/read/${chapter.slug}/reading`)
+      return
+    }
+
+    // Fallback: go to chapter editor
+    router.push(`/admin/chapters/${chapterId}`)
+  }
 
   useEffect(() => {
     loadPage()
@@ -104,9 +129,12 @@ export default function PageContentEditorPage() {
       <div className="p-6 lg:p-8">
         <div className="text-center py-12">
           <p className="text-gray-600 dark:text-gray-400">Page not found</p>
-          <Link href={`/admin/chapters/${chapterId}`} className="text-[var(--color-amber)] hover:underline mt-4 inline-block">
-            Back to Chapter
-          </Link>
+          <button
+            onClick={handleBack}
+            className="text-[var(--color-amber)] hover:underline mt-4 inline-block"
+          >
+            Back
+          </button>
         </div>
       </div>
     )
@@ -118,13 +146,14 @@ export default function PageContentEditorPage() {
       <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-4 lg:p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link
-              href={`/admin/chapters/${chapterId}`}
+            <button
+              type="button"
+              onClick={handleBack}
               className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
-            </Link>
+            </button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {page.title || 'Untitled Page'}

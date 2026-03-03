@@ -1,0 +1,35 @@
+{
+  "type": "framework_cover",
+  "frameworkCode": "CLEAR",
+  "frameworkTitle": "The CLEAR Framework",
+  "frameworkLabel": "FRAMEWORK: CLEAR",
+  "accentColor": "#10b981",
+  "backgroundColor": "#f0fdf4",
+  "letters": [
+    {
+      "letter": "C",
+      "meaning": "Clarify Your Purpose",
+      "color": "#10b981"
+    },
+    {
+      "letter": "L",
+      "meaning": "Learn from Experience",
+      "color": "#10b981"
+    },
+    {
+      "letter": "E",
+      "meaning": "Execute with Intention",
+      "color": "#10b981"
+    },
+    {
+      "letter": "A",
+      "meaning": "Adapt as Needed",
+      "color": "#10b981"
+    },
+    {
+      "letter": "R",
+      "meaning": "Reflect and Grow",
+      "color": "#10b981"
+    }
+  ]
+}

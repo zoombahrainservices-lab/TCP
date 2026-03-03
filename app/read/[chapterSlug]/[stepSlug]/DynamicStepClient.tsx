@@ -6,7 +6,10 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
+import ChapterCoverPage from '@/components/content/ChapterCoverPage';
+import FrameworkCoverPage from '@/components/content/FrameworkCoverPage';
 import SelfCheckAssessment, { type AssessmentQuestion } from '@/components/assessment/SelfCheckAssessment';
+import AdminEditButton from '@/components/admin/AdminEditButton';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
 import { submitAssessment } from '@/app/actions/prompts';
@@ -25,7 +28,14 @@ interface Props {
 export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, initialAnswers = {} }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [currentPage, setCurrentPage] = useState(0);
+  // Start at -1 to show cover page first for "read" step type
+  // For framework, check if first page has framework_cover block
+  const hasFrameworkCover = step.step_type === 'framework' && pages[0]?.content?.some(
+    (block: any) => block && block.type === 'framework_cover'
+  );
+  const [currentPage, setCurrentPage] = useState(
+    step.step_type === 'read' || hasFrameworkCover ? -1 : 0
+  );
   const [userResponses, setUserResponses] = useState<Record<string, any>>(initialAnswers);
   const [isProcessing, setIsProcessing] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
@@ -33,6 +43,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const nextUrl = nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : null;
 
   // Jump to specific page from URL query param (?page=3)
+  // Note: For "read" steps, page param should only apply to content pages (not cover)
   useEffect(() => {
     const pageParam = searchParams.get('page');
     if (!pageParam || pages.length === 0) return;
@@ -43,7 +54,10 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     // Find page by order_index (1-based)
     const targetIndex = pages.findIndex((p) => p.order_index === pageNumber);
     if (targetIndex >= 0 && targetIndex !== currentPage) {
-      setCurrentPage(targetIndex);
+      // Only apply if we're not on cover page, or if explicitly requested
+      if (currentPage !== -1 || pageNumber > 1) {
+        setCurrentPage(targetIndex);
+      }
     }
   }, [searchParams, pages, currentPage]);
 
@@ -60,6 +74,12 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   };
 
   const handleNext = async () => {
+    // If on cover page (-1), just move to first actual page (0)
+    if (currentPage === -1) {
+      setCurrentPage(0);
+      return;
+    }
+
     const currentPageData = pages[currentPage];
     
     // Record page completion before moving to next page with retry queue
@@ -85,12 +105,17 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   };
 
   const handlePrevious = () => {
+    // Allow going back to cover page if we're on first content page and this is a step with cover page
+    const canGoBackToCover = (step.step_type === 'read' || hasFrameworkCover) && currentPage === 0;
+    
     if (currentPage > 0) {
       setCurrentPage(currentPage - 1);
       // Clear page query param to avoid conflicts
       const url = new URL(window.location.href);
       url.searchParams.delete('page');
       window.history.replaceState({}, '', url.pathname);
+    } else if (canGoBackToCover) {
+      setCurrentPage(-1);
     }
   };
 
@@ -163,8 +188,12 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     });
   };
 
-  const currentPageData = pages[currentPage];
-  const progress = pages.length ? ((currentPage + 1) / pages.length) * 100 : 0;
+  const currentPageData = pages[currentPage >= 0 ? currentPage : 0];
+  // Calculate progress including cover page for "read" steps and framework steps with cover
+  const hasCoverPage = step.step_type === 'read' || hasFrameworkCover;
+  const totalPages = hasCoverPage ? pages.length + 1 : pages.length;
+  const currentPageIndex = hasCoverPage ? currentPage + 1 : currentPage;
+  const progress = totalPages ? ((currentPageIndex + 1) / totalPages) * 100 : 0;
 
   // Derive hero image and content blocks so that image is on the LEFT
   // Priority: first image block from current page → step.hero_image_url → chapter images → placeholder
@@ -201,9 +230,9 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     }
   }
 
-  // Remove ALL image blocks from content (they're shown on left, never on right)
+  // Remove ALL image blocks AND framework_cover blocks from content (they're shown on left or as full-page cover, never on right)
   contentBlocks = rawBlocks.filter(
-    (block) => !(block && typeof block === 'object' && block.type === 'image')
+    (block) => !(block && typeof block === 'object' && (block.type === 'image' || block.type === 'framework_cover'))
   );
 
   // Avoid duplicate heading: if the first content block is already a heading, don't render page title as h1 (content will show it once).
@@ -428,6 +457,43 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     );
   }
 
+  // If we're on the cover page (currentPage === -1) for "read" step, show cover
+  if (currentPage === -1 && step.step_type === 'read') {
+    return (
+      <ReadingLayout currentProgress={progress} onClose={() => router.push('/dashboard')}>
+        <ChapterCoverPage
+          chapterNumber={chapter.chapter_number}
+          title={chapter.title}
+          subtitle={chapter.subtitle}
+          onContinue={handleNext}
+        />
+      </ReadingLayout>
+    );
+  }
+
+  // Check if current page has framework_cover block (for framework steps)
+  if (currentPage === -1 && step.step_type === 'framework') {
+    const firstPageContent = pages[0]?.content as any[];
+    const frameworkCoverBlock = firstPageContent?.find(
+      (block: any) => block && block.type === 'framework_cover'
+    );
+
+    if (frameworkCoverBlock) {
+      return (
+        <ReadingLayout currentProgress={progress} onClose={() => router.push('/dashboard')}>
+          <FrameworkCoverPage
+            frameworkCode={frameworkCoverBlock.frameworkCode}
+            frameworkTitle={frameworkCoverBlock.frameworkTitle}
+            letters={frameworkCoverBlock.letters}
+            accentColor={frameworkCoverBlock.accentColor}
+            backgroundColor={frameworkCoverBlock.backgroundColor}
+            onContinue={handleNext}
+          />
+        </ReadingLayout>
+      );
+    }
+  }
+
   // Other steps: use image left, content right layout
   return (
     <ReadingLayout currentProgress={progress} onClose={() => router.push('/dashboard')}>
@@ -477,13 +543,20 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
           {/* Bottom navigation - inside right panel */}
           <div className="flex-shrink-0 p-4 sm:p-6 lg:p-8 border-t border-[#E5D5B0] dark:border-[#4A3B1E] bg-[#FFFAED] dark:bg-[#1A1410] safe-area-pb">
             <div className="flex items-center justify-center gap-4 sm:gap-6 max-w-3xl mx-auto">
-              {currentPage > 0 && (
+              {(currentPage > 0 || (currentPage === 0 && (step.step_type === 'read' || hasFrameworkCover))) && (
                 <button
                   onClick={handlePrevious}
                   className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
                 >
                   Previous
                 </button>
+              )}
+              {currentPage >= 0 && currentPageData && chapter.id && (
+                <AdminEditButton
+                  chapterId={chapter.id}
+                  pageId={currentPageData.id}
+                  stepId={step.id}
+                />
               )}
               <button
                 onClick={currentPage === pages.length - 1 ? handleComplete : handleNext}

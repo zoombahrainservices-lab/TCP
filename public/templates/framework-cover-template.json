@@ -1,0 +1,35 @@
+{
+  "type": "framework_cover",
+  "frameworkCode": "SPARK",
+  "frameworkTitle": "The SPARK Framework",
+  "frameworkLabel": "FRAMEWORK: SPARK",
+  "accentColor": "#f7b418",
+  "backgroundColor": "#FFF8E7",
+  "letters": [
+    {
+      "letter": "S",
+      "meaning": "Surface the Pattern",
+      "color": "#f7b418"
+    },
+    {
+      "letter": "P",
+      "meaning": "Pinpoint the Why",
+      "color": "#f7b418"
+    },
+    {
+      "letter": "A",
+      "meaning": "Anchor to Identity",
+      "color": "#f7b418"
+    },
+    {
+      "letter": "R",
+      "meaning": "Rebuild with Micro-Commitments",
+      "color": "#f7b418"
+    },
+    {
+      "letter": "K",
+      "meaning": "Kindle Community",
+      "color": "#f7b418"
+    }
+  ]
+}
