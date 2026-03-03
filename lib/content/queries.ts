@@ -261,6 +261,32 @@ export async function getNextStep(chapterId: string, currentStepOrderIndex: numb
   return data;
 }
 
+export async function getNextStepWithContent(chapterId: string, currentStepOrderIndex: number): Promise<Step | null> {
+  const supabase = await createClient();
+  
+  // Get all steps after the current one, ordered
+  const { data: steps, error } = await supabase
+    .from('chapter_steps')
+    .select('*')
+    .eq('chapter_id', chapterId)
+    .gt('order_index', currentStepOrderIndex)
+    .order('order_index');
+
+  if (error || !steps || steps.length === 0) {
+    return null;
+  }
+
+  // Check each step to see if it has pages
+  for (const step of steps) {
+    const pages = await getStepPages(step.id);
+    if (pages && pages.length > 0) {
+      return step;
+    }
+  }
+
+  return null;
+}
+
 export async function getPreviousStep(chapterId: string, currentStepOrderIndex: number): Promise<Step | null> {
   const supabase = await createClient();
   
