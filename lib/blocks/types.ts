@@ -201,6 +201,15 @@ export interface FrameworkLetterBlock {
   image?: string;
 }
 
+// Legacy title slide block used in older chapter content.
+// These are now handled by dedicated cover page components in the reading UI,
+// but we keep the type so existing JSON content stays type-safe.
+export interface TitleSlideBlock {
+  type: 'title_slide';
+  title?: string;
+  subtitle?: string;
+}
+
 // ============================================
 // Call-to-Action Blocks
 // ============================================
@@ -265,7 +274,8 @@ export type Block =
   | VariableBlock
   | FrameworkCoverBlock
   | FrameworkIntroBlock
-  | FrameworkLetterBlock;
+  | FrameworkLetterBlock
+  | TitleSlideBlock;
 
 // ============================================
 // Helper Types
