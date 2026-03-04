@@ -24,6 +24,10 @@ interface ContentEditorProps {
   chapterSlug?: string
   stepSlug?: string
   pageOrder?: number
+  // Optional: when provided, the inner "Save Changes" button
+  // will call this with the updated content so the parent can
+  // immediately persist it (e.g. save the page to the server).
+  onSaveContent?: (updatedContent: any[]) => Promise<void> | void
 }
 
 export default function ContentEditor({ 
@@ -31,7 +35,8 @@ export default function ContentEditor({
   onChange, 
   chapterSlug = 'general',
   stepSlug = 'content',
-  pageOrder = 0 
+  pageOrder = 0,
+  onSaveContent,
 }: ContentEditorProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editingData, setEditingData] = useState<any>(null)
@@ -83,11 +88,18 @@ export default function ContentEditor({
     setEditingData({ ...content[index] })
   }
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (editingIndex !== null && editingData) {
       const newContent = [...content]
       newContent[editingIndex] = editingData
       onChange(newContent)
+
+      // If the parent provided a save handler, call it with the
+      // freshly updated content so it can immediately persist.
+      if (onSaveContent) {
+        await onSaveContent(newContent)
+      }
+
       setEditingIndex(null)
       setEditingData(null)
     }
@@ -220,7 +232,15 @@ export default function ContentEditor({
                         </label>
                         <RichTextEditor
                           content={editingData?.text || ''}
-                          onChange={(html) => setEditingData({ ...editingData, text: html })}
+                          onChange={(html) => {
+                            const updatedBlock = { ...editingData, text: html }
+                            setEditingData(updatedBlock)
+                            // Live-sync this block into the page content so the
+                            // top-right Save button always has the latest text.
+                            const newContent = [...content]
+                            newContent[index] = updatedBlock
+                            onChange(newContent)
+                          }}
                           placeholder="Enter paragraph text..."
                           minHeight="150px"
                         />
@@ -234,7 +254,15 @@ export default function ContentEditor({
                         </label>
                         <RichTextEditor
                           content={editingData?.text || ''}
-                          onChange={(html) => setEditingData({ ...editingData, text: html })}
+                          onChange={(html) => {
+                            const updatedBlock = { ...editingData, text: html }
+                            setEditingData(updatedBlock)
+                            // Live-sync this block into the page content so the
+                            // top-right Save button always has the latest text.
+                            const newContent = [...content]
+                            newContent[index] = updatedBlock
+                            onChange(newContent)
+                          }}
                           placeholder="Enter story text..."
                           minHeight="250px"
                         />

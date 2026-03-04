@@ -101,10 +101,10 @@ export default function PageContentEditorPage() {
     }
   }
 
-  const handleSave = async () => {
+  const savePage = async (contentToSave: any[]) => {
     setSaving(true)
     try {
-      await updatePage(pageId, { title: pageTitle, content })
+      await updatePage(pageId, { title: pageTitle, content: contentToSave })
       toast.success('Content saved successfully')
     } catch (error) {
       console.error('Error saving:', error)
@@ -112,6 +112,10 @@ export default function PageContentEditorPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSave = async () => {
+    await savePage(content)
   }
 
   if (loading) {
@@ -234,6 +238,12 @@ export default function PageContentEditorPage() {
                 chapterSlug={chapter?.slug || 'general'}
                 stepSlug={step?.slug || 'content'}
                 pageOrder={page?.order_index || 0}
+                onSaveContent={async (updatedContent) => {
+                  // Update local state immediately so the UI matches
+                  // the just-saved version, then persist to the server.
+                  setContent(updatedContent)
+                  await savePage(updatedContent)
+                }}
               />
             </div>
           </div>
