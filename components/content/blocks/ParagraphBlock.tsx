@@ -20,7 +20,12 @@ export default function ParagraphBlock({
   italic,
   underline 
 }: ExtendedParagraphBlock) {
-  // Build dynamic classes
+  // Detect if this paragraph contains HTML output from the rich text editor
+  const isHTML =
+    typeof text === 'string' &&
+    (text.includes('<p') || text.includes('<span') || text.includes('</') || text.includes('style='));
+
+  // Build dynamic classes (used for plain-text mode or as wrapper classes in HTML mode)
   const alignClass = {
     left: 'text-left',
     center: 'text-center',
@@ -31,10 +36,11 @@ export default function ParagraphBlock({
   const italicClass = italic ? 'italic' : '';
   const underlineClass = underline ? 'underline' : '';
 
-  // Combine all classes
-  const className = `${fontSize || 'text-base md:text-lg'} leading-relaxed mb-4 ${alignClass} ${fontWeightClass} ${italicClass} ${underlineClass} ${!color ? 'text-[#2a2416] dark:text-gray-200' : ''}`.trim();
+  const baseTextColor = !color ? 'text-[#2a2416] dark:text-gray-200' : '';
 
-  // Build inline styles for custom colors
+  const className = `${fontSize || 'text-base md:text-lg'} leading-relaxed mb-4 ${alignClass} ${fontWeightClass} ${italicClass} ${underlineClass} ${baseTextColor}`.trim();
+
+  // Build inline styles for custom colors/backgrounds (applied to wrapper)
   const style: React.CSSProperties = {};
   if (color) style.color = color;
   if (bgColor) {
@@ -43,6 +49,20 @@ export default function ParagraphBlock({
     style.borderRadius = '0.375rem';
   }
 
+  if (isHTML) {
+    // When content comes from TipTap (HTML string), render it as HTML so
+    // inline spans like <span style="color: ...">word</span> actually apply.
+    return (
+      <div className={className} style={style}>
+        <div
+          className="prose dark:prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: text || '' }}
+        />
+      </div>
+    );
+  }
+
+  // Fallback: legacy plain-text rendering
   return (
     <p className={className} style={style}>
       {text}

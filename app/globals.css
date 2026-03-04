@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./tiptap-styles.css";
 
 /* Configure dark mode to use class strategy */
 @custom-variant dark (&&:where(.dark, .dark *));

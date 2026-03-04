@@ -11,18 +11,12 @@ import {
   Trash2, 
   ChevronUp, 
   ChevronDown,
-  Plus,
-  Palette,
-  Bold,
-  Italic,
-  Underline,
-  AlignLeft,
-  AlignCenter,
-  AlignRight
+  Plus
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import BlockRenderer from '@/components/content/BlockRenderer'
 import ImageUploadField from '@/components/admin/ImageUploadField'
+import RichTextEditor from '@/components/admin/RichTextEditor'
 
 interface ContentEditorProps {
   content: any[]
@@ -51,40 +45,6 @@ export default function ContentEditor({
     { type: 'list', icon: List, label: 'List' },
     { type: 'quote', icon: Quote, label: 'Quote' },
     { type: 'callout', icon: AlertCircle, label: 'Callout' },
-  ]
-
-  const textColors = [
-    { value: '', label: 'Default' },
-    { value: '#000000', label: 'Black' },
-    { value: '#ffffff', label: 'White' },
-    { value: '#ef4444', label: 'Red' },
-    { value: '#f97316', label: 'Orange' },
-    { value: '#eab308', label: 'Yellow' },
-    { value: '#22c55e', label: 'Green' },
-    { value: '#3b82f6', label: 'Blue' },
-    { value: '#8b5cf6', label: 'Purple' },
-    { value: '#6b7280', label: 'Gray' },
-  ]
-
-  const bgColors = [
-    { value: '', label: 'None' },
-    { value: '#f3f4f6', label: 'Light Gray' },
-    { value: '#dbeafe', label: 'Light Blue' },
-    { value: '#fef3c7', label: 'Light Yellow' },
-    { value: '#dcfce7', label: 'Light Green' },
-    { value: '#fee2e2', label: 'Light Red' },
-    { value: '#f3e8ff', label: 'Light Purple' },
-  ]
-
-  const fontSizes = [
-    { value: 'text-xs', label: 'Extra Small' },
-    { value: 'text-sm', label: 'Small' },
-    { value: 'text-base', label: 'Base' },
-    { value: 'text-lg', label: 'Large' },
-    { value: 'text-xl', label: 'Extra Large' },
-    { value: 'text-2xl', label: '2XL' },
-    { value: 'text-3xl', label: '3XL' },
-    { value: 'text-4xl', label: '4XL' },
   ]
 
   const handleAddBlock = (type: string) => {
@@ -220,111 +180,6 @@ export default function ContentEditor({
                 
                 {editingIndex === index ? (
                   <div className="space-y-4">
-                    {/* Common Formatting Controls */}
-                    <div className="grid grid-cols-2 gap-3">
-                      {(block.type === 'heading' || block.type === 'paragraph' || block.type === 'story' || block.type === 'quote') && (
-                        <>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Text Color
-                            </label>
-                            <select
-                              value={editingData?.color || ''}
-                              onChange={(e) => setEditingData({ ...editingData, color: e.target.value })}
-                              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                            >
-                              {textColors.map(c => (
-                                <option key={c.value} value={c.value}>{c.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Background
-                            </label>
-                            <select
-                              value={editingData?.bgColor || ''}
-                              onChange={(e) => setEditingData({ ...editingData, bgColor: e.target.value })}
-                              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                            >
-                              {bgColors.map(c => (
-                                <option key={c.value} value={c.value}>{c.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Font Size
-                            </label>
-                            <select
-                              value={editingData?.fontSize || 'text-base'}
-                              onChange={(e) => setEditingData({ ...editingData, fontSize: e.target.value })}
-                              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                            >
-                              {fontSizes.map(s => (
-                                <option key={s.value} value={s.value}>{s.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Text Align
-                            </label>
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setEditingData({ ...editingData, align: 'left' })}
-                                className={`flex-1 px-2 py-2 border rounded ${editingData?.align === 'left' || !editingData?.align ? 'bg-blue-100 border-blue-500' : 'border-gray-300'}`}
-                              >
-                                <AlignLeft className="w-4 h-4 mx-auto" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingData({ ...editingData, align: 'center' })}
-                                className={`flex-1 px-2 py-2 border rounded ${editingData?.align === 'center' ? 'bg-blue-100 border-blue-500' : 'border-gray-300'}`}
-                              >
-                                <AlignCenter className="w-4 h-4 mx-auto" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingData({ ...editingData, align: 'right' })}
-                                className={`flex-1 px-2 py-2 border rounded ${editingData?.align === 'right' ? 'bg-blue-100 border-blue-500' : 'border-gray-300'}`}
-                              >
-                                <AlignRight className="w-4 h-4 mx-auto" />
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Style Toggles */}
-                    {(block.type === 'heading' || block.type === 'paragraph' || block.type === 'story') && (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setEditingData({ ...editingData, bold: !editingData?.bold })}
-                          className={`px-3 py-2 border rounded ${editingData?.bold ? 'bg-blue-100 border-blue-500' : 'border-gray-300'}`}
-                        >
-                          <Bold className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingData({ ...editingData, italic: !editingData?.italic })}
-                          className={`px-3 py-2 border rounded ${editingData?.italic ? 'bg-blue-100 border-blue-500' : 'border-gray-300'}`}
-                        >
-                          <Italic className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingData({ ...editingData, underline: !editingData?.underline })}
-                          className={`px-3 py-2 border rounded ${editingData?.underline ? 'bg-blue-100 border-blue-500' : 'border-gray-300'}`}
-                        >
-                          <Underline className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                    
                     {/* Block-specific fields */}
                     {block.type === 'heading' && (
                       <>
@@ -360,34 +215,32 @@ export default function ContentEditor({
                     
                     {block.type === 'paragraph' && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Paragraph Text
                         </label>
-                        <textarea
-                          value={editingData?.text || ''}
-                          onChange={(e) => setEditingData({ ...editingData, text: e.target.value })}
-                          rows={6}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-sm"
-                          placeholder="Enter paragraph text"
+                        <RichTextEditor
+                          content={editingData?.text || ''}
+                          onChange={(html) => setEditingData({ ...editingData, text: html })}
+                          placeholder="Enter paragraph text..."
+                          minHeight="150px"
                         />
                       </div>
                     )}
 
                     {block.type === 'story' && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Story Text
                         </label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                          Tip: Lines starting with " will be indented (dialogue)
-                        </p>
-                        <textarea
-                          value={editingData?.text || ''}
-                          onChange={(e) => setEditingData({ ...editingData, text: e.target.value })}
-                          rows={10}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-sm"
-                          placeholder="Enter story text... &#10;&#10;&quot;Dialogue lines&quot; will be indented"
+                        <RichTextEditor
+                          content={editingData?.text || ''}
+                          onChange={(html) => setEditingData({ ...editingData, text: html })}
+                          placeholder="Enter story text..."
+                          minHeight="250px"
                         />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          💡 Select any word or phrase to change its color, size, or style
+                        </p>
                       </div>
                     )}
                     
