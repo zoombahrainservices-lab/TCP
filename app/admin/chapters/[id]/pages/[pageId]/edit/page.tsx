@@ -28,6 +28,7 @@ export default function PageContentEditorPage() {
   const [content, setContent] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [migrating, setMigrating] = useState(false)
   const [previewMode, setPreviewMode] = useState(false)
 
   const from = searchParams.get('from')
@@ -125,6 +126,80 @@ export default function PageContentEditorPage() {
     await savePage(content)
   }
 
+  const handleMigrateImages = async () => {
+    if (!confirm('Migrate all external images in this page to Supabase bucket?\n\nThis will:\n1. Download all external images\n2. Upload them to your bucket\n3. Update image URLs\n4. Set first image as hero image (if none set)\n\nThis cannot be undone.')) {
+      return
+    }
+
+    setMigrating(true)
+    try {
+      const response = await fetch(`/api/admin/pages/${pageId}/migrate-images`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pageId,
+          content,
+          chapterSlug: chapter?.slug || 'general',
+          stepSlug: step?.slug || 'content',
+          pageOrder: page?.order_index || 0
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Migration failed')
+      }
+
+      // Update content with migrated URLs
+      setContent(result.updatedContent)
+
+      // If no hero image set and we have migrated images, use the first one
+      if (!heroImageUrl && result.migratedImages.length > 0) {
+        const firstMigratedImage = result.migratedImages[0]
+        setHeroImageUrl(firstMigratedImage.newUrl)
+        
+        // Save hero image immediately
+        await updatePage(pageId, { 
+          hero_image_url: firstMigratedImage.newUrl,
+          content: result.updatedContent 
+        })
+      } else {
+        // Just save the updated content
+        await savePage(result.updatedContent)
+      }
+
+      toast.success(
+        `✓ Migrated ${result.summary.total} image(s)${result.summary.failed > 0 ? ` (${result.summary.failed} failed)` : ''}`,
+        { duration: 5000 }
+      )
+
+      if (result.errors.length > 0) {
+        console.error('Migration errors:', result.errors)
+        toast.error(`Failed to migrate ${result.errors.length} image(s). Check console for details.`)
+      }
+
+      // Reload page to show updated content
+      await loadPage()
+
+    } catch (error: any) {
+      console.error('Migration error:', error)
+      toast.error(error.message || 'Failed to migrate images')
+    } finally {
+      setMigrating(false)
+    }
+  }
+
+  // Check if page has any external images that can be migrated
+  const hasExternalImages = content.some(block => 
+    block?.type === 'image' && 
+    block.src && 
+    typeof block.src === 'string' &&
+    !block.src.includes('supabase.co') &&
+    !block.src.startsWith('/') &&
+    !block.src.startsWith('./')
+  )
+
   if (loading) {
     return (
       <div className="p-6 lg:p-8">
@@ -175,6 +250,20 @@ export default function PageContentEditorPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {hasExternalImages && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleMigrateImages}
+                disabled={migrating || saving}
+                className="bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                {migrating ? 'Migrating...' : 'Migrate Images'}
+              </Button>
+            )}
             <Button
               variant={previewMode ? 'primary' : 'secondary'}
               size="sm"
