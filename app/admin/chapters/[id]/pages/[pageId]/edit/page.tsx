@@ -329,12 +329,33 @@ export default function PageContentEditorPage() {
 
               {/* Hero Image Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Hero Image (Main Page Image - Left Side)
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Hero Image (Main Left-Side Image)
                 </label>
                 
+                {/* Hero Image Preview - Large */}
+                {heroImageUrl && (
+                  <div className="mb-4">
+                    <div className="relative w-full max-w-2xl aspect-[4/3] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700">
+                      <img
+                        src={heroImageUrl}
+                        alt="Hero image preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      👆 This is how the main image will appear on the left side of the page
+                    </p>
+                  </div>
+                )}
+                
+                {/* Upload/Change Hero Image */}
                 <ImageUploadField
-                  label=""
+                  label={heroImageUrl ? "Change Hero Image" : "Upload Hero Image"}
                   value={heroImageUrl}
                   onChange={(url) => setHeroImageUrl(typeof url === 'string' ? url : url[0] || '')}
                   chapterSlug={chapter?.slug || 'general'}
@@ -343,8 +364,8 @@ export default function PageContentEditorPage() {
                   helperText="Main image shown on the left side of the page. Leave empty to use first image block from content."
                 />
                 
-                <p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-                  💡 Tip: For smaller inline images within text, use the "Image" block in content below.
+                <p className="mt-3 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded">
+                  💡 <strong>Tip:</strong> For smaller inline images within text (right side), use the "Image" block in content below.
                 </p>
               </div>
             </div>
