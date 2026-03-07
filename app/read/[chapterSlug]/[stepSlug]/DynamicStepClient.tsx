@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Download } from 'lucide-react';
+import toast from 'react-hot-toast';
 import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
 import ChapterCoverPage from '@/components/content/ChapterCoverPage';
@@ -231,43 +232,34 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const progress = totalPages ? ((currentPageIndex + 1) / totalPages) * 100 : 0;
 
   // Derive hero image and content blocks so that image is on the LEFT
-  // Priority: first image block from current page → step.hero_image_url → chapter images → placeholder
+  // Priority: page.hero_image_url → first image block from current page → step.hero_image_url → chapter images → placeholder
   // CRITICAL: Remove ALL image blocks from content so they never appear on the right
   const rawBlocks = (currentPageData?.content ?? []) as any[];
   
-  let heroImageSrc: string = step.hero_image_url ?? chapter.hero_image_url ?? chapter.thumbnail_url ?? '/placeholder.png';
+  let heroImageSrc: string = currentPageData?.hero_image_url || (step.hero_image_url ?? chapter.hero_image_url ?? chapter.thumbnail_url ?? '/placeholder.png');
   let heroImageAlt: string = currentPageData?.title || step.title;
   let contentBlocks: any[] = rawBlocks;
 
-  // Find first image block in current page
+  // Find first image block in current page (fallback if page.hero_image_url is not set)
   const firstImageBlock = rawBlocks.find(
     (block) => block && typeof block === 'object' && block.type === 'image' && block.src
   );
 
-  if (firstImageBlock) {
+  // If no hero_image_url is set on the page, use the first image block as fallback
+  if (!currentPageData?.hero_image_url && firstImageBlock) {
     // Use the first image found in page content as hero
     heroImageSrc = firstImageBlock.src;
-    if (firstImageBlock.alt) {
-      heroImageAlt = firstImageBlock.alt;
-    }
-  } else if (!step.hero_image_url && !chapter.hero_image_url && currentPage > 0) {
-    // No image on current page and no step/chapter hero - try previous page
-    const previousPage = pages[currentPage - 1];
-    const previousBlocks = (previousPage?.content ?? []) as any[];
-    const previousImageBlock = previousBlocks.find(
-      (block) => block && typeof block === 'object' && block.type === 'image' && block.src
-    );
-    if (previousImageBlock) {
-      heroImageSrc = previousImageBlock.src;
-      if (previousImageBlock.alt) {
-        heroImageAlt = previousImageBlock.alt;
-      }
-    }
+    heroImageAlt = firstImageBlock.alt || currentPageData?.title || step.title;
+    // Remove this image block from content
+    contentBlocks = rawBlocks.filter(block => block !== firstImageBlock);
+  } else {
+    // Keep all blocks (since we're using the dedicated hero_image_url)
+    contentBlocks = rawBlocks;
   }
 
-  // Remove ALL image blocks AND framework_cover blocks from content (they're shown on left or as full-page cover, never on right)
-  contentBlocks = rawBlocks.filter(
-    (block) => !(block && typeof block === 'object' && (block.type === 'image' || block.type === 'framework_cover'))
+  // Remove ALL framework_cover blocks from content (they're shown as full-page cover, never on right)
+  contentBlocks = contentBlocks.filter(
+    (block) => !(block && typeof block === 'object' && block.type === 'framework_cover')
   );
 
   // Avoid duplicate heading: if the first content block is already a heading, don't render page title as h1 (content will show it once).
@@ -471,8 +463,33 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       if (!result.success) {
         console.error('Failed to save self-check:', result.error);
         toast.error('Failed to save your answers. Please try again.');
-      } else {
-        console.log('Self-check saved successfully');
+        return result;
+      }
+      
+      console.log('Self-check saved successfully');
+      
+      // Award XP and trigger celebration (like all other sections)
+      try {
+        const sectionResult = await completeDynamicSection({
+          chapterNumber: chapter.chapter_number,
+          stepType: 'self_check',
+        });
+        
+        if (sectionResult && sectionResult.success) {
+          // Trigger celebration in background (user sees it after results screen)
+          setTimeout(() => {
+            celebrateSectionCompletion({
+              xpResult: (sectionResult as any).xpResult,
+              reasonCode: (sectionResult as any).reasonCode,
+              streakResult: (sectionResult as any).streakResult,
+              chapterCompleted: (sectionResult as any).chapterCompleted,
+              title: 'Self-Check Complete!',
+            });
+          }, 800); // Small delay so results screen appears first
+        }
+      } catch (error) {
+        console.error('Error completing self-check section:', error);
+        // Don't fail the whole flow if celebration fails
       }
       
       return result;

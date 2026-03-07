@@ -30,23 +30,24 @@ function prefersReducedMotion(): boolean {
 
 export default function FullscreenCelebration({ payload, onClose }: FullscreenCelebrationProps) {
   const [xpDisplay, setXpDisplay] = useState(0)
-  const timerRef = useRef<NodeJS.Timeout>()
+  const timerRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const reducedMotion = prefersReducedMotion()
 
   // Count-up animation for XP
   useEffect(() => {
     if (!payload.xp) return
 
+    const targetXp = payload.xp
     const duration = 800
     const steps = 30
-    const increment = payload.xp / steps
+    const increment = targetXp / steps
     const stepDuration = duration / steps
 
     let current = 0
     const interval = setInterval(() => {
       current += increment
-      if (current >= payload.xp) {
-        setXpDisplay(payload.xp)
+      if (current >= targetXp) {
+        setXpDisplay(targetXp)
         clearInterval(interval)
       } else {
         setXpDisplay(Math.floor(current))

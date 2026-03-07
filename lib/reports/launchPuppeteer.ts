@@ -82,9 +82,9 @@ export async function launchBrowser() {
     // Production (Vercel): use chrome-aws-lambda with puppeteer-core
     return puppeteerCore.launch({
       args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
+      defaultViewport: { width: 1920, height: 1080 },
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: true,
     })
   }
 }

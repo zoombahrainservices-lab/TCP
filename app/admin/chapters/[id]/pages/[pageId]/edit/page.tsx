@@ -6,6 +6,7 @@ import { ArrowLeft, Save, Eye } from 'lucide-react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import BlockRenderer from '@/components/content/BlockRenderer'
+import ImageUploadField from '@/components/admin/ImageUploadField'
 import { updatePage } from '@/app/actions/admin'
 import toast from 'react-hot-toast'
 import dynamic from 'next/dynamic'
@@ -23,6 +24,7 @@ export default function PageContentEditorPage() {
   const [chapter, setChapter] = useState<any>(null)
   const [step, setStep] = useState<any>(null)
   const [pageTitle, setPageTitle] = useState('')
+  const [heroImageUrl, setHeroImageUrl] = useState('')
   const [content, setContent] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -78,6 +80,7 @@ export default function PageContentEditorPage() {
       if (data && !data.error) {
         setPage(data)
         setPageTitle(data.title || '')
+        setHeroImageUrl(data.hero_image_url || '')
         setContent(data.content || [])
         
         // Fetch step info if we have step_id
@@ -104,7 +107,11 @@ export default function PageContentEditorPage() {
   const savePage = async (contentToSave: any[]) => {
     setSaving(true)
     try {
-      await updatePage(pageId, { title: pageTitle, content: contentToSave })
+      await updatePage(pageId, { 
+        title: pageTitle, 
+        hero_image_url: heroImageUrl || null,
+        content: contentToSave 
+      })
       toast.success('Content saved successfully')
     } catch (error) {
       console.error('Error saving:', error)
@@ -214,20 +221,43 @@ export default function PageContentEditorPage() {
         ) : (
           <div className="h-full flex flex-col">
             {/* Page Title Editor - Above Content Blocks */}
-            <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-900/50">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Page Title (shown to users)
-              </label>
-              <input
-                type="text"
-                value={pageTitle}
-                onChange={(e) => setPageTitle(e.target.value)}
-                placeholder="Enter page title..."
-                className="w-full px-4 py-3 text-xl font-bold border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-amber)] focus:border-transparent"
-              />
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                This title appears at the top of the page for users. It's separate from content blocks below.
-              </p>
+            <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-900/50 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Page Title (shown to users)
+                </label>
+                <input
+                  type="text"
+                  value={pageTitle}
+                  onChange={(e) => setPageTitle(e.target.value)}
+                  placeholder="Enter page title..."
+                  className="w-full px-4 py-3 text-xl font-bold border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-amber)] focus:border-transparent"
+                />
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  This title appears at the top of the page for users. It's separate from content blocks below.
+                </p>
+              </div>
+
+              {/* Hero Image Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Hero Image (Main Page Image - Left Side)
+                </label>
+                
+                <ImageUploadField
+                  label=""
+                  value={heroImageUrl}
+                  onChange={(url) => setHeroImageUrl(typeof url === 'string' ? url : url[0] || '')}
+                  chapterSlug={chapter?.slug || 'general'}
+                  stepSlug={step?.slug || 'content'}
+                  pageOrder={page?.order_index || 0}
+                  helperText="Main image shown on the left side of the page. Leave empty to use first image block from content."
+                />
+                
+                <p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                  💡 Tip: For smaller inline images within text, use the "Image" block in content below.
+                </p>
+              </div>
             </div>
 
             {/* Content Blocks Editor */}

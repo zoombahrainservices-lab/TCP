@@ -190,7 +190,9 @@ export interface FrameworkIntroBlock {
   letters: Array<{
     letter: string;
     meaning: string;
+    color?: string; // Optional custom color per letter
   }>;
+  accentColor?: string; // Default: #f7b418 (orange)
 }
 
 export interface FrameworkLetterBlock {
@@ -290,6 +292,7 @@ export interface Page {
   estimated_minutes: number | null;
   xp_award: number;
   chunk_id: number | null;
+  hero_image_url?: string | null; // Main hero image for the page (left side)
   content: Block[];
   created_at: string;
   updated_at: string;

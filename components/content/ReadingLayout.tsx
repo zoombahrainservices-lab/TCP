@@ -36,27 +36,51 @@ export default function ReadingLayout({
     }
   };
 
-  // Infer current chapter from URL
+  // Infer current chapter from URL - support ANY chapter slug format
   let activeChapter = 1;
   const chapterMatch = pathname.match(/^\/(?:read\/chapter-(\d+)|chapter\/(\d+)|read\/([^/]+))/);
+  
   if (chapterMatch) {
+    // Direct chapter number in URL (e.g., /read/chapter-3/ or /chapter/3/)
     if (chapterMatch[1] || chapterMatch[2]) {
       activeChapter = Number(chapterMatch[1] || chapterMatch[2]) || 1;
-    } else if (chapterMatch[3]) {
+    } 
+    // Chapter slug (e.g., /read/stage-star-silent-struggles/)
+    else if (chapterMatch[3]) {
       const slug = chapterMatch[3];
-      if (slug === 'stage-star-silent-struggles') activeChapter = 1;
-      if (slug === 'genius-who-couldnt-speak') activeChapter = 2;
+      
+      // Map known slugs to chapter numbers
+      const slugToChapterMap: Record<string, number> = {
+        'stage-star-silent-struggles': 1,
+        'genius-who-couldnt-speak': 2,
+        // For chapter-N pattern, extract the number
+      };
+      
+      // Check if it's chapter-N format
+      const chapterNMatch = slug.match(/^chapter-(\d+)$/);
+      if (chapterNMatch) {
+        activeChapter = Number(chapterNMatch[1]) || 1;
+      } else {
+        activeChapter = slugToChapterMap[slug] || 1;
+      }
     }
   }
 
+  // Dynamic chapter slug mapping - works for any chapter number
   const chapterSlugByNumber: Record<number, string> = {
     1: 'stage-star-silent-struggles',
     2: 'genius-who-couldnt-speak',
   };
 
-  const frameworkHref = `/read/${chapterSlugByNumber[activeChapter] ?? 'stage-star-silent-struggles'}/framework`;
-  const techniquesHref = `/read/${chapterSlugByNumber[activeChapter] ?? 'stage-star-silent-struggles'}/techniques`;
-  const followThroughHref = `/read/${chapterSlugByNumber[activeChapter] ?? 'stage-star-silent-struggles'}/follow-through`;
+  // Get the slug for the active chapter, or fall back to chapter-N format
+  const getChapterSlug = (chapterNum: number) => {
+    return chapterSlugByNumber[chapterNum] || `chapter-${chapterNum}`;
+  };
+
+  const currentChapterSlug = getChapterSlug(activeChapter);
+  const frameworkHref = `/read/${currentChapterSlug}/framework`;
+  const techniquesHref = `/read/${currentChapterSlug}/techniques`;
+  const followThroughHref = `/read/${currentChapterSlug}/follow-through`;
   const resolutionHref = `/chapter/${activeChapter}/proof`;
 
   const menuItems = [
@@ -74,7 +98,7 @@ export default function ReadingLayout({
     {
       id: 'reading',
       label: 'Reading',
-      href: `/chapter/${activeChapter}/reading`,
+      href: `/read/${currentChapterSlug}/reading`,
       icon: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -85,7 +109,7 @@ export default function ReadingLayout({
     {
       id: 'self-check',
       label: 'Self-Check',
-      href: `/chapter/${activeChapter}/assessment`,
+      href: `/read/${currentChapterSlug}/assessment`,
       icon: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />

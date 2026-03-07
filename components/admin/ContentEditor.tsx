@@ -11,7 +11,8 @@ import {
   Trash2, 
   ChevronUp, 
   ChevronDown,
-  Plus
+  Plus,
+  Zap
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import BlockRenderer from '@/components/content/BlockRenderer'
@@ -50,6 +51,8 @@ export default function ContentEditor({
     { type: 'list', icon: List, label: 'List' },
     { type: 'quote', icon: Quote, label: 'Quote' },
     { type: 'callout', icon: AlertCircle, label: 'Callout' },
+    { type: 'prompt', icon: Edit2, label: 'Input Prompt' },
+    { type: 'framework_intro', icon: Zap, label: 'Framework Intro' },
   ]
 
   const handleAddBlock = (type: string) => {
@@ -76,6 +79,33 @@ export default function ContentEditor({
         break
       case 'callout':
         newBlock = { type: 'callout', variant: 'tip', title: 'Tip', text: 'Callout text...' }
+        break
+      case 'prompt':
+        newBlock = { 
+          type: 'prompt', 
+          id: `prompt_${Date.now()}`, 
+          label: 'Your question here', 
+          description: '',
+          input: 'textarea', 
+          placeholder: 'Enter your response...',
+          required: false
+        }
+        break
+      case 'framework_intro':
+        newBlock = {
+          type: 'framework_intro',
+          frameworkCode: 'SPARK',
+          title: 'Framework Title',
+          description: 'Framework description',
+          letters: [
+            { letter: 'S', meaning: 'Surface the Pattern' },
+            { letter: 'P', meaning: 'Pinpoint the Why' },
+            { letter: 'A', meaning: 'Anchor to Identity' },
+            { letter: 'R', meaning: 'Rebuild with Micro-Commitments' },
+            { letter: 'K', meaning: 'Kindle Community' }
+          ],
+          accentColor: '#f7b418'
+        }
         break
     }
     
@@ -434,6 +464,211 @@ export default function ContentEditor({
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                             placeholder="Callout text"
                           />
+                        </div>
+                      </>
+                    )}
+
+                    {block.type === 'prompt' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Prompt ID
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.id || ''}
+                            onChange={(e) => setEditingData({ ...editingData, id: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-sm"
+                            placeholder="e.g., ch1_framework_situation"
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Unique identifier for saving/loading responses
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Question/Label Text
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.label || ''}
+                            onChange={(e) => setEditingData({ ...editingData, label: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="e.g., Describe your situation"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Description (optional)
+                          </label>
+                          <textarea
+                            value={editingData?.description || ''}
+                            onChange={(e) => setEditingData({ ...editingData, description: e.target.value })}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Additional helper text shown below the label"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Input Type
+                          </label>
+                          <select
+                            value={editingData?.input || 'textarea'}
+                            onChange={(e) => setEditingData({ ...editingData, input: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                          >
+                            <option value="text">Single-line Text</option>
+                            <option value="textarea">Multi-line Textarea</option>
+                            <option value="number">Number</option>
+                            <option value="select">Dropdown Select</option>
+                            <option value="multiselect">Multiple Choice</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Placeholder Text
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.placeholder || ''}
+                            onChange={(e) => setEditingData({ ...editingData, placeholder: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="e.g., What challenge or opportunity are you facing?"
+                          />
+                        </div>
+                        {(editingData?.input === 'select' || editingData?.input === 'multiselect') && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Options (one per line)
+                            </label>
+                            <textarea
+                              value={(editingData?.options || []).join('\n')}
+                              onChange={(e) => setEditingData({ ...editingData, options: e.target.value.split('\n').filter(i => i.trim()) })}
+                              rows={4}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-sm"
+                              placeholder="Option 1&#10;Option 2&#10;Option 3"
+                            />
+                          </div>
+                        )}
+                        {editingData?.input === 'number' && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Unit (optional, e.g., "hours", "days")
+                            </label>
+                            <input
+                              type="text"
+                              value={editingData?.unit || ''}
+                              onChange={(e) => setEditingData({ ...editingData, unit: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                              placeholder="hours"
+                            />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="prompt-required"
+                            checked={editingData?.required || false}
+                            onChange={(e) => setEditingData({ ...editingData, required: e.target.checked })}
+                            className="w-4 h-4 text-[var(--color-amber)] border-gray-300 rounded focus:ring-[var(--color-amber)]"
+                          />
+                          <label htmlFor="prompt-required" className="text-sm text-gray-700 dark:text-gray-300">
+                            Required field
+                          </label>
+                        </div>
+                      </>
+                    )}
+
+                    {block.type === 'framework_intro' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Framework Code
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.frameworkCode || ''}
+                            onChange={(e) => setEditingData({ ...editingData, frameworkCode: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-bold text-2xl"
+                            placeholder="e.g., SPARK, VOICE"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Accent Color (hex code)
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={editingData?.accentColor || '#f7b418'}
+                              onChange={(e) => setEditingData({ ...editingData, accentColor: e.target.value })}
+                              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono"
+                              placeholder="#f7b418"
+                            />
+                            <div 
+                              className="w-12 h-10 rounded-lg border border-gray-300 dark:border-gray-600"
+                              style={{ backgroundColor: editingData?.accentColor || '#f7b418' }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Default: #f7b418 (orange). This colors the heading and letter badges.
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Letters & Meanings
+                          </label>
+                          <div className="space-y-3">
+                            {(editingData?.letters || []).map((item: any, idx: number) => (
+                              <div key={idx} className="flex gap-2 items-start p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <input
+                                  type="text"
+                                  value={item.letter || ''}
+                                  onChange={(e) => {
+                                    const newLetters = [...(editingData?.letters || [])];
+                                    newLetters[idx] = { ...item, letter: e.target.value };
+                                    setEditingData({ ...editingData, letters: newLetters });
+                                  }}
+                                  className="w-16 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-center font-bold text-lg"
+                                  placeholder="S"
+                                  maxLength={1}
+                                />
+                                <input
+                                  type="text"
+                                  value={item.meaning || ''}
+                                  onChange={(e) => {
+                                    const newLetters = [...(editingData?.letters || [])];
+                                    newLetters[idx] = { ...item, meaning: e.target.value };
+                                    setEditingData({ ...editingData, letters: newLetters });
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                  placeholder="Surface the Pattern"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newLetters = (editingData?.letters || []).filter((_: any, i: number) => i !== idx);
+                                    setEditingData({ ...editingData, letters: newLetters });
+                                  }}
+                                  className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newLetters = [...(editingData?.letters || []), { letter: '', meaning: '' }];
+                              setEditingData({ ...editingData, letters: newLetters });
+                            }}
+                            className="mt-2 flex items-center gap-2 px-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add Letter
+                          </button>
                         </div>
                       </>
                     )}

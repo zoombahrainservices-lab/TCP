@@ -46,6 +46,7 @@ export default async function AdminPreviewPage({
         chapter={chapter}
         step={step}
         pages={pages}
+        nextStep={nextStep || null}
         nextStepSlug={nextStep?.slug || null}
       />
     </div>
