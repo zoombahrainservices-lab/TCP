@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { ChapterMarker3D } from '@/components/map/ChapterMarker3D'
+import { getSectionImageCandidates } from '@/lib/chapterImages'
+import type { SectionStepType } from '@/lib/chapterImages'
 import { X, ChevronDown, BookOpen, CheckSquare, Zap, Lightbulb, Circle as CircleIcon, RotateCcw } from 'lucide-react'
 
 type ChapterStatus = 'locked' | 'unlocked' | 'completed'
@@ -261,13 +264,53 @@ export default function MapClient({ chapters, currentChapterNumber }: MapClientP
 
                 const isChapterLocked = selectedChapter?.status === 'locked'
                 const hasPages = section.pages.length > 0
+                const chapterNum = selectedChapter?.chapter_number ?? 1
+                const [sectionImgWebp, sectionImgPng] = getSectionImageCandidates(
+                  chapterNum,
+                  section.step_type as SectionStepType,
+                  section.title
+                )
+                const hasSectionImage = !!(sectionImgWebp || sectionImgPng)
 
                 return (
                   <div
                     key={section.id}
                     className="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50"
                   >
-                    <Icon className="h-5 w-5 flex-shrink-0 text-gray-700 dark:text-gray-200 mt-0.5" />
+                    {hasSectionImage ? (
+                      <div className="relative w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 mt-0.5">
+                        {sectionImgWebp && (
+                          <Image
+                            src={sectionImgWebp}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            sizes="40px"
+                            unoptimized
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              if (sectionImgPng && target.nextElementSibling) {
+                                (target.nextElementSibling as HTMLElement).style.display = 'block'
+                              }
+                              target.style.display = 'none'
+                            }}
+                          />
+                        )}
+                        {sectionImgPng && (
+                          <Image
+                            src={sectionImgPng}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            sizes="40px"
+                            unoptimized
+                            style={sectionImgWebp ? { display: 'none' } : undefined}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <Icon className="h-5 w-5 flex-shrink-0 text-gray-700 dark:text-gray-200 mt-0.5" />
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">
                         {idx + 1}. {label}
