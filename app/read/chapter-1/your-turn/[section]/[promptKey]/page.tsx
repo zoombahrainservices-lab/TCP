@@ -9,6 +9,9 @@ import { frameworkScreens } from '@/app/read/chapter-1/framework/framework-scree
 import { techniqueScreens } from '@/app/read/chapter-1/techniques/technique-screens'
 import { followThroughScreens } from '@/app/read/chapter-1/follow-through/follow-through-screens'
 import { getYourTurnResponses, saveYourTurnResponse } from '@/app/actions/yourTurn'
+import { completeDynamicSection } from '@/app/actions/chapters'
+import { celebrateSectionCompletion } from '@/lib/celebration/celebrate'
+import { useClickSound } from '@/lib/hooks/useClickSound'
 
 const SECTION_CONFIG: Record<string, { title: string; href: string }> = {
   framework: { title: 'Framework', href: '/read/chapter-1/framework' },
@@ -104,7 +107,7 @@ export default function YourTurnPage() {
     })
   }, [promptKey, continueTo.url, router])
 
-  const handleContinue = async () => {
+  const handleContinue = useClickSound(async () => {
     const trimmed = text.trim()
     if (trimmed) {
       setIsSaving(true)
@@ -116,8 +119,47 @@ export default function YourTurnPage() {
         setIsSaving(false)
       }
     }
-    router.push(continueTo.url)
-  }
+    
+    // Check if this is the last follow-through prompt
+    // If yes, mark the follow-through section complete and celebrate!
+    const isLastFollowThroughPrompt = section === 'follow-through' && continueTo.url === '/dashboard'
+    
+    if (isLastFollowThroughPrompt) {
+      try {
+        // Complete the Follow-Through section
+        const sectionResult = await completeDynamicSection({
+          chapterNumber: 1,
+          stepType: 'follow_through',
+        })
+        
+        if (sectionResult && sectionResult.success) {
+          // Trigger celebration FIRST (this enqueues it to show fullscreen)
+          celebrateSectionCompletion({
+            xpResult: (sectionResult as any).xpResult,
+            reasonCode: (sectionResult as any).reasonCode,
+            streakResult: (sectionResult as any).streakResult,
+            chapterCompleted: (sectionResult as any).chapterCompleted,
+            title: 'Follow-Through Complete!',
+          })
+          
+          // Small delay to ensure celebration starts rendering, THEN navigate
+          setTimeout(() => {
+            router.push(continueTo.url)
+          }, 500)
+        } else {
+          // If section completion failed, still navigate
+          router.push(continueTo.url)
+        }
+      } catch (error) {
+        console.error('Error completing follow-through section:', error)
+        // Still navigate on error
+        router.push(continueTo.url)
+      }
+    } else {
+      // For non-final prompts, just navigate immediately
+      router.push(continueTo.url)
+    }
+  })
 
   const handleClose = () => router.push('/dashboard')
 

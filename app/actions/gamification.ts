@@ -37,6 +37,7 @@ export type XPReasonCode =
 export interface XPResult {
   xpAwarded: number
   newTotalXP: number
+  oldLevel: number
   newLevel: number
   leveledUp: boolean
   multiplierApplied: boolean
@@ -153,6 +154,9 @@ export async function awardXP(
     return awardXP(userId, reason, baseAmount, metadata, eventKey)
   }
   
+  // Store old level for level-up detection
+  const oldLevel = userData.level
+  
   // 2. Apply streak multiplier only for section_completion (not daily_activity)
   let finalAmount = baseAmount
   if (reason === 'section_completion') {
@@ -179,6 +183,7 @@ export async function awardXP(
     return {
       xpAwarded: 0,
       newTotalXP: userData.total_xp,
+      oldLevel: userData.level,
       newLevel: userData.level,
       leveledUp: false,
       multiplierApplied: false,
@@ -207,11 +212,12 @@ export async function awardXP(
   }
     
   // 6. Check for level up
-  const leveledUp = newLevel > userData.level
+  const leveledUp = newLevel > oldLevel
   
   return {
     xpAwarded: finalAmount,
     newTotalXP,
+    oldLevel,
     newLevel,
     leveledUp,
     multiplierApplied: finalAmount !== baseAmount,

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAllChapters } from '@/lib/content/queries'
+import { getAssessmentConfig } from '@/lib/reports/assessmentConfig'
 
 // ============================================================================
 // TYPES
@@ -91,15 +92,8 @@ const ASSESSMENT_CONFIG: Record<
   },
 }
 
-function getAssessmentConfig(chapterId: number, fallbackTitle: string) {
-  const config = ASSESSMENT_CONFIG[chapterId]
-  if (config) return config
-  return {
-    chapterTitle: fallbackTitle,
-    maxScore: 0,
-    questions: [] as Array<{ id: number; question: string; low: string; high: string }>,
-  }
-}
+// NOTE: getAssessmentConfig has been moved to `lib/reports/assessmentConfig` so this
+// server-actions file only exports async functions.
 
 // ============================================================================
 // GET CHAPTERS FOR REPORTS PAGE (with availability per chapter)
@@ -189,7 +183,7 @@ export async function getAssessmentReportData(
       return { success: false, error: 'Not authenticated' }
     }
 
-    // Fetch the latest assessment for this chapter
+    // Try to fetch from assessments table first (new format)
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
       .select('*')
@@ -202,10 +196,30 @@ export async function getAssessmentReportData(
 
     if (assessmentError) {
       console.error('Error fetching assessment:', assessmentError)
-      return { success: false, error: 'Failed to fetch assessment data' }
     }
 
+    // Fallback: Check user_prompt_answers table (legacy format)
+    let assessmentFromPrompts = null
     if (!assessment) {
+      const { data: promptData } = await supabase
+        .from('user_prompt_answers')
+        .select('answer')
+        .eq('user_id', user.id)
+        .eq('prompt_key', `ch${chapterId}_self_check_baseline`)
+        .maybeSingle()
+
+      if (promptData?.answer) {
+        assessmentFromPrompts = {
+          responses: promptData.answer.answers || {},
+          score: promptData.answer.totalScore || 0,
+          created_at: promptData.answer.completedAt || new Date().toISOString(),
+        }
+      }
+    }
+
+    const finalAssessment = assessment || assessmentFromPrompts
+
+    if (!finalAssessment) {
       return { success: false, error: 'No assessment found for this chapter' }
     }
 
@@ -216,16 +230,16 @@ export async function getAssessmentReportData(
 
     const questionsWithResponses = config.questions.map((q) => ({
       ...q,
-      userResponse: (assessment.responses as Record<number, number>)?.[q.id] ?? 0,
+      userResponse: (finalAssessment.responses as Record<number, number>)?.[q.id] ?? 0,
     }))
 
     const reportData: AssessmentReportData = {
       chapterId,
       chapterTitle: config.chapterTitle,
       assessmentType: 'Self-Check (Baseline)',
-      score: assessment.score ?? 0,
+      score: finalAssessment.score ?? 0,
       maxScore: config.maxScore,
-      completedAt: assessment.created_at,
+      completedAt: finalAssessment.created_at,
       questions: questionsWithResponses,
     }
 
@@ -294,7 +308,10 @@ export async function getResolutionReportData(
         createdAt: artifact.created_at,
       })) ?? []
 
-    // Fetch Your Turn responses and group by category (framework, techniques, follow-through)
+    // Fetch Your Turn responses from BOTH artifacts AND user_prompt_answers
+    // Artifacts: type='your_turn_response'
+    // user_prompt_answers: keys like ch1_spark_s_pattern, ch1_technique_1_substitution, ch1_followthrough_1_pick_one
+    
     const { data: yourTurnArtifacts } = await supabase
       .from('artifacts')
       .select('id, data, created_at')
@@ -307,6 +324,7 @@ export async function getResolutionReportData(
     const techniques: YourTurnQandA[] = []
     const followThrough: YourTurnQandA[] = []
 
+    // Process artifacts (if any)
     const prefix = `ch${chapterId}_`
     for (const row of yourTurnArtifacts ?? []) {
       const d = row.data as Record<string, unknown>
@@ -319,6 +337,37 @@ export async function getResolutionReportData(
       if (promptKey.startsWith(`${prefix}framework_`)) framework.push(item)
       else if (promptKey.startsWith(`${prefix}technique_`)) techniques.push(item)
       else if (promptKey.startsWith(`${prefix}followthrough_`)) followThrough.push(item)
+    }
+
+    // Fallback: Check user_prompt_answers for Your Turn data (keys like ch1_spark_s_pattern, ch1_technique_1_substitution)
+    const { data: promptAnswers } = await supabase
+      .from('user_prompt_answers')
+      .select('prompt_key, answer, created_at')
+      .eq('user_id', user.id)
+      .eq('chapter_id', chapterId)
+
+    for (const row of promptAnswers ?? []) {
+      const promptKey = row.prompt_key
+      const answer = row.answer
+      const answerText = typeof answer === 'string' ? answer : JSON.stringify(answer)
+      
+      // Skip self-check (that's handled separately)
+      if (promptKey.includes('self_check')) continue
+      
+      const item: YourTurnQandA = {
+        promptText: null, // Prompt text not stored in user_prompt_answers
+        responseText: answerText,
+        createdAt: row.created_at ?? '',
+      }
+
+      // Categorize by key pattern
+      if (promptKey.includes('spark_') || promptKey.includes('framework_') || promptKey.includes('voice_')) {
+        framework.push(item)
+      } else if (promptKey.includes('technique_')) {
+        techniques.push(item)
+      } else if (promptKey.includes('followthrough_')) {
+        followThrough.push(item)
+      }
     }
 
     const chapterTitle = ASSESSMENT_CONFIG[chapterId]?.chapterTitle ?? `Chapter ${chapterId}`

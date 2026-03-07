@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import Button from '@/components/ui/Button'
-import { signOut } from '@/app/actions/auth'
+import { getClient } from '@/lib/supabase/client'
 
 const STORAGE_KEY = 'tcpCurrentChapter'
 
@@ -22,6 +22,7 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false }: Dashboar
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [storedChapter, setStoredChapter] = useState<number | null>(null)
   const pathname = usePathname()
+  const router = useRouter()
 
   // When on dashboard (or any non-chapter page), use the current chapter from localStorage
   // so Framework, Techniques, Resolution, Follow-through all point to the correct chapter.
@@ -206,6 +207,16 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false }: Dashboar
       return pathname === href
     }
     return pathname.startsWith(href)
+  }
+
+  const handleSignOut = async () => {
+    try {
+      const supabase = getClient()
+      await supabase.auth.signOut()
+    } finally {
+      // Always navigate to login, even if sign-out request fails
+      router.push('/auth/login')
+    }
   }
 
   return (
@@ -564,17 +575,16 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false }: Dashboar
                 </div>
 
                 {/* Sign Out Button */}
-                <form action={signOut} className="w-full">
-                  <Button
-                    type="submit"
-                    variant="danger"
-                    fullWidth
-                    className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
-                    style={{ fontFamily: "'Open Sans', sans-serif" }}
-                  >
-                    Sign Out
-                  </Button>
-                </form>
+                <Button
+                  type="button"
+                  onClick={handleSignOut}
+                  variant="danger"
+                  fullWidth
+                  className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                  style={{ fontFamily: "'Open Sans', sans-serif" }}
+                >
+                  Sign Out
+                </Button>
               </div>
             </div>
           </div>

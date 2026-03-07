@@ -1,5 +1,8 @@
+'use client'
+
 import Link from 'next/link';
 import { ButtonBlock as ButtonBlockType } from '@/lib/blocks/types';
+import { playClickSound } from '@/lib/celebration/sounds';
 
 export default function ButtonBlock({ text, href, action, variant = 'primary' }: ButtonBlockType) {
   const variantStyles = {
@@ -10,10 +13,17 @@ export default function ButtonBlock({ text, href, action, variant = 'primary' }:
 
   const className = `inline-flex items-center justify-center px-8 py-4 rounded-lg font-bold text-lg transition-all ${variantStyles[variant]} shadow-lg hover:shadow-xl transform hover:scale-105`;
 
+  const handleClick = () => {
+    playClickSound();
+    if (action) {
+      console.log('Action:', action);
+    }
+  };
+
   if (href) {
     return (
       <div className="button-block mb-6 flex justify-center">
-        <Link href={href} className={className}>
+        <Link href={href} className={className} onClick={() => playClickSound()}>
           {text}
         </Link>
       </div>
@@ -22,15 +32,7 @@ export default function ButtonBlock({ text, href, action, variant = 'primary' }:
 
   return (
     <div className="button-block mb-6 flex justify-center">
-      <button
-        onClick={() => {
-          if (action) {
-            // Client-side action handling (to be implemented)
-            console.log('Action:', action);
-          }
-        }}
-        className={className}
-      >
+      <button onClick={handleClick} className={className}>
         {text}
       </button>
     </div>

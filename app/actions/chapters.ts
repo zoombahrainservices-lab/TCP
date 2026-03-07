@@ -267,6 +267,8 @@ export async function completeSectionBlock(
     
     // Update streak + award section XP (moved from per-step to per-section for performance)
     let streakResult
+    let chapterCompleted = false
+    
     if (firstTime) {
       // Award section completion XP
       xpResult = await awardXP(
@@ -284,6 +286,24 @@ export async function completeSectionBlock(
       } catch (streakErr) {
         console.error('Error in updateStreak during section completion:', streakErr)
       }
+      
+      // Check if all blocks are now complete (chapter completion detection)
+      const { data: progress } = await supabase
+        .from('chapter_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('chapter_id', chapterId)
+        .single()
+      
+      if (progress) {
+        chapterCompleted = 
+          progress.reading_complete &&
+          progress.assessment_complete &&
+          progress.framework_complete &&
+          progress.techniques_complete &&
+          progress.proof_complete &&
+          progress.follow_through_complete
+      }
     }
     
     return { 
@@ -293,6 +313,7 @@ export async function completeSectionBlock(
       firstTime,
       reasonCode,
       streakResult,
+      chapterCompleted,
     }
   } catch (error) {
     console.error('Error in completeSectionBlock:', error)

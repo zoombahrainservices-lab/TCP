@@ -276,6 +276,12 @@ export async function getNextStepWithContent(chapterId: string, currentStepOrder
   }
 
   for (const step of steps) {
+    // Special case: Resolution step doesn't use the step_pages table
+    // It has its own standalone page at /chapter/[chapterId]/proof
+    if (step.step_type === 'resolution') {
+      return step;
+    }
+    
     const pages = await getStepPages(step.id);
     if (pages && pages.length > 0) {
       return step;

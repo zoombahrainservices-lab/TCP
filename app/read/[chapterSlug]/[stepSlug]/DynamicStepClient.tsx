@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { Download } from 'lucide-react';
 import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
 import ChapterCoverPage from '@/components/content/ChapterCoverPage';
@@ -13,19 +14,20 @@ import AdminEditButton from '@/components/admin/AdminEditButton';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
 import { submitAssessment } from '@/app/actions/prompts';
-import { showXPNotification } from '@/components/gamification/XPNotification';
+import { celebrateSectionCompletion } from '@/lib/celebration/celebrate';
 import { writeQueue } from '@/lib/queue/WriteQueue';
-import toast from 'react-hot-toast';
+import { useClickSound } from '@/lib/hooks/useClickSound';
 
 interface Props {
   chapter: Chapter;
   step: Step;
   pages: Page[];
   nextStepSlug: string | null;
+  nextStep: Step | null;
   initialAnswers?: Record<string, any>;
 }
 
-export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, initialAnswers = {} }: Props) {
+export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, nextStep, initialAnswers = {} }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   // Start at -1 to show cover page first for "read" step type
@@ -40,7 +42,23 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const [isProcessing, setIsProcessing] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
 
-  const nextUrl = nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : null;
+  // Build next URL - handle special case for Resolution step
+  const nextUrl = nextStepSlug 
+    ? nextStep?.step_type === 'resolution'
+      ? `/chapter/${chapter.chapter_number}/proof`
+      : `/read/${chapter.slug}/${nextStepSlug}`
+    : null;
+
+  // Chapter PDF download URL (actual reading content PDF)
+  const chapterPdfUrl = `/chapter/Chapter ${chapter.chapter_number}_ ${chapter.title} - Printable.pdf`;
+
+  const handleDownloadChapterCore = () => {
+    if (!chapterPdfUrl) return;
+    // Open in new tab so browser download dialog appears
+    window.open(chapterPdfUrl, '_blank');
+  };
+
+  const handleDownloadChapter = useClickSound(handleDownloadChapterCore);
 
   // Jump to specific page from URL query param (?page=3)
   // Note: For "read" steps, page param should only apply to content pages (not cover)
@@ -73,7 +91,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     setUserResponses(prev => ({ ...prev, [promptId]: value }));
   };
 
-  const handleNext = async () => {
+  const handleNextCore = async () => {
     // If on cover page (-1), just move to first actual page (0)
     if (currentPage === -1) {
       setCurrentPage(0);
@@ -104,7 +122,9 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     }
   };
 
-  const handlePrevious = () => {
+  const handleNext = useClickSound(handleNextCore);
+
+  const handlePreviousCore = () => {
     // Allow going back to cover page if we're on first content page and this is a step with cover page
     const canGoBackToCover = (step.step_type === 'read' || hasFrameworkCover) && currentPage === 0;
     
@@ -119,24 +139,15 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     }
   };
 
-  const handleComplete = async () => {
+  const handlePrevious = useClickSound(handlePreviousCore);
+
+  const handleCompleteCore = async () => {
     if (isProcessing) return;
+    setIsProcessing(true);
 
     const lastPageData = pages[currentPage];
     
-    // Navigate IMMEDIATELY - don't wait for DB operations. Use canonical URL so server never redirects → avoids Next.js MPA path → React #310.
-    if (nextUrl) {
-      router.push(nextUrl);
-    } else {
-      router.push('/dashboard');
-    }
-
-    // All completions in background (non-blocking)
-    const operations = [];
-
-    // All completions go through write queue for automatic retry
-    
-    // Mark last page as complete
+    // Mark last page as complete FIRST (before navigation)
     if (lastPageData && !completedPagesRef.current.has(lastPageData.id)) {
       completedPagesRef.current.add(lastPageData.id);
       writeQueue.enqueue(() => completeDynamicPage({
@@ -155,38 +166,56 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       writeQueue.enqueue(() => submitAssessment(chapter.chapter_number, 'baseline', userResponses, totalScore));
     }
 
-    // Complete the section (with XP notification)
-    writeQueue.enqueue(async () => {
+    // Complete the section and get XP data BEFORE navigation
+    try {
       const sectionResult = await completeDynamicSection({
         chapterNumber: chapter.chapter_number,
         stepType: step.step_type,
       });
       
       if (sectionResult && sectionResult.success) {
-        const xp = (sectionResult as any).xpResult?.xpAwarded ?? 0;
         const sectionName = step.step_type === 'self_check' ? 'Self-Check' : step.title;
-        if (xp > 0) {
-          showXPNotification(xp, `${sectionName} Complete!`, { reasonCode: (sectionResult as any).reasonCode as any });
-        } else if ((sectionResult as any).reasonCode === 'repeat_completion') {
-          showXPNotification(0, '', { reasonCode: 'repeat_completion' });
-        }
         
-        // Show streak XP notifications
-        const streakResult = (sectionResult as any).streakResult
-        if (streakResult) {
-          if (streakResult.dailyXP > 0) {
-            toast.success(`+${streakResult.dailyXP} XP for daily activity!`)
+        // Trigger celebration FIRST (this enqueues it to show fullscreen)
+        celebrateSectionCompletion({
+          xpResult: (sectionResult as any).xpResult,
+          reasonCode: (sectionResult as any).reasonCode,
+          streakResult: (sectionResult as any).streakResult,
+          chapterCompleted: (sectionResult as any).chapterCompleted,
+          title: `${sectionName} Complete!`,
+        });
+
+        // Small delay to ensure celebration starts rendering, THEN navigate
+        setTimeout(() => {
+          if (nextUrl) {
+            router.push(nextUrl);
+          } else {
+            router.push('/dashboard');
           }
-          if (streakResult.streakBonus > 0) {
-            toast.success(`+${streakResult.streakBonus} XP streak bonus! 🔥`)
-          }
-          if (streakResult.milestone) {
-            toast.success(`🎉 ${streakResult.milestone.days}-day streak! +${streakResult.milestone.bonusXP} XP!`)
-          }
+          setIsProcessing(false);
+        }, 500);
+      } else {
+        // If section completion failed, still navigate
+        if (nextUrl) {
+          router.push(nextUrl);
+        } else {
+          router.push('/dashboard');
         }
+        setIsProcessing(false);
       }
-    });
+    } catch (error) {
+      console.error('Error completing section:', error);
+      // Still navigate on error
+      if (nextUrl) {
+        router.push(nextUrl);
+      } else {
+        router.push('/dashboard');
+      }
+      setIsProcessing(false);
+    }
   };
+
+  const handleComplete = useClickSound(handleCompleteCore);
 
   const currentPageData = pages[currentPage >= 0 ? currentPage : 0];
   // Calculate progress including cover page for "read" steps and framework steps with cover
@@ -461,12 +490,26 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   if (currentPage === -1 && step.step_type === 'read') {
     return (
       <ReadingLayout currentProgress={progress} onClose={() => router.push('/dashboard')}>
-        <ChapterCoverPage
-          chapterNumber={chapter.chapter_number}
-          title={chapter.title}
-          subtitle={chapter.subtitle}
-          onContinue={handleNext}
-        />
+        <div className="relative w-full h-full">
+          <ChapterCoverPage
+            chapterNumber={chapter.chapter_number}
+            title={chapter.title}
+            subtitle={chapter.subtitle}
+            onContinue={handleNext}
+          />
+
+                  {/* Download chapter PDF button – anchored near bottom center */}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-10 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={handleDownloadChapter}
+                      className="pointer-events-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/95 text-gray-900 text-xs sm:text-sm font-semibold shadow-lg hover:bg-white transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Chapter
+                    </button>
+                  </div>
+        </div>
       </ReadingLayout>
     );
   }

@@ -1,35 +1,90 @@
 /**
- * Launch Puppeteer browser for PDF generation.
- * On Vercel: puppeteer-core + @sparticuz/chromium (no Chrome cache; serverless-friendly).
- * Locally: full puppeteer with bundled Chromium.
+ * Puppeteer/Chromium launcher for PDF generation
+ * 
+ * Uses chrome-aws-lambda for serverless compatibility (Vercel)
+ * Falls back to system Chrome/Edge in development
  */
 
 import chromium from '@sparticuz/chromium'
-import puppeteer from 'puppeteer-core'
+import puppeteerCore from 'puppeteer-core'
+import { existsSync } from 'fs'
 
-export type Browser = Awaited<ReturnType<typeof launchBrowser>>
+const isLocal = process.env.NODE_ENV === 'development' || process.env.IS_LOCAL === 'true'
+
+/**
+ * Find Chrome/Edge executable on the system
+ */
+function getSystemChromePath(): string {
+  const { platform } = process
+  
+  // Allow override via environment variable
+  if (process.env.CHROME_PATH && existsSync(process.env.CHROME_PATH)) {
+    return process.env.CHROME_PATH
+  }
+  
+  let possiblePaths: string[] = []
+  
+  if (platform === 'win32') {
+    // Windows: Check common Chrome and Edge locations
+    possiblePaths = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    ]
+  } else if (platform === 'darwin') {
+    // macOS
+    possiblePaths = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    ]
+  } else {
+    // Linux
+    possiblePaths = [
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/snap/bin/chromium',
+    ]
+  }
+  
+  // Find first existing path
+  for (const path of possiblePaths) {
+    if (existsSync(path)) {
+      console.log(`[PDF] Using Chrome at: ${path}`)
+      return path
+    }
+  }
+  
+  throw new Error(
+    `No Chrome/Chromium found. Tried: ${possiblePaths.join(', ')}\n` +
+    `Set CHROME_PATH environment variable to specify custom location.`
+  )
+}
 
 export async function launchBrowser() {
-  const isVercel = !!process.env.VERCEL
-
-  if (isVercel) {
-    // Serverless: use @sparticuz/chromium (no .cache/puppeteer; binary included)
-    if (typeof (chromium as { setGraphicsMode?: boolean }).setGraphicsMode !== 'undefined') {
-      (chromium as { setGraphicsMode: boolean }).setGraphicsMode = false
-    }
-    const executablePath = await chromium.executablePath()
-    return puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: null,
+  if (isLocal) {
+    // Local development: use system Chrome/Edge with puppeteer-core
+    const executablePath = getSystemChromePath()
+    
+    return puppeteerCore.launch({
       executablePath,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
       headless: true,
     })
+  } else {
+    // Production (Vercel): use chrome-aws-lambda with puppeteer-core
+    return puppeteerCore.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    })
   }
-
-  // Local: full puppeteer (Chrome on your machine or in local cache)
-  const puppeteerFull = await import('puppeteer')
-  return puppeteerFull.default.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  })
 }

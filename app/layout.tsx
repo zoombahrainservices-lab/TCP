@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Bebas_Neue, JetBrains_Mono, Montserrat, Lexend, Roboto, Open_Sans } from "next/font/google";
 import "./globals.css";
+import CelebrationHost from "@/components/celebration/CelebrationHost";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -90,6 +91,7 @@ export default function RootLayout({
         className={`${inter.variable} ${bebasNeue.variable} ${jetbrainsMono.variable} ${montserrat.variable} ${lexend.variable} ${roboto.variable} ${openSans.variable} antialiased`}
       >
         {children}
+        <CelebrationHost />
       </body>
     </html>
   );

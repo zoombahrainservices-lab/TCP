@@ -130,19 +130,19 @@ export default function ReportsClient({ chapters, promptAnswers }: ReportsClient
                 {/* Report Types */}
                 {chapter.status === 'available' ? (
                   <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Self-Check Assessment Report */}
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Combined Chapter Report */}
                     <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
                       <div className="flex items-start gap-3 mb-4">
-                        <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30">
                           <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div className="flex-1">
                           <h3 className="font-bold text-slate-900 dark:text-white mb-1">
-                            Self-Check Assessment
+                            Complete Chapter Report
                           </h3>
                           <p className="text-sm text-slate-600 dark:text-slate-400">
-                            Your baseline assessment with scores and analysis
+                            Download a combined PDF with Self-Check, Resolution, and Proof submissions
                           </p>
                         </div>
                       </div>
@@ -150,102 +150,44 @@ export default function ReportsClient({ chapters, promptAnswers }: ReportsClient
                         <button
                           onClick={() =>
                             handleDownload(
-                              `/api/reports/chapter/${chapter.chapterId}/assessment?answers=true`,
-                              `chapter-${chapter.chapterId}-assessment-with-answers.pdf`
+                              `/api/reports/chapter/${chapter.chapterId}?answers=true`,
+                              `chapter-${chapter.chapterId}-complete-report.pdf`
                             )
                           }
                           disabled={
-                            !chapter.assessmentAvailable ||
                             downloading ===
-                              `chapter-${chapter.chapterId}-assessment-with-answers.pdf`
+                              `chapter-${chapter.chapterId}-complete-report.pdf`
                           }
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-sm font-semibold transition-colors disabled:cursor-not-allowed"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-sm font-semibold transition-colors disabled:cursor-not-allowed"
                         >
                           <Download className="w-4 h-4" />
                           {downloading ===
-                          `chapter-${chapter.chapterId}-assessment-with-answers.pdf`
+                          `chapter-${chapter.chapterId}-complete-report.pdf`
                             ? 'Downloading...'
-                            : 'Download with Answers'}
+                            : 'Download Complete Report'}
                         </button>
                         <button
                           onClick={() =>
                             handleDownload(
-                              `/api/reports/chapter/${chapter.chapterId}/assessment?answers=false`,
-                              `chapter-${chapter.chapterId}-assessment-blank.pdf`
+                              `/api/reports/chapter/${chapter.chapterId}?answers=false`,
+                              `chapter-${chapter.chapterId}-blank-form.pdf`
                             )
                           }
                           disabled={
-                            !chapter.assessmentAvailable ||
                             downloading ===
-                              `chapter-${chapter.chapterId}-assessment-blank.pdf`
+                              `chapter-${chapter.chapterId}-blank-form.pdf`
                           }
                           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:border-slate-300 disabled:text-slate-400 dark:disabled:border-slate-700 dark:disabled:text-slate-600 text-sm font-semibold transition-colors disabled:cursor-not-allowed"
                         >
                           <Download className="w-4 h-4" />
                           {downloading ===
-                          `chapter-${chapter.chapterId}-assessment-blank.pdf`
+                          `chapter-${chapter.chapterId}-blank-form.pdf`
                             ? 'Downloading...'
-                            : 'Download Blank (No Answers)'}
+                            : 'Download Blank Form'}
                         </button>
                       </div>
                     </div>
-
-                    {/* Resolution Report */}
-                    <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-                      <div className="flex items-start gap-3 mb-4">
-                        <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                          <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-slate-900 dark:text-white mb-1">
-                            Resolution Report
-                          </h3>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">
-                            Your identity statement and proof submissions
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() =>
-                          handleDownload(
-                            `/api/reports/chapter/${chapter.chapterId}/resolution`,
-                            `chapter-${chapter.chapterId}-resolution.pdf`
-                          )
-                        }
-                        disabled={
-                          !chapter.resolutionAvailable ||
-                          downloading ===
-                            `chapter-${chapter.chapterId}-resolution.pdf`
-                        }
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-sm font-semibold transition-colors disabled:cursor-not-allowed"
-                      >
-                        <Download className="w-4 h-4" />
-                        {downloading ===
-                        `chapter-${chapter.chapterId}-resolution.pdf`
-                          ? 'Downloading...'
-                          : 'Download Report'}
-                      </button>
-                    </div>
                   </div>
-
-                  {/* Prompt Answers Section */}
-                  {answersByChapter[chapter.chapterId] && answersByChapter[chapter.chapterId].length > 0 && (
-                    <div className="mt-6 border-t border-slate-200 dark:border-slate-700 pt-6">
-                      <h3 className="font-bold text-slate-900 dark:text-white mb-4">Your Answers</h3>
-                      <div className="space-y-4">
-                        {answersByChapter[chapter.chapterId].map((answer: any) => (
-                          <div key={answer.id} className="border-l-4 border-blue-500 dark:border-blue-400 pl-4 py-2">
-                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
-                              {answer.prompt_key}
-                            </p>
-                            <p className="text-slate-900 dark:text-white">
-                              {typeof answer.answer === 'string' ? answer.answer : JSON.stringify(answer.answer)}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   </>
                 ) : (
                   <div className="text-center py-8 text-slate-500 dark:text-slate-400">
@@ -268,28 +210,25 @@ export default function ReportsClient({ chapters, promptAnswers }: ReportsClient
             <li className="flex items-start gap-2">
               <span className="mt-1">•</span>
               <span>
-                <strong>Assessment Reports</strong> include your responses, scores, and
-                risk analysis for each self-check
+                <strong>Complete Report</strong> includes your self-check assessment, resolution statement, and all proof submissions in one comprehensive PDF
               </span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1">•</span>
               <span>
-                <strong>Blank Assessment Forms</strong> can be printed for offline
-                completion or comparison
-              </span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1">•</span>
-              <span>
-                <strong>Resolution Reports</strong> capture your identity statements and
-                proof submissions
+                <strong>Blank Form</strong> can be printed for offline completion or comparison
               </span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1">•</span>
               <span>
                 All reports are generated in real-time with your latest data
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1">•</span>
+              <span>
+                Reports become available after completing the chapter sections
               </span>
             </li>
           </ul>

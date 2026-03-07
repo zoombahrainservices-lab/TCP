@@ -2,13 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { use } from 'react'
 import { completeSectionBlock, hasProofForChapter } from '@/app/actions/chapters'
-import { showXPNotification } from '@/components/gamification/XPNotification'
+import { celebrateSectionCompletion } from '@/lib/celebration/celebrate'
 import { getClient } from '@/lib/supabase/client'
 import { saveIdentityResolutionForChapter1, type IdentityResolutionData } from '@/app/actions/identity'
-import { CheckCircle2 } from 'lucide-react'
+import { useClickSound } from '@/lib/hooks/useClickSound'
 
 type ResolutionType = 'text' | 'image' | 'audio' | 'video'
 
@@ -66,6 +65,7 @@ export default function ResolutionPage({
   const router = useRouter()
   const supabase = getClient()
   const [alreadyCompleted, setAlreadyCompleted] = useState<boolean | null>(null)
+  const [showFormAnyway, setShowFormAnyway] = useState(false)
   const [drafts, setDrafts] = useState<ProofDraft[]>([
     {
       id: 1,
@@ -275,7 +275,7 @@ export default function ResolutionPage({
     }
   }
 
-  const handleCompleteResolution = async () => {
+  const handleCompleteResolutionCore = async () => {
     if (isProcessing) return
     if (recordingDraftIdRef.current != null) {
       setSaveError('Stop recording before saving.')
@@ -298,39 +298,39 @@ export default function ResolutionPage({
     setSaveError(null)
 
     const followThroughUrl = getFollowThroughUrl(chapterId)
-
-    // Navigate immediately for smooth flow — saves run in background
-    router.push(followThroughUrl)
-
     const firstTextDraft = drafts.find(d => d.type === 'text' && d.notes.trim().length > 0)
 
-    setTimeout(async () => {
-      try {
-        // Chapter 1 only: save the identity resolution to the dedicated table
-        if (chapterId === 1 && firstTextDraft) {
-          const identityPayload: IdentityResolutionData = {
-            identity: firstTextDraft.notes.trim(),
-            value1: '',
-            value2: '',
-            value3: '',
-            commitment: '',
-            daily1: '',
-            daily2: '',
-            daily3: '',
-            noLonger: '',
-            why: '',
-          }
-          try {
-            await saveIdentityResolutionForChapter1(identityPayload)
-          } catch (err) {
-            console.error('[Identity] Failed to save identityResolution:', err)
-          }
-        }
+    try {
+      // Save artifacts FIRST (in background)
+      const savePromises = []
 
-        if (firstTextDraft) {
-          const { data: userData } = await supabase.auth.getUser()
-          if (userData?.user) {
-            await supabase
+      // Chapter 1 only: save the identity resolution to the dedicated table
+      if (chapterId === 1 && firstTextDraft) {
+        const identityPayload: IdentityResolutionData = {
+          identity: firstTextDraft.notes.trim(),
+          value1: '',
+          value2: '',
+          value3: '',
+          commitment: '',
+          daily1: '',
+          daily2: '',
+          daily3: '',
+          noLonger: '',
+          why: '',
+        }
+        savePromises.push(
+          saveIdentityResolutionForChapter1(identityPayload).catch(err =>
+            console.error('[Identity] Failed to save identityResolution:', err)
+          )
+        )
+      }
+
+      // Save text proof
+      if (firstTextDraft) {
+        const { data: userData } = await supabase.auth.getUser()
+        if (userData?.user) {
+          savePromises.push(
+            supabase
               .from('artifacts')
               .insert({
                 user_id: userData.user.id,
@@ -341,98 +341,116 @@ export default function ResolutionPage({
               .then(({ error }) => {
                 if (error) console.error('[Proof] Text proof:', error)
               })
-          }
+          )
         }
+      }
 
-        const audioDrafts = drafts.filter(d => d.type === 'audio' && d.file)
-        if (audioDrafts.length > 0) {
-          const { data: userData, error: userErr } = await supabase.auth.getUser()
-          if (!userErr && userData?.user) {
-            const user = userData.user
-            for (const d of audioDrafts) {
-              const file = d.file!
-              const contentType = file.type || 'application/octet-stream'
-              const ext = extForMime(contentType)
-              const storagePath = `${user.id}/proof-${crypto.randomUUID()}.${ext}`
+      // Save audio drafts
+      const audioDrafts = drafts.filter(d => d.type === 'audio' && d.file)
+      if (audioDrafts.length > 0) {
+        const { data: userData, error: userErr } = await supabase.auth.getUser()
+        if (!userErr && userData?.user) {
+          const user = userData.user
+          for (const d of audioDrafts) {
+            const file = d.file!
+            const contentType = file.type || 'application/octet-stream'
+            const ext = extForMime(contentType)
+            const storagePath = `${user.id}/proof-${crypto.randomUUID()}.${ext}`
 
-              const { data: upData, error: upErr } = await supabase.storage
+            savePromises.push(
+              supabase.storage
                 .from('voice-messages')
                 .upload(storagePath, file, { contentType, upsert: false })
-              if (upErr) continue
-
-              const artifactPayload = {
-                user_id: user.id,
-                chapter_id: chapterId,
-                type: 'proof',
-                data: {
-                  resolutionType: 'audio',
-                  title: d.title,
-                  notes: d.notes,
-                  durationMs: d.durationMs ?? null,
-                  storage: {
-                    bucket: 'voice-messages',
-                    path: upData.path,
-                  },
-                  contentType,
-                },
-              }
-
-              const { error: artErr } = await supabase.from('artifacts').insert(artifactPayload)
-              if (artErr) console.error('[Proof] Audio artifact:', artErr)
-            }
+                .then(({ data: upData, error: upErr }) => {
+                  if (upErr) return
+                  const artifactPayload = {
+                    user_id: user.id,
+                    chapter_id: chapterId,
+                    type: 'proof',
+                    data: {
+                      resolutionType: 'audio',
+                      title: d.title,
+                      notes: d.notes,
+                      durationMs: d.durationMs ?? null,
+                      storage: {
+                        bucket: 'voice-messages',
+                        path: upData.path,
+                      },
+                      contentType,
+                    },
+                  }
+                  return supabase.from('artifacts').insert(artifactPayload)
+                })
+                .catch(err => console.error('[Proof] Audio artifact:', err))
+            )
           }
         }
+      }
 
-        const result = await completeSectionBlock(chapterId, 'proof')
-        if (result && !('error' in result) && result.success) {
-          if (result.streakResult?.xpAwarded && result.streakResult.xpAwarded > 0) {
-            const codes = result.streakResult.reasonCodes || []
-            const streakXp = result.streakResult.xpAwarded
-            if (codes.includes('milestone')) {
-              showXPNotification(streakXp, `${result.streakResult.milestoneReached}-day streak bonus!`, {
-                reasonCode: 'milestone',
-              })
-            } else {
-              showXPNotification(
-                streakXp,
-                codes.includes('streak_continued') ? 'Streak continued!' : 'Daily activity'
-              )
-            }
-          }
-          const xp = result.xpResult?.xpAwarded ?? 0
-          if (xp > 0) {
-            showXPNotification(xp, 'Resolution Complete!', { reasonCode: result.reasonCode })
-          } else if (result.reasonCode === 'repeat_completion') {
-            showXPNotification(0, '', { reasonCode: 'repeat_completion' })
-          }
-        }
-      } catch (error) {
-        console.error('[XP] Error completing resolution:', error)
-      } finally {
+      // Start saving in background (don't wait)
+      Promise.all(savePromises).catch(err =>
+        console.error('[Proof] Some saves failed:', err)
+      )
+
+      // Complete section and get XP BEFORE navigation
+      const result = await completeSectionBlock(chapterId, 'proof')
+      
+      if (result && !('error' in result) && result.success) {
+        // Trigger celebration FIRST
+        celebrateSectionCompletion({
+          xpResult: result.xpResult,
+          reasonCode: result.reasonCode,
+          streakResult: result.streakResult,
+          chapterCompleted: result.chapterCompleted,
+          title: 'Resolution Complete!',
+        })
+
+        // Small delay to ensure celebration starts, THEN navigate
+        setTimeout(() => {
+          router.push(followThroughUrl)
+          if (mountedRef.current) setIsProcessing(false)
+        }, 500)
+      } else {
+        // If completion failed, still navigate
+        router.push(followThroughUrl)
         if (mountedRef.current) setIsProcessing(false)
       }
-    }, 0)
+    } catch (error) {
+      console.error('[XP] Error completing resolution:', error)
+      // Still navigate on error
+      router.push(followThroughUrl)
+      if (mountedRef.current) setIsProcessing(false)
+    }
   }
 
-  // Already completed: show read-only message, no form
-  if (alreadyCompleted === true) {
+  const handleCompleteResolution = useClickSound(handleCompleteResolutionCore);
+
+  // Already completed: show redo / move to next (same as Self-Check)
+  if (alreadyCompleted === true && !showFormAnyway) {
+    const followThroughUrl = getFollowThroughUrl(chapterId)
     return (
-      <div className="min-h-full bg-[var(--color-offwhite)] dark:bg-[#142A4A]">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <div className="rounded-2xl border-2 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-8 text-center">
-            <CheckCircle2 className="w-16 h-16 text-green-600 dark:text-green-400 mx-auto mb-4" />
-            <h1 className="text-2xl sm:text-3xl font-black text-[var(--color-charcoal)] dark:text-white mb-2">
-              Proof already completed
-            </h1>
-            <p className="text-[var(--color-gray)] dark:text-gray-300 mb-6">
-              You can only submit proof once per chapter. Your submission is saved.
-            </p>
-            <Link
-              href="/dashboard"
-              className="inline-block px-6 py-3 rounded-xl bg-[#673067] hover:bg-[#573057] text-white font-bold transition"
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-2xl font-black text-[#111827] dark:text-white mb-3">
+            Already Completed
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+            You&apos;ve already submitted your proof for this chapter. Do you want to add more proof or move to the next step?
+          </p>
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => setShowFormAnyway(true)}
+              className="w-full rounded-xl bg-[#f7b418] hover:bg-[#e5a309] px-6 py-3 text-base font-bold text-black transition-colors"
             >
-              Back to Dashboard
-            </Link>
+              Yes, Add More Proof
+            </button>
+            <button
+              onClick={() => router.push(followThroughUrl)}
+              className="w-full rounded-xl bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 px-6 py-3 text-base font-semibold text-gray-700 dark:text-gray-200 transition-colors"
+            >
+              Skip to Next Step →
+            </button>
           </div>
         </div>
       </div>

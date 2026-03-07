@@ -12,8 +12,9 @@ import ChapterCoverPage from '@/components/content/ChapterCoverPage';
 import AdminEditButton from '@/components/admin/AdminEditButton';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
-import { showXPNotification } from '@/components/gamification/XPNotification';
+import { celebrateSectionCompletion } from '@/lib/celebration/celebrate';
 import { writeQueue } from '@/lib/queue/WriteQueue';
+import { useClickSound } from '@/lib/hooks/useClickSound';
 
 interface Props {
   chapter: Chapter;
@@ -55,7 +56,7 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     setUserResponses(prev => ({ ...prev, [promptId]: value }));
   };
 
-  const handleNext = async () => {
+  const handleNextCore = async () => {
     if (isProcessing) return;
 
     // If on cover page (-1), just move to first actual page (0)
@@ -79,36 +80,62 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
       }));
     }
 
-    // Last page: INSTANT navigation (no waiting for anything)
+    // Last page: Complete section FIRST, show celebration, THEN navigate
     if (currentPage === pages.length - 1) {
-      if (canonicalNextUrl) {
-        router.push(canonicalNextUrl);
-      } else {
-        router.push('/dashboard');
-      }
-
-      // Complete section in background with retry queue
-      writeQueue.enqueue(async () => {
+      setIsProcessing(true);
+      
+      try {
         const sectionResult = await completeDynamicSection({
           chapterNumber: chapter.chapter_number,
           stepType: readingStep.step_type,
         });
         
         if (sectionResult.success) {
-          const xp = sectionResult.xpResult?.xpAwarded ?? 0;
-          if (xp > 0) {
-            showXPNotification(xp, 'Reading complete!', { reasonCode: sectionResult.reasonCode });
-          } else if (sectionResult.reasonCode === 'repeat_completion') {
-            showXPNotification(0, '', { reasonCode: 'repeat_completion' });
+          // Trigger celebration FIRST
+          celebrateSectionCompletion({
+            xpResult: sectionResult.xpResult,
+            reasonCode: sectionResult.reasonCode,
+            streakResult: sectionResult.streakResult,
+            chapterCompleted: (sectionResult as any).chapterCompleted,
+            title: 'Reading Complete!',
+          });
+
+          // Small delay to ensure celebration starts, THEN navigate
+          setTimeout(() => {
+            if (canonicalNextUrl) {
+              router.push(canonicalNextUrl);
+            } else {
+              router.push('/dashboard');
+            }
+            setIsProcessing(false);
+          }, 500);
+        } else {
+          // If completion failed, still navigate
+          if (canonicalNextUrl) {
+            router.push(canonicalNextUrl);
+          } else {
+            router.push('/dashboard');
           }
+          setIsProcessing(false);
         }
-      });
+      } catch (error) {
+        console.error('Error completing section:', error);
+        // Still navigate on error
+        if (canonicalNextUrl) {
+          router.push(canonicalNextUrl);
+        } else {
+          router.push('/dashboard');
+        }
+        setIsProcessing(false);
+      }
     } else {
       setCurrentPage(currentPage + 1);
     }
   };
 
-  const handlePrevious = () => {
+  const handleNext = useClickSound(handleNextCore);
+
+  const handlePreviousCore = () => {
     if (currentPage > 0) {
       setCurrentPage(currentPage - 1);
     } else if (currentPage === 0) {
@@ -117,9 +144,13 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     }
   };
 
-  const handleClose = () => {
+  const handlePrevious = useClickSound(handlePreviousCore);
+
+  const handleCloseCore = () => {
     router.push('/dashboard');
   };
+
+  const handleClose = useClickSound(handleCloseCore);
 
   const currentPageData = pages[currentPage >= 0 ? currentPage : 0];
   // Include cover page in progress calculation
@@ -156,7 +187,13 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     currentPageData?.title ||
     chapter.title;
 
-  const pdfUrl = chapter.pdf_url;
+  const pdfUrl = `/api/reports/chapter/${chapter.chapter_number}?answers=true`;
+
+  const handleDownloadChapterPdf = () => {
+    if (!pdfUrl) return;
+    // Open in new tab so browser download dialog can appear
+    window.open(pdfUrl, '_blank');
+  };
 
   // Unified reading layout for all chapters (Chapter 1 style + mobile-friendly)
   return (
@@ -207,13 +244,25 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
       {/* Content - scrollable on mobile */}
       <div ref={contentRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {currentPage === -1 ? (
-            // CHAPTER COVER PAGE
-            <ChapterCoverPage
-              chapterNumber={chapter.chapter_number}
-              title={chapter.title}
-              subtitle={chapter.subtitle}
-              onContinue={handleNext}
-            />
+            // CHAPTER COVER PAGE + Download button
+            <div className="flex-1 flex flex-col">
+              <ChapterCoverPage
+                chapterNumber={chapter.chapter_number}
+                title={chapter.title}
+                subtitle={chapter.subtitle}
+                onContinue={handleNext}
+              />
+              <div className="mt-6 mb-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={handleDownloadChapterPdf}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#1f2937] hover:bg-[#0f172a] text-white text-sm font-semibold shadow-md transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Chapter Report
+                </button>
+              </div>
+            </div>
           ) : (
             // CONTENT SLIDES - Image left, Text right (mobile: stacked, same as Ch1)
             <div className="flex-1 min-h-0 flex flex-col lg:flex-row">

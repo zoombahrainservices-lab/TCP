@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCachedChapterBundle } from '@/lib/content/cache.server';
 import { getStepPages, getNextStepWithContent } from '@/lib/content/queries';
 import { getChapterPromptAnswers } from '@/app/actions/prompts';
+import { getYourTurnResponses } from '@/app/actions/yourTurn';
 import DynamicStepClient from './DynamicStepClient';
 import ReadingErrorBoundary from '@/components/error/ReadingErrorBoundary';
 import ContentNotAvailable from '@/components/error/ContentNotAvailable';
@@ -63,7 +64,18 @@ export default async function DynamicStepPage({
   const nextStep = await getNextStepWithContent(chapter.id, step.order_index);
   const nextStepSlug = nextStep?.slug ?? null;
 
+  // Load both: prompt answers (user_prompt_answers) AND Your Turn responses (artifacts)
+  // so the framework/techniques/follow-through steps show real saved data
   const { data: savedAnswers } = await getChapterPromptAnswers(chapter.chapter_number);
+  const yourTurnByPrompt = await getYourTurnResponses(chapter.chapter_number);
+
+  // Merge: Your Turn responses keyed by promptKey (e.g. ch1_framework_1) so blocks with matching id show saved text
+  const mergedAnswers: Record<string, any> = { ...savedAnswers };
+  for (const [promptKey, item] of Object.entries(yourTurnByPrompt)) {
+    if (item?.responseText != null) {
+      mergedAnswers[promptKey] = item.responseText;
+    }
+  }
 
   return (
     <ReadingErrorBoundary fallbackUrl="/dashboard">
@@ -72,7 +84,8 @@ export default async function DynamicStepPage({
         step={step}
         pages={pages}
         nextStepSlug={nextStepSlug}
-        initialAnswers={savedAnswers}
+        nextStep={nextStep}
+        initialAnswers={mergedAnswers}
       />
     </ReadingErrorBoundary>
   );
