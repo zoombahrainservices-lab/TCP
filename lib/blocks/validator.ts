@@ -155,7 +155,9 @@ const FrameworkIntroBlockSchema = z.object({
   letters: z.array(z.object({
     letter: z.string(),
     meaning: z.string(),
+    color: z.string().optional(),
   })),
+  accentColor: z.string().optional(),
 })
 
 const FrameworkLetterBlockSchema = z.object({

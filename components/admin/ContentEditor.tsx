@@ -596,6 +596,30 @@ export default function ContentEditor({
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Title
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.title || ''}
+                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="e.g., The SPARK Framework"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Description
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.description || ''}
+                            onChange={(e) => setEditingData({ ...editingData, description: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Brief description of the framework"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Accent Color (hex code)
                           </label>
                           <div className="flex gap-2">

@@ -1156,20 +1156,57 @@ export async function updatePage(pageId: string, data: any) {
   await requireAuth('admin')
   const admin = createAdminClient()
 
+  // Build update payload: only include defined keys so we don't send undefined
+  const payload: Record<string, unknown> = {}
+  if (data.title !== undefined) payload.title = data.title
+  if (data.content !== undefined) payload.content = data.content
+  if (data.hero_image_url !== undefined) payload.hero_image_url = data.hero_image_url
+
   try {
     const { error } = await admin
       .from('step_pages')
-      .update(data)
+      .update(payload)
       .eq('id', pageId)
 
     if (error) throw error
 
-    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
-
     return { success: true }
-  } catch (error) {
-    console.error('Error updating page:', error)
-    throw error
+  } catch (err: any) {
+    console.error('Error updating page:', err)
+
+    // If error suggests hero_image_url column doesn't exist or isn't in schema cache,
+    // retry without it so title + content still save (e.g. migration not run or cache stale)
+    const message = err?.message ?? String(err)
+    const isHeroColumnUnavailable =
+      typeof message === 'string' &&
+      message.includes('hero_image_url') &&
+      (message.includes('does not exist') ||
+       message.includes('schema cache') ||
+       message.includes('Could not find'))
+
+    if (isHeroColumnUnavailable && payload.hero_image_url !== undefined) {
+      const { hero_image_url: _, ...payloadWithoutHero } = payload
+      const { error: retryError } = await admin
+        .from('step_pages')
+        .update(payloadWithoutHero)
+        .eq('id', pageId)
+      if (!retryError) {
+        return { success: true }
+      }
+      console.error('Retry update failed:', retryError)
+    }
+
+    // Normalize to Error with readable message for the client
+    const code = err?.code ?? ''
+    const hint = err?.hint ?? ''
+    const detail = err?.details ?? ''
+    const errMessage =
+      typeof message === 'string' ? message : `Update failed (${code})`
+    throw new Error(
+      errMessage +
+        (hint ? ` Hint: ${hint}` : '') +
+        (detail ? ` Details: ${detail}` : '')
+    )
   }
 }
 

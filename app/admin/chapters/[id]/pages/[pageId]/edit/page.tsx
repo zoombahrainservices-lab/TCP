@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button'
 import BlockRenderer from '@/components/content/BlockRenderer'
 import ImageUploadField from '@/components/admin/ImageUploadField'
 import { updatePage } from '@/app/actions/admin'
+import { validateBlocks } from '@/lib/blocks/validator'
 import toast from 'react-hot-toast'
 import dynamic from 'next/dynamic'
 
@@ -105,18 +106,59 @@ export default function PageContentEditorPage() {
     }
   }
 
+  /**
+   * Normalize content so it is plain JSON-serializable and framework_intro blocks
+   * have required fields. Prevents server-action serialization and DB validation issues.
+   */
+  const prepareContentForSave = (raw: any[]): any[] => {
+    const normalized = raw.map((block: any) => {
+      if (!block || typeof block !== 'object') return block
+      if (block.type === 'framework_intro') {
+        const letters = Array.isArray(block.letters)
+          ? block.letters.map((item: any) => ({
+              letter: typeof item?.letter === 'string' ? item.letter : '',
+              meaning: typeof item?.meaning === 'string' ? item.meaning : '',
+              ...(typeof item?.color === 'string' ? { color: item.color } : {}),
+            }))
+          : [{ letter: 'S', meaning: 'Surface the Pattern' }]
+        const hasLetters = letters.length > 0 && letters.some((item: { letter: string; meaning: string }) => item.letter || item.meaning)
+        return {
+          type: 'framework_intro',
+          frameworkCode: typeof block.frameworkCode === 'string' ? block.frameworkCode : 'SPARK',
+          title: typeof block.title === 'string' ? block.title : 'Framework Title',
+          description: typeof block.description === 'string' ? block.description : 'Framework description',
+          letters: hasLetters ? letters : [{ letter: 'S', meaning: 'Surface the Pattern' }],
+          ...(typeof block.accentColor === 'string' ? { accentColor: block.accentColor } : {}),
+        }
+      }
+      return block
+    })
+    return JSON.parse(JSON.stringify(normalized))
+  }
+
   const savePage = async (contentToSave: any[]) => {
     setSaving(true)
     try {
-      await updatePage(pageId, { 
-        title: pageTitle, 
+      const prepared = prepareContentForSave(contentToSave)
+      const validation = validateBlocks(prepared)
+      if (!validation.valid) {
+        toast.error(`Validation failed: ${validation.errors.join('; ')}`)
+        setSaving(false)
+        return
+      }
+
+      const payload: { title: string; content: any[]; hero_image_url?: string | null } = {
+        title: pageTitle,
+        content: prepared,
         hero_image_url: heroImageUrl || null,
-        content: contentToSave 
-      })
+      }
+
+      await updatePage(pageId, payload)
       toast.success('Content saved successfully')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving:', error)
-      toast.error('Failed to save content')
+      const message = error?.message ?? (typeof error === 'string' ? error : 'Failed to save content')
+      toast.error(message)
     } finally {
       setSaving(false)
     }

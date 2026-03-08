@@ -231,34 +231,17 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const currentPageIndex = hasCoverPage ? currentPage + 1 : currentPage;
   const progress = totalPages ? ((currentPageIndex + 1) / totalPages) * 100 : 0;
 
-  // Derive hero image and content blocks so that image is on the LEFT
-  // Priority: page.hero_image_url → first image block from current page → step.hero_image_url → chapter images → placeholder
-  // CRITICAL: Remove ALL image blocks from content so they never appear on the right
+  // Derive hero image and content blocks
+  // Hero image (left side): Use page.hero_image_url → step → chapter → placeholder
+  // Image blocks (right side): Keep ALL image blocks in content for inline display
   const rawBlocks = (currentPageData?.content ?? []) as any[];
   
-  let heroImageSrc: string = currentPageData?.hero_image_url || (step.hero_image_url ?? chapter.hero_image_url ?? chapter.thumbnail_url ?? '/placeholder.png');
-  let heroImageAlt: string = currentPageData?.title || step.title;
-  let contentBlocks: any[] = rawBlocks;
+  const heroImageSrc: string = currentPageData?.hero_image_url || (step.hero_image_url ?? chapter.hero_image_url ?? chapter.thumbnail_url ?? '/placeholder.png');
+  const heroImageAlt: string = currentPageData?.title || step.title;
 
-  // Find first image block in current page (fallback if page.hero_image_url is not set)
-  const firstImageBlock = rawBlocks.find(
-    (block) => block && typeof block === 'object' && block.type === 'image' && block.src
-  );
-
-  // If no hero_image_url is set on the page, use the first image block as fallback
-  if (!currentPageData?.hero_image_url && firstImageBlock) {
-    // Use the first image found in page content as hero
-    heroImageSrc = firstImageBlock.src;
-    heroImageAlt = firstImageBlock.alt || currentPageData?.title || step.title;
-    // Remove this image block from content
-    contentBlocks = rawBlocks.filter(block => block !== firstImageBlock);
-  } else {
-    // Keep all blocks (since we're using the dedicated hero_image_url)
-    contentBlocks = rawBlocks;
-  }
-
-  // Remove ALL framework_cover blocks from content (they're shown as full-page cover, never on right)
-  contentBlocks = contentBlocks.filter(
+  // Keep all blocks in content (including image blocks for right-side inline display)
+  // Only remove framework_cover blocks (they're shown as full-page cover)
+  const contentBlocks = rawBlocks.filter(
     (block) => !(block && typeof block === 'object' && block.type === 'framework_cover')
   );
 
