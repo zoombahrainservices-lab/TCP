@@ -255,6 +255,7 @@ export default memo(function StepCard({
               {pages.map((page, index) => (
                 <div
                   key={page.id}
+                  data-page-id={page.id}
                   className={`border border-gray-200 dark:border-gray-700 rounded-lg hover:border-[var(--color-amber)] transition-colors ${
                     page._isPending ? 'opacity-60 animate-pulse' : ''
                   }`}
@@ -305,11 +306,12 @@ export default memo(function StepCard({
                         <Edit className="w-4 h-4 mr-1" />
                         Metadata
                       </Button>
-                      <Link href={`/admin/chapters/${chapterId}/pages/${page.id}/edit?from=steps&returnUrl=${encodeURIComponent(`/admin/chapters/${chapterId}?tab=steps`)}`}>
-                        <Button variant="primary" size="sm">
-                          <FileEdit className="w-4 h-4 mr-1" />
-                          Edit Content
-                        </Button>
+                      <Link
+                        href={`/admin/chapters/${chapterId}/pages/${page.id}/edit?from=steps&returnUrl=${encodeURIComponent(`/admin/chapters/${chapterId}?tab=steps&expand=${step.id}&page=${page.id}`)}`}
+                        className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium bg-[var(--color-amber)] text-white hover:opacity-90 transition-opacity"
+                      >
+                        <FileEdit className="w-4 h-4" />
+                        Edit Content
                       </Link>
                       <Button
                         variant="ghost"

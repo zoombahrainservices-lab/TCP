@@ -1,4 +1,5 @@
 import { ParagraphBlock as ParagraphBlockType } from '@/lib/blocks/types';
+import { processHTMLContent } from '@/lib/utils/htmlDecode';
 
 interface ExtendedParagraphBlock extends ParagraphBlockType {
   color?: string;
@@ -20,10 +21,8 @@ export default function ParagraphBlock({
   italic,
   underline 
 }: ExtendedParagraphBlock) {
-  // Detect if this paragraph contains HTML output from the rich text editor
-  const isHTML =
-    typeof text === 'string' &&
-    (text.includes('<p') || text.includes('<span') || text.includes('</') || text.includes('style='));
+  // Process HTML content: detect and decode if needed
+  const { isHTML, content: htmlContent } = processHTMLContent(text);
 
   // Build dynamic classes (used for plain-text mode or as wrapper classes in HTML mode)
   const alignClass = {
@@ -55,8 +54,8 @@ export default function ParagraphBlock({
     return (
       <div className={className} style={style}>
         <div
-          className="prose dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: text || '' }}
+          className="prose dark:prose-invert max-w-none [&_p:empty]:h-5 [&_p:empty]:my-0"
+          dangerouslySetInnerHTML={{ __html: htmlContent }}
         />
       </div>
     );

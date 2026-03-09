@@ -656,7 +656,28 @@ function createDefaultBlock(type: string): Block {
     prompt: { type: 'prompt', id: '', label: '', input: 'text' },
     scale_questions: { type: 'scale_questions', questions: [] },
     yes_no_check: { type: 'yes_no_check', statements: [] },
-    checklist: { type: 'checklist', items: [] },
+    mcq: { 
+      type: 'mcq', 
+      id: '', 
+      questions: [
+        {
+          id: 'q1',
+          text: 'Question 1',
+          options: [
+            { id: 'a', text: 'Option A' },
+            { id: 'b', text: 'Option B' }
+          ]
+        }
+      ] 
+    },
+    checklist: {
+      type: 'checklist',
+      id: `checklist_${Date.now()}`,
+      items: [
+        { id: 'item_1', text: 'First action item' },
+        { id: 'item_2', text: 'Second action item' },
+      ],
+    },
     task_plan: { type: 'task_plan', tasks: [] },
     scripts: { type: 'scripts', scripts: [] },
     framework_intro: { type: 'framework_intro', frameworkCode: '', title: '', description: '', letters: [] },

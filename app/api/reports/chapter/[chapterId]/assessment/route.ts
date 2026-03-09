@@ -47,11 +47,13 @@ function buildAssessmentReportHtml(
   })
 
   const scoreBand =
-    data.score <= 14
-      ? { level: 'Low Risk', color: '#10b981', desc: 'Minimal signs of digital overload' }
-      : data.score <= 24
-      ? { level: 'Moderate Risk', color: '#f59e0b', desc: 'Some digital habits need attention' }
-      : { level: 'High Risk', color: '#ef4444', desc: 'Significant digital dependency detected' }
+    (() => {
+      const max = Math.max(data.maxScore || 1, 1)
+      const pct = ((data.score || 0) / max) * 100
+      if (pct <= 33) return { level: 'Low Risk', color: '#10b981', desc: 'Minimal signs of digital overload' }
+      if (pct <= 66) return { level: 'Moderate Risk', color: '#f59e0b', desc: 'Some digital habits need attention' }
+      return { level: 'High Risk', color: '#ef4444', desc: 'Significant digital dependency detected' }
+    })()
 
   const questionsHtml = data.questions
     .map(
@@ -71,9 +73,9 @@ function buildAssessmentReportHtml(
               ? `
           <div class="a-bar">
             <div class="a-bar-bg">
-              <div class="a-bar-fill" style="width: ${(q.userResponse / 7) * 100}%"></div>
+              <div class="a-bar-fill" style="width: ${(q.userResponse / Math.max(q.maxValue || 1, 1)) * 100}%"></div>
             </div>
-            <span class="a-val">${q.userResponse}/7</span>
+            <span class="a-val">${q.responseLabel ? escapeHtml(String(q.responseLabel)) : `${q.userResponse}/${q.maxValue || 7}`}</span>
           </div>
           `
               : `

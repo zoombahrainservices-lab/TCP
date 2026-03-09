@@ -13,6 +13,7 @@ export default function ScaleQuestionsBlock({
   title,
   description,
   questions,
+  questionNumbering,
   scale,
   scoring,
   responses,
@@ -42,9 +43,40 @@ export default function ScaleQuestionsBlock({
     return scoring.bands.find(band => total >= band.range[0] && total <= band.range[1]);
   };
 
-  const allQuestionsAnswered = questions.every(q => localResponses[q.id] !== undefined);
+  // Normalize questions so each has an id (old templates may have only text)
+  const normalizedQuestions = (questions || []).map((q: any, i: number) => ({
+    id: q.id || `q${i}`,
+    text: q.text ?? '',
+    number: q.number != null && typeof q.number === 'number' ? q.number : undefined,
+  }));
+
+  const numbering = questionNumbering ?? 'auto';
+
+  // Get display line for a question: avoid double numbering by stripping leading "N. " from text when we add a number
+  const getQuestionLabel = (q: { text: string; number?: number }, index: number): string => {
+    const textOnly = (q.text || '').replace(/^\d+\.\s*/, '').trim() || q.text || '';
+    const num =
+      numbering === 'none'
+        ? null
+        : numbering === 'custom' && q.number != null
+          ? q.number
+          : numbering === 'auto'
+            ? index + 1
+            : null;
+    return num !== null ? `${num}. ${textOnly}` : textOnly;
+  };
+
+  const allQuestionsAnswered = normalizedQuestions.every(q => localResponses[q.id] !== undefined);
   const totalScore = calculateTotalScore();
   const scoreBand = getScoreBand();
+
+  // Defensive: ensure scale exists (templates or old content may omit it)
+  const safeScale = scale ?? {
+    min: 1,
+    max: 5,
+    minLabel: 'Not at all',
+    maxLabel: 'Completely',
+  };
 
   return (
     <div className="scale-questions-block mb-6 p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-[#ff6a38]/20">
@@ -60,19 +92,19 @@ export default function ScaleQuestionsBlock({
       )}
 
       <div className="space-y-6">
-        {questions.map((question, index) => (
+        {normalizedQuestions.map((question, index) => (
           <div key={question.id} className="question-item">
             <p className="text-base font-medium text-[#2a2416] dark:text-white mb-3">
-              {index + 1}. {question.text}
+              {getQuestionLabel(question, index)}
             </p>
             
             <div className="flex items-center gap-2 justify-between">
               <span className="text-sm text-gray-600 dark:text-gray-400 flex-shrink-0">
-                {scale.minLabel}
+                {safeScale.minLabel}
               </span>
               
               <div className="flex gap-2">
-                {Array.from({ length: scale.max - scale.min + 1 }, (_, i) => i + scale.min).map((value) => (
+                {Array.from({ length: safeScale.max - safeScale.min + 1 }, (_, i) => i + safeScale.min).map((value) => (
                   <button
                     key={value}
                     onClick={() => handleRating(question.id, value)}
@@ -88,7 +120,7 @@ export default function ScaleQuestionsBlock({
               </div>
               
               <span className="text-sm text-gray-600 dark:text-gray-400 flex-shrink-0">
-                {scale.maxLabel}
+                {safeScale.maxLabel}
               </span>
             </div>
           </div>

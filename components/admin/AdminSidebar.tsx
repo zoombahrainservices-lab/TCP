@@ -2,10 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { BookOpen, Users, ArrowLeft, LayoutDashboard, Trophy, BarChart3 } from 'lucide-react'
 
 export default function AdminSidebar() {
   const pathname = usePathname()
+  const queryClient = useQueryClient()
 
   const navItems = [
     { href: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
@@ -14,6 +16,15 @@ export default function AdminSidebar() {
     { href: '/admin/xp', icon: Trophy, label: 'XP System' },
     { href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
   ]
+
+  // OPTIMIZED: Prefetch chapters list on hover
+  const handlePrefetchChapters = () => {
+    queryClient.prefetchQuery({
+      queryKey: ['admin-chapters'],
+      queryFn: () => fetch('/api/admin/chapters').then(r => r.json()),
+      staleTime: 30000,
+    })
+  }
 
   return (
     <div className="w-64 flex-shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
@@ -39,6 +50,7 @@ export default function AdminSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onMouseEnter={item.href === '/admin/chapters' ? handlePrefetchChapters : undefined}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive
                   ? 'bg-[var(--color-amber)] text-white'

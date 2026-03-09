@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation';
-import { getCachedChapterBundle } from '@/lib/content/cache.server';
+import { getCachedChapterBundle, getCachedChapterBundleAdmin } from '@/lib/content/cache.server';
 import { getStepPages, getNextStepWithContent } from '@/lib/content/queries';
 import { getChapterPromptAnswers } from '@/app/actions/prompts';
 import { getYourTurnResponses } from '@/app/actions/yourTurn';
+import { getSession } from '@/lib/auth/guards';
 import DynamicStepClient from './DynamicStepClient';
 import ReadingErrorBoundary from '@/components/error/ReadingErrorBoundary';
 import ContentNotAvailable from '@/components/error/ContentNotAvailable';
@@ -20,9 +21,18 @@ export default async function DynamicStepPage({
 }) {
   const { chapterSlug, stepSlug } = await params;
 
-  // Use cached bundle (single query + 1hr cache)
-  const { chapter, steps } = await getCachedChapterBundle(chapterSlug);
-  if (!chapter) redirect('/dashboard');
+  // Check if user is admin so they can access unpublished chapters
+  const session = await getSession();
+  const isAdmin = session?.role === 'admin';
+
+  // Admin: use admin bundle (includes unpublished), else use public bundle (published only)
+  const result = isAdmin 
+    ? await getCachedChapterBundleAdmin(chapterSlug)
+    : await getCachedChapterBundle(chapterSlug);
+  
+  if (!result || !result.chapter) redirect('/dashboard');
+  
+  const { chapter, steps } = result;
 
   const step = steps.find(s => s.slug === stepSlug);
   if (!step) redirect(`/read/${chapterSlug}`);

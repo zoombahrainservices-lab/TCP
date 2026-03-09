@@ -1,5 +1,6 @@
 import React from 'react';
 import { HeadingBlock as HeadingBlockType } from '@/lib/blocks/types';
+import { processHTMLContent } from '@/lib/utils/htmlDecode';
 
 interface ExtendedHeadingBlock extends HeadingBlockType {
   color?: string;
@@ -22,6 +23,9 @@ export default function HeadingBlock({
   italic,
   underline 
 }: ExtendedHeadingBlock) {
+  // Process HTML content: detect and decode if needed
+  const { isHTML, content: htmlContent } = processHTMLContent(text);
+
   // Be defensive: some older/migrated heading blocks may not have a level set.
   // Default to h2 styling when level is missing or out of range.
   const safeLevel = level && level >= 1 && level <= 4 ? level : 2;
@@ -55,5 +59,17 @@ export default function HeadingBlock({
   if (color) style.color = color;
   if (bgColor) style.backgroundColor = bgColor;
 
+  // If content contains HTML, render it as HTML
+  if (isHTML) {
+    return (
+      <Tag 
+        className={`${className} prose dark:prose-invert max-w-none`} 
+        style={style}
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
+      />
+    );
+  }
+
+  // Plain text rendering
   return <Tag className={className} style={style}>{text}</Tag>;
 }

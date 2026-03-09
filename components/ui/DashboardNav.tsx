@@ -15,10 +15,13 @@ type DashboardNavProps = {
   serverCurrentChapter?: number
   /** Whether the logged-in user has admin role */
   isAdmin?: boolean
+  /** When true, sidebar is collapsed by default and only opens via toggle (e.g. on reading pages) */
+  collapseSidebarByDefault?: boolean
 }
 
-export function DashboardNav({ serverCurrentChapter, isAdmin = false }: DashboardNavProps = {}) {
+export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSidebarByDefault = false }: DashboardNavProps = {}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(!collapseSidebarByDefault)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [storedChapter, setStoredChapter] = useState<number | null>(null)
   const pathname = usePathname()
@@ -49,6 +52,11 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false }: Dashboar
       hasChapterInPath = true
     } else if (chapterMatch[3]) {
       const slug = chapterMatch[3]
+      const chapterNumberFromSlug = slug.match(/^chapter-(\d+)$/)
+      if (chapterNumberFromSlug?.[1]) {
+        chapterFromPath = Number(chapterNumberFromSlug[1]) || 1
+        hasChapterInPath = true
+      }
       if (slug === 'stage-star-silent-struggles') {
         chapterFromPath = 1
         hasChapterInPath = true
@@ -269,11 +277,41 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false }: Dashboar
         </div>
       </header>
 
-      {/* Desktop Sidebar - Full height */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700">
+      {/* Desktop: toggle button when sidebar is collapsed by default (e.g. reading page) */}
+      {collapseSidebarByDefault && (
+        <button
+          onClick={() => setDesktopSidebarOpen(true)}
+          className="hidden lg:flex fixed left-4 top-2 z-40 items-center justify-center w-11 h-11 rounded-lg bg-white dark:bg-[#0a1628] border border-gray-200 dark:border-gray-800 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-colors"
+          aria-label="Open menu"
+        >
+          <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
+
+      {/* Desktop backdrop when sidebar is open (collapse mode) */}
+      {collapseSidebarByDefault && desktopSidebarOpen && (
+        <div
+          className="hidden lg:block fixed inset-0 bg-black/50 z-40"
+          onClick={() => setDesktopSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Desktop Sidebar - full height; when collapseSidebarByDefault, fixed overlay and only when open */}
+      <aside
+        className={`
+          hidden lg:flex lg:flex-col lg:flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700
+          ${collapseSidebarByDefault
+            ? `fixed left-0 top-0 bottom-0 z-50 w-64 transition-transform duration-300 ease-out ${desktopSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
+            : 'lg:w-64'
+          }
+        `}
+      >
         {/* Logo Section */}
-        <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-[#000000] px-6 py-4">
-          <Link href="/dashboard" className="hover:opacity-80 transition-opacity block">
+        <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-[#000000] px-6 py-4 flex items-center justify-between gap-2">
+          <Link href="/dashboard" className="hover:opacity-80 transition-opacity block flex-1 min-w-0">
             <div className="relative h-12">
               <Image 
                 src="/TCP-logo.png" 
@@ -291,6 +329,17 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false }: Dashboar
               />
             </div>
           </Link>
+          {collapseSidebarByDefault && (
+            <button
+              onClick={() => setDesktopSidebarOpen(false)}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+              aria-label="Close menu"
+            >
+              <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Navigation Menu */}
@@ -308,6 +357,7 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false }: Dashboar
                 <li key={item.id}>
                   <Link
                     href={item.href ?? '/'}
+                    onClick={collapseSidebarByDefault ? () => setDesktopSidebarOpen(false) : undefined}
                     className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
                       isActive(item.href ?? '')
                         ? 'bg-[#0073ba] text-white dark:bg-[#4bc4dc] dark:text-gray-900'
@@ -356,7 +406,10 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false }: Dashboar
         {/* Bottom Actions - Desktop */}
         <div className="flex-shrink-0 p-4">
           <button
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => {
+              setSettingsOpen(true)
+              if (collapseSidebarByDefault) setDesktopSidebarOpen(false)
+            }}
             className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             style={{ fontFamily: "'Open Sans', sans-serif" }}
           >

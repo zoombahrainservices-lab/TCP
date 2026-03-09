@@ -138,7 +138,7 @@ export default function PromptBlock({
           {required && <span className="text-red-500 ml-1">*</span>}
         </span>
         {description && (
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">
             {description}
           </p>
         )}

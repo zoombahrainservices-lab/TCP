@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { 
   Type, 
   Image as ImageIcon, 
@@ -12,7 +12,10 @@ import {
   ChevronUp, 
   ChevronDown,
   Plus,
-  Zap
+  X,
+  Zap,
+  Sprout,
+  Lightbulb
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import BlockRenderer from '@/components/content/BlockRenderer'
@@ -25,10 +28,6 @@ interface ContentEditorProps {
   chapterSlug?: string
   stepSlug?: string
   pageOrder?: number
-  // Optional: when provided, the inner "Save Changes" button
-  // will call this with the updated content so the parent can
-  // immediately persist it (e.g. save the page to the server).
-  onSaveContent?: (updatedContent: any[]) => Promise<void> | void
 }
 
 export default function ContentEditor({ 
@@ -37,7 +36,6 @@ export default function ContentEditor({
   chapterSlug = 'general',
   stepSlug = 'content',
   pageOrder = 0,
-  onSaveContent,
 }: ContentEditorProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editingData, setEditingData] = useState<any>(null)
@@ -47,12 +45,16 @@ export default function ContentEditor({
     { type: 'heading', icon: Type, label: 'Heading' },
     { type: 'paragraph', icon: Edit2, label: 'Paragraph' },
     { type: 'story', icon: Edit2, label: 'Story Text' },
-    { type: 'image', icon: ImageIcon, label: 'Image' },
+    { type: 'inline_image', icon: ImageIcon, label: 'Inline Image' },
     { type: 'list', icon: List, label: 'List' },
     { type: 'quote', icon: Quote, label: 'Quote' },
     { type: 'callout', icon: AlertCircle, label: 'Callout' },
+    { type: 'checklist', icon: List, label: 'Checklist' },
     { type: 'prompt', icon: Edit2, label: 'Input Prompt' },
+    { type: 'mcq', icon: List, label: 'Multiple Choice (MCQ)' },
     { type: 'framework_intro', icon: Zap, label: 'Framework Intro' },
+    { type: 'identity_resolution_guidance', icon: Sprout, label: 'Resolution: Identity Guidance' },
+    { type: 'resolution_proof', icon: Lightbulb, label: 'Resolution: Proof' },
   ]
 
   const handleAddBlock = (type: string) => {
@@ -68,8 +70,8 @@ export default function ContentEditor({
       case 'story':
         newBlock = { type: 'story', text: 'Story content...\nAdd dialogue with quotes for indentation.' }
         break
-      case 'image':
-        newBlock = { type: 'image', src: '', alt: '', caption: '' }
+      case 'inline_image':
+        newBlock = { type: 'inline_image', src: '', alt: '', caption: '' }
         break
       case 'list':
         newBlock = { type: 'list', style: 'bullets', items: ['Item 1', 'Item 2'] }
@@ -80,6 +82,21 @@ export default function ContentEditor({
       case 'callout':
         newBlock = { type: 'callout', variant: 'tip', title: 'Tip', text: 'Callout text...' }
         break
+      case 'checklist':
+        newBlock = {
+          type: 'checklist',
+          id: `checklist_${Date.now()}`,
+          title: 'Your Checklist',
+          items: [
+            { id: 'item_1', text: 'First action item' },
+            { id: 'item_2', text: 'Second action item' },
+          ],
+          appearance: {
+            itemBgColor: '#f7e6ef',
+            checkboxColor: '#cc2e6f',
+          },
+        }
+        break
       case 'prompt':
         newBlock = { 
           type: 'prompt', 
@@ -89,6 +106,31 @@ export default function ContentEditor({
           input: 'textarea', 
           placeholder: 'Enter your response...',
           required: false
+        }
+        break
+      case 'mcq':
+        newBlock = { 
+          type: 'mcq', 
+          id: `mcq_${Date.now()}`, 
+          title: 'Multiple Choice Assessment',
+          description: '',
+          questions: [
+            {
+              id: 'q1',
+              text: 'Question 1',
+              options: [
+                { id: 'a', text: 'Option A' },
+                { id: 'b', text: 'Option B' },
+                { id: 'c', text: 'Option C' },
+                { id: 'd', text: 'Option D' }
+              ],
+              correctOptionId: ''
+            }
+          ],
+          scoring: {
+            showResults: false,
+            bands: []
+          }
         }
         break
       case 'framework_intro':
@@ -107,6 +149,24 @@ export default function ContentEditor({
           accentColor: '#f7b418'
         }
         break
+      case 'identity_resolution_guidance':
+        newBlock = {
+          type: 'identity_resolution_guidance',
+          title: 'identityResolution',
+          subtitle: 'This is your anchor statement. Use it as inspiration for one of your proof entries below.',
+          exampleText: 'Example: My focus is [MY GOAL] and I\'m committed to achieving it. I take responsibility for my progress by doing [SPECIFIC ACTION] consistently.'
+        }
+        break
+      case 'resolution_proof':
+        newBlock = {
+          type: 'resolution_proof',
+          id: `resolution_proof_${Date.now()}`,
+          title: 'Write your response here.',
+          subtitle: 'Use this space to write what your identity actually looks like in real life.',
+          label: 'Proof',
+          placeholder: 'Write your identity statement here'
+        }
+        break
     }
     
     onChange([...content, newBlock])
@@ -118,22 +178,74 @@ export default function ContentEditor({
     setEditingData({ ...content[index] })
   }
 
-  const handleSaveEdit = async () => {
-    if (editingIndex !== null && editingData) {
-      const newContent = [...content]
-      newContent[editingIndex] = editingData
-      onChange(newContent)
+  const normalizeBlock = (block: any) => {
+    let dataToSave = block
 
-      // If the parent provided a save handler, call it with the
-      // freshly updated content so it can immediately persist.
-      if (onSaveContent) {
-        await onSaveContent(newContent)
+    // Normalize scale_questions so block always has valid scale and question ids
+    if (block?.type === 'scale_questions') {
+      const questions = Array.isArray(block.questions) ? block.questions : []
+      dataToSave = {
+        ...block,
+        id: (block.id && String(block.id).trim()) ? block.id : 'scale_questions',
+        ...(block.questionNumbering && { questionNumbering: block.questionNumbering }),
+        scale: block.scale && typeof block.scale === 'object' ? {
+          min: typeof block.scale.min === 'number' ? block.scale.min : 1,
+          max: typeof block.scale.max === 'number' ? block.scale.max : 5,
+          minLabel: String(block.scale.minLabel ?? 'Not at all'),
+          maxLabel: String(block.scale.maxLabel ?? 'Completely'),
+        } : { min: 1, max: 5, minLabel: 'Not at all', maxLabel: 'Completely' },
+        questions: questions.map((q: any, i: number) => ({
+          id: (q?.id && String(q.id).trim()) ? q.id : `q${i}`,
+          text: (q?.text != null) ? String(q.text) : 'Question',
+          ...(typeof q?.number === 'number' && { number: q.number }),
+        })),
       }
-
-      setEditingIndex(null)
-      setEditingData(null)
     }
+
+    // Normalize MCQ so block always has valid question and option ids
+    if (block?.type === 'mcq') {
+      const questions = Array.isArray(block.questions) ? block.questions : []
+      dataToSave = {
+        ...block,
+        id: (block.id && String(block.id).trim()) ? block.id : 'mcq',
+        ...(block.title && { title: block.title }),
+        ...(block.description && { description: block.description }),
+        questions: questions.map((q: any, i: number) => ({
+          id: (q?.id && String(q.id).trim()) ? q.id : `q${i}`,
+          text: (q?.text != null) ? String(q.text) : 'Question',
+          options: Array.isArray(q?.options) ? q.options.map((opt: any, j: number) => ({
+            id: (opt?.id && String(opt.id).trim()) ? opt.id : `opt${j}`,
+            text: (opt?.text != null) ? String(opt.text) : `Option ${j + 1}`,
+          })) : [],
+          ...(q?.correctOptionId && String(q.correctOptionId).trim() && { correctOptionId: String(q.correctOptionId).trim() }),
+        })),
+        ...(block.scoring && typeof block.scoring === 'object' && { scoring: block.scoring }),
+      }
+    }
+
+    if (block?.type === 'checklist') {
+      const items = Array.isArray(block.items) ? block.items : []
+      dataToSave = {
+        ...block,
+        id: (block.id && String(block.id).trim()) ? block.id : `checklist_${Date.now()}`,
+        items: items.map((item: any, i: number) => ({
+          id: (item?.id && String(item.id).trim()) ? item.id : `item_${i + 1}`,
+          text: String(item?.text ?? ''),
+          ...(item?.checked !== undefined && { checked: Boolean(item.checked) }),
+        })),
+      }
+    }
+
+    return dataToSave
   }
+
+  // Block edits are applied immediately; only top-level save should persist to server.
+  useEffect(() => {
+    if (editingIndex === null || !editingData) return
+    const newContent = [...content]
+    newContent[editingIndex] = normalizeBlock(editingData)
+    onChange(newContent)
+  }, [editingData, editingIndex, onChange])
 
   const handleDeleteBlock = (index: number) => {
     if (confirm('Delete this block?')) {
@@ -153,9 +265,85 @@ export default function ContentEditor({
   }
 
   return (
-    <div className="h-full flex">
-      {/* Left: Block Palette */}
-      <div className="w-64 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 p-4 overflow-y-auto">
+    <div className="h-full flex overflow-hidden">
+      {/* Left Sidebar: Hero Image + Block Palette */}
+      <div className="w-64 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+        {/* Hero Image Section - Compact */}
+        <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50 overflow-y-auto max-h-[50vh]">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Hero Image</h3>
+          
+          {/* Show first image block preview if it exists */}
+          {content && content.length > 0 && content[0]?.type === 'image' && content[0]?.src ? (
+            <div className="mb-3">
+              <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 group">
+                <img
+                  src={content[0].src}
+                  alt={content[0].alt || "Hero image"}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.style.display = 'none'
+                  }}
+                />
+                {/* Delete button */}
+                <button
+                  onClick={() => {
+                    const newContent = content.filter((_, index) => index !== 0);
+                    onChange(newContent);
+                  }}
+                  className="absolute top-2 right-2 p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Remove hero image"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+              <ImageUploadField
+                label="Change"
+                value={content[0].src}
+                onChange={(url) => {
+                  const imageUrl = typeof url === 'string' ? url : url[0] || '';
+                  if (imageUrl) {
+                    const newContent = [...content];
+                    newContent[0] = { ...newContent[0], src: imageUrl };
+                    onChange(newContent);
+                  }
+                }}
+                chapterSlug={chapterSlug}
+                stepSlug={stepSlug}
+                pageOrder={pageOrder}
+                helperText=""
+                hideCurrentPreview
+              />
+            </div>
+          ) : (
+            <div className="mb-3">
+              <ImageUploadField
+                label="Upload Hero Image"
+                value=""
+                onChange={(url) => {
+                  const imageUrl = typeof url === 'string' ? url : url[0] || '';
+                  if (imageUrl) {
+                    const newContent = [...content];
+                    newContent.unshift({
+                      type: 'image',
+                      src: imageUrl,
+                      alt: 'Hero image',
+                      caption: ''
+                    });
+                    onChange(newContent);
+                  }
+                }}
+                chapterSlug={chapterSlug}
+                stepSlug={stepSlug}
+                pageOrder={pageOrder}
+                helperText="Main left-side image"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Block Palette */}
+        <div className="flex-1 p-4 overflow-y-auto">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Add Block</h3>
         <div className="space-y-2">
           {blockTypes.map((blockType) => (
@@ -170,8 +358,9 @@ export default function ContentEditor({
           ))}
         </div>
       </div>
+      </div>
 
-      {/* Center: Content List */}
+      {/* Right: Content Area */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto space-y-4">
           {content.length === 0 ? (
@@ -181,7 +370,12 @@ export default function ContentEditor({
               </p>
             </div>
           ) : (
-            content.map((block, index) => (
+            content.map((block, index) => {
+              // Hero image is only shown in left sidebar; do not show first image block in content list
+              if (index === 0 && block?.type === 'image') return null;
+              // page_meta holds title style; managed in Page Title Style section, do not show
+              if (block?.type === 'page_meta') return null;
+              return (
               <div
                 key={index}
                 className="bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 p-4"
@@ -308,9 +502,9 @@ export default function ContentEditor({
                         {editingData?.src && editingData.src.trim() !== '' && (
                           <div className="mb-4">
                             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Current Image
+                              Current Hero Image
                             </label>
-                            <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
+                            <div className="relative w-full max-w-md aspect-video bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
                               <img
                                 src={editingData.src}
                                 alt={editingData.alt || 'Preview'}
@@ -328,10 +522,10 @@ export default function ContentEditor({
                         )}
 
                         <ImageUploadField
-                          label={editingData?.src && editingData.src.trim() !== '' ? "Replace Image" : "Add Image"}
+                          label={editingData?.src && editingData.src.trim() !== '' ? "Replace Hero Image" : "Add Hero Image"}
                           value={editingData?.src || ''}
-                          onChange={(url) => setEditingData({ ...editingData, src: url as string })}
-                          helperText="Upload an image or select from gallery"
+                          onChange={(url) => setEditingData({ ...editingData, src: typeof url === 'string' ? url : url[0] || '' })}
+                          helperText="Upload an image or select from gallery - will appear on left side"
                           chapterSlug={chapterSlug}
                           stepSlug={stepSlug}
                           pageOrder={pageOrder}
@@ -363,18 +557,82 @@ export default function ContentEditor({
                       </>
                     )}
 
+                    {block.type === 'inline_image' && (
+                      <>
+                        {/* Preview when image is set */}
+                        {editingData?.src && editingData.src.trim() !== '' && (
+                          <div className="mb-4">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Current Inline Image
+                            </label>
+                            <div className="relative w-full max-w-md aspect-video bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                              <img
+                                src={editingData.src}
+                                alt={editingData.alt || 'Preview'}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.style.display = 'none'
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <ImageUploadField
+                          label={editingData?.src && editingData.src.trim() !== '' ? "Change Image" : "Upload Image"}
+                          value={editingData?.src || ''}
+                          onChange={(url) => setEditingData({ ...editingData, src: typeof url === 'string' ? url : url[0] || '' })}
+                          chapterSlug={chapterSlug}
+                          stepSlug={stepSlug}
+                          pageOrder={pageOrder}
+                          helperText="Displays inline in the content (right side). Drag and drop or choose from gallery."
+                          hideCurrentPreview
+                        />
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Alt Text (for accessibility)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.alt || ''}
+                            onChange={(e) => setEditingData({ ...editingData, alt: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Describe the image"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Caption (optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.caption || ''}
+                            onChange={(e) => setEditingData({ ...editingData, caption: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Image caption"
+                          />
+                        </div>
+                      </>
+                    )}
+
                     {block.type === 'quote' && (
                       <>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Quote Text
                           </label>
-                          <textarea
-                            value={editingData?.text || ''}
-                            onChange={(e) => setEditingData({ ...editingData, text: e.target.value })}
-                            rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                            placeholder="Quote text"
+                          <RichTextEditor
+                            content={editingData?.text || ''}
+                            onChange={(html) => {
+                              const updatedBlock = { ...editingData, text: html }
+                              setEditingData(updatedBlock)
+                              const newContent = [...content]
+                              newContent[index] = updatedBlock
+                              onChange(newContent)
+                            }}
+                            placeholder="Quote text..."
+                            minHeight="120px"
                           />
                         </div>
                         <div>
@@ -388,6 +646,41 @@ export default function ContentEditor({
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                             placeholder="Author name"
                           />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Background Color
+                            </label>
+                            <input
+                              type="color"
+                              value={editingData?.bgColor || '#fef3c7'}
+                              onChange={(e) => setEditingData({ ...editingData, bgColor: e.target.value })}
+                              className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Border Color
+                            </label>
+                            <input
+                              type="color"
+                              value={editingData?.borderColor || '#ff6a38'}
+                              onChange={(e) => setEditingData({ ...editingData, borderColor: e.target.value })}
+                              className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Text Color
+                            </label>
+                            <input
+                              type="color"
+                              value={editingData?.color || '#2a2416'}
+                              onChange={(e) => setEditingData({ ...editingData, color: e.target.value })}
+                              className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            />
+                          </div>
                         </div>
                       </>
                     )}
@@ -434,12 +727,127 @@ export default function ContentEditor({
                             onChange={(e) => setEditingData({ ...editingData, variant: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                           >
-                            <option value="tip">Tip (Blue)</option>
+                            <option value="tip">Tip (Green)</option>
+                            <option value="science">Science (Blue)</option>
                             <option value="warning">Warning (Yellow)</option>
+                            <option value="example">Example (Purple)</option>
+                            <option value="truth">Truth (Orange)</option>
+                            <option value="research">Research (Indigo)</option>
                             <option value="danger">Danger (Red)</option>
                             <option value="success">Success (Green)</option>
                             <option value="info">Info (Gray)</option>
+                            <option value="custom">Custom (Color Picker)</option>
                           </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Background Color
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={editingData?.bgColor || '#f5f3ff'}
+                                onChange={(e) => setEditingData({ ...editingData, bgColor: e.target.value })}
+                                className="w-12 h-10 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                              />
+                              <input
+                                type="text"
+                                value={editingData?.bgColor || ''}
+                                onChange={(e) => setEditingData({ ...editingData, bgColor: e.target.value })}
+                                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs"
+                                placeholder="#f5f3ff"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Border Color
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={editingData?.borderColor || '#8b5cf6'}
+                                onChange={(e) => setEditingData({ ...editingData, borderColor: e.target.value })}
+                                className="w-12 h-10 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                              />
+                              <input
+                                type="text"
+                                value={editingData?.borderColor || ''}
+                                onChange={(e) => setEditingData({ ...editingData, borderColor: e.target.value })}
+                                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs"
+                                placeholder="#8b5cf6"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Text Color
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={editingData?.textColor || '#4c1d95'}
+                                onChange={(e) => setEditingData({ ...editingData, textColor: e.target.value })}
+                                className="w-12 h-10 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                              />
+                              <input
+                                type="text"
+                                value={editingData?.textColor || ''}
+                                onChange={(e) => setEditingData({ ...editingData, textColor: e.target.value })}
+                                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs"
+                                placeholder="#4c1d95"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Icon Color
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={editingData?.iconColor || '#7c3aed'}
+                                onChange={(e) => setEditingData({ ...editingData, iconColor: e.target.value })}
+                                className="w-12 h-10 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                              />
+                              <input
+                                type="text"
+                                value={editingData?.iconColor || ''}
+                                onChange={(e) => setEditingData({ ...editingData, iconColor: e.target.value })}
+                                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs"
+                                placeholder="#7c3aed"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() =>
+                              setEditingData({
+                                ...editingData,
+                                variant: 'custom',
+                                bgColor: '#f3e8ff',
+                                borderColor: '#a855f7',
+                                textColor: '#4c1d95',
+                                iconColor: '#9333ea',
+                              })
+                            }
+                          >
+                            Quick Purple
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              const { bgColor, borderColor, textColor, iconColor, ...rest } = editingData || {}
+                              setEditingData(rest)
+                            }}
+                          >
+                            Reset Custom Colors
+                          </Button>
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -454,16 +862,495 @@ export default function ContentEditor({
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Text
                           </label>
-                          <textarea
-                            value={editingData?.text || ''}
-                            onChange={(e) => setEditingData({ ...editingData, text: e.target.value })}
-                            rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                            placeholder="Callout text"
+                          <RichTextEditor
+                            content={editingData?.text || ''}
+                            onChange={(html) => {
+                              const updatedBlock = { ...editingData, text: html }
+                              setEditingData(updatedBlock)
+                              const newContent = [...content]
+                              newContent[index] = updatedBlock
+                              onChange(newContent)
+                            }}
+                            placeholder="Callout text..."
+                            minHeight="120px"
                           />
+                        </div>
+                      </>
+                    )}
+
+                    {block.type === 'checklist' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Checklist Title (optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.title || ''}
+                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="YOUR COMMITMENT"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Checklist Items
+                          </label>
+                          <div className="space-y-2">
+                            {(editingData?.items || []).map((item: any, itemIdx: number) => (
+                              <div key={item.id || itemIdx} className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={item?.text || ''}
+                                  onChange={(e) => {
+                                    const nextItems = [...(editingData?.items || [])]
+                                    nextItems[itemIdx] = { ...item, text: e.target.value }
+                                    setEditingData({ ...editingData, items: nextItems })
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                                  placeholder={`Item ${itemIdx + 1}`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextItems = (editingData?.items || []).filter((_: any, i: number) => i !== itemIdx)
+                                    setEditingData({ ...editingData, items: nextItems })
+                                  }}
+                                  className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                  title="Delete item"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextItems = [
+                                ...(editingData?.items || []),
+                                {
+                                  id: `item_${(editingData?.items?.length || 0) + 1}`,
+                                  text: 'New checklist item',
+                                },
+                              ]
+                              setEditingData({ ...editingData, items: nextItems })
+                            }}
+                            className="mt-2 flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-amber)] hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add item
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Row Background
+                            </label>
+                            <input
+                              type="color"
+                              value={editingData?.appearance?.itemBgColor || '#f7e6ef'}
+                              onChange={(e) => setEditingData({
+                                ...editingData,
+                                appearance: { ...(editingData?.appearance || {}), itemBgColor: e.target.value },
+                              })}
+                              className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Checkbox Color
+                            </label>
+                            <input
+                              type="color"
+                              value={editingData?.appearance?.checkboxColor || '#cc2e6f'}
+                              onChange={(e) => setEditingData({
+                                ...editingData,
+                                appearance: { ...(editingData?.appearance || {}), checkboxColor: e.target.value },
+                              })}
+                              className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {block.type === 'scale_questions' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Block ID</label>
+                          <input
+                            type="text"
+                            value={editingData?.id || ''}
+                            onChange={(e) => setEditingData({ ...editingData, id: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-sm"
+                            placeholder="e.g., self_assessment"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Title (optional)</label>
+                          <input
+                            type="text"
+                            value={editingData?.title || ''}
+                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Self-Assessment"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
+                          <input
+                            type="text"
+                            value={editingData?.description || ''}
+                            onChange={(e) => setEditingData({ ...editingData, description: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Rate yourself on the following..."
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Scale min</label>
+                            <input
+                              type="number"
+                              value={editingData?.scale?.min ?? 1}
+                              onChange={(e) => setEditingData({
+                                ...editingData,
+                                scale: { ...(editingData?.scale || { min: 1, max: 5, minLabel: '', maxLabel: '' }), min: parseInt(e.target.value) || 1 },
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Scale max</label>
+                            <input
+                              type="number"
+                              value={editingData?.scale?.max ?? 5}
+                              onChange={(e) => setEditingData({
+                                ...editingData,
+                                scale: { ...(editingData?.scale || { min: 1, max: 5, minLabel: '', maxLabel: '' }), max: parseInt(e.target.value) || 5 },
+                              })}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Scale left label</label>
+                          <input
+                            type="text"
+                            value={editingData?.scale?.minLabel ?? ''}
+                            onChange={(e) => setEditingData({
+                              ...editingData,
+                              scale: { ...(editingData?.scale || { min: 1, max: 5, minLabel: '', maxLabel: '' }), minLabel: e.target.value },
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Not at all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Scale right label</label>
+                          <input
+                            type="text"
+                            value={editingData?.scale?.maxLabel ?? ''}
+                            onChange={(e) => setEditingData({
+                              ...editingData,
+                              scale: { ...(editingData?.scale || { min: 1, max: 5, minLabel: '', maxLabel: '' }), maxLabel: e.target.value },
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Completely"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Question numbering</label>
+                          <select
+                            value={editingData?.questionNumbering ?? 'auto'}
+                            onChange={(e) => setEditingData({ ...editingData, questionNumbering: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                          >
+                            <option value="auto">Auto (1, 2, 3...)</option>
+                            <option value="none">None (no number prefix)</option>
+                            <option value="custom">Custom (set number per question, e.g. 11, 22)</option>
+                          </select>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Auto avoids double numbering; use Custom for numbers like 11, 22.
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Questions</label>
+                          <div className="space-y-3">
+                            {(editingData?.questions || []).map((q: any, qIdx: number) => (
+                              <div key={qIdx} className="flex gap-2 items-start p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                                {editingData?.questionNumbering === 'custom' && (
+                                  <input
+                                    type="number"
+                                    value={q.number ?? ''}
+                                    onChange={(e) => {
+                                      const newQuestions = [...(editingData?.questions || [])];
+                                      const v = e.target.value;
+                                      newQuestions[qIdx] = { ...q, number: v === '' ? undefined : parseInt(v, 10) };
+                                      setEditingData({ ...editingData, questions: newQuestions });
+                                    }}
+                                    className="w-14 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                                    placeholder="11"
+                                    title="Display number (e.g. 11, 22)"
+                                  />
+                                )}
+                                <input
+                                  type="text"
+                                  value={q.text ?? ''}
+                                  onChange={(e) => {
+                                    const newQuestions = [...(editingData?.questions || [])];
+                                    newQuestions[qIdx] = { ...q, text: e.target.value };
+                                    setEditingData({ ...editingData, questions: newQuestions });
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                                  placeholder="Question text"
+                                />
+                                <input
+                                  type="text"
+                                  value={q.id ?? ''}
+                                  onChange={(e) => {
+                                    const newQuestions = [...(editingData?.questions || [])];
+                                    newQuestions[qIdx] = { ...q, id: e.target.value };
+                                    setEditingData({ ...editingData, questions: newQuestions });
+                                  }}
+                                  className="w-20 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs"
+                                  placeholder="id"
+                                  title="Question ID"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newQuestions = (editingData?.questions || []).filter((_: any, i: number) => i !== qIdx);
+                                    setEditingData({ ...editingData, questions: newQuestions });
+                                  }}
+                                  className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded shrink-0"
+                                  title="Delete question"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newQuestions = [...(editingData?.questions || []), { id: `q${(editingData?.questions?.length ?? 0)}`, text: 'New question' }];
+                              setEditingData({ ...editingData, questions: newQuestions });
+                            }}
+                            className="mt-2 flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-amber)] hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add question
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {block.type === 'mcq' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Block ID</label>
+                          <input
+                            type="text"
+                            value={editingData?.id || ''}
+                            onChange={(e) => setEditingData({ ...editingData, id: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-sm"
+                            placeholder="e.g., quiz_assessment"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Title (optional)</label>
+                          <input
+                            type="text"
+                            value={editingData?.title || ''}
+                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Knowledge Check"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
+                          <input
+                            type="text"
+                            value={editingData?.description || ''}
+                            onChange={(e) => setEditingData({ ...editingData, description: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Answer each question to the best of your ability..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Questions</label>
+                          <div className="space-y-4">
+                            {(editingData?.questions || []).map((q: any, qIdx: number) => (
+                              <div key={qIdx} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
+                                <div className="flex gap-2 items-start">
+                                  <input
+                                    type="text"
+                                    value={q.text ?? ''}
+                                    onChange={(e) => {
+                                      const newQuestions = [...(editingData?.questions || [])];
+                                      newQuestions[qIdx] = { ...q, text: e.target.value };
+                                      setEditingData({ ...editingData, questions: newQuestions });
+                                    }}
+                                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                                    placeholder="Question text"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={q.id ?? ''}
+                                    onChange={(e) => {
+                                      const newQuestions = [...(editingData?.questions || [])];
+                                      newQuestions[qIdx] = { ...q, id: e.target.value };
+                                      setEditingData({ ...editingData, questions: newQuestions });
+                                    }}
+                                    className="w-20 px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-xs"
+                                    placeholder="q1"
+                                    title="Question ID"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newQuestions = (editingData?.questions || []).filter((_: any, i: number) => i !== qIdx);
+                                      setEditingData({ ...editingData, questions: newQuestions });
+                                    }}
+                                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded shrink-0"
+                                    title="Delete question"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                                
+                                <div className="pl-4 space-y-2">
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Options:</label>
+                                  {(q.options || []).map((opt: any, optIdx: number) => (
+                                    <div key={optIdx} className="flex gap-2 items-center">
+                                      <input
+                                        type="radio"
+                                        name={`correct-${qIdx}`}
+                                        checked={q.correctOptionId === opt.id}
+                                        onChange={() => {
+                                          const newQuestions = [...(editingData?.questions || [])];
+                                          newQuestions[qIdx] = { ...q, correctOptionId: opt.id };
+                                          setEditingData({ ...editingData, questions: newQuestions });
+                                        }}
+                                        className="w-4 h-4 text-green-600"
+                                        title="Mark as correct answer"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={opt.text ?? ''}
+                                        onChange={(e) => {
+                                          const newQuestions = [...(editingData?.questions || [])];
+                                          const newOptions = [...(q.options || [])];
+                                          newOptions[optIdx] = { ...opt, text: e.target.value };
+                                          newQuestions[qIdx] = { ...q, options: newOptions };
+                                          setEditingData({ ...editingData, questions: newQuestions });
+                                        }}
+                                        className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm"
+                                        placeholder="Option text"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={opt.id ?? ''}
+                                        onChange={(e) => {
+                                          const newQuestions = [...(editingData?.questions || [])];
+                                          const newOptions = [...(q.options || [])];
+                                          newOptions[optIdx] = { ...opt, id: e.target.value };
+                                          newQuestions[qIdx] = { ...q, options: newOptions };
+                                          setEditingData({ ...editingData, questions: newQuestions });
+                                        }}
+                                        className="w-16 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 font-mono text-xs"
+                                        placeholder="a"
+                                        title="Option ID"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newQuestions = [...(editingData?.questions || [])];
+                                          const newOptions = (q.options || []).filter((_: any, i: number) => i !== optIdx);
+                                          newQuestions[qIdx] = { ...q, options: newOptions };
+                                          setEditingData({ ...editingData, questions: newQuestions });
+                                        }}
+                                        className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                        title="Delete option"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newQuestions = [...(editingData?.questions || [])];
+                                      const newOptions = [...(q.options || []), { id: `opt${(q.options?.length ?? 0)}`, text: 'New option' }];
+                                      newQuestions[qIdx] = { ...q, options: newOptions };
+                                      setEditingData({ ...editingData, questions: newQuestions });
+                                    }}
+                                    className="mt-1 flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    Add option
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newQuestions = [...(editingData?.questions || [])];
+                                      newQuestions[qIdx] = { ...q, correctOptionId: '' };
+                                      setEditingData({ ...editingData, questions: newQuestions });
+                                    }}
+                                    className="ml-2 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                                  >
+                                    Clear correct answer
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newQuestions = [...(editingData?.questions || []), { 
+                                id: `q${(editingData?.questions?.length ?? 0) + 1}`, 
+                                text: 'New question',
+                                options: [
+                                  { id: 'a', text: 'Option A' },
+                                  { id: 'b', text: 'Option B' }
+                                ]
+                              }];
+                              setEditingData({ ...editingData, questions: newQuestions });
+                            }}
+                            className="mt-3 flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-amber)] hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add question
+                          </button>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Scoring Options</label>
+                          <div className="flex items-center gap-2 mb-2">
+                            <input
+                              type="checkbox"
+                              id="show-results"
+                              checked={editingData?.scoring?.showResults || false}
+                              onChange={(e) => setEditingData({ 
+                                ...editingData, 
+                                scoring: { 
+                                  ...(editingData?.scoring || {}), 
+                                  showResults: e.target.checked 
+                                } 
+                              })}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="show-results" className="text-sm text-gray-700 dark:text-gray-300">
+                              Show results after completion (for graded MCQs)
+                            </label>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            💡 Select the radio button next to an option to mark it as correct. Leave all unmarked for reflection/survey questions.
+                          </p>
                         </div>
                       </>
                     )}
@@ -620,19 +1507,22 @@ export default function ContentEditor({
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Accent Color (hex code)
+                            Accent Color
                           </label>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="color"
+                              value={editingData?.accentColor || '#f7b418'}
+                              onChange={(e) => setEditingData({ ...editingData, accentColor: e.target.value })}
+                              className="w-20 h-10 rounded-lg border-2 border-gray-300 dark:border-gray-600 cursor-pointer bg-white dark:bg-gray-700"
+                              title="Pick accent color"
+                            />
                             <input
                               type="text"
                               value={editingData?.accentColor || '#f7b418'}
                               onChange={(e) => setEditingData({ ...editingData, accentColor: e.target.value })}
-                              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono"
+                              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-sm"
                               placeholder="#f7b418"
-                            />
-                            <div 
-                              className="w-12 h-10 rounded-lg border border-gray-300 dark:border-gray-600"
-                              style={{ backgroundColor: editingData?.accentColor || '#f7b418' }}
                             />
                           </div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -696,13 +1586,99 @@ export default function ContentEditor({
                         </div>
                       </>
                     )}
+
+                    {block.type === 'identity_resolution_guidance' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                          <input
+                            type="text"
+                            value={editingData?.title || ''}
+                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="e.g., identityResolution"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Subtitle</label>
+                          <input
+                            type="text"
+                            value={editingData?.subtitle || ''}
+                            onChange={(e) => setEditingData({ ...editingData, subtitle: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="This is your anchor statement..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Example Text</label>
+                          <textarea
+                            value={editingData?.exampleText || ''}
+                            onChange={(e) => setEditingData({ ...editingData, exampleText: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 min-h-[120px]"
+                            placeholder="Example: My focus is [MY GOAL]..."
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {block.type === 'resolution_proof' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Block ID (for saving responses)</label>
+                          <input
+                            type="text"
+                            value={editingData?.id || ''}
+                            onChange={(e) => setEditingData({ ...editingData, id: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 font-mono text-sm"
+                            placeholder="resolution_proof"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                          <input
+                            type="text"
+                            value={editingData?.title || ''}
+                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Write your response here."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Subtitle</label>
+                          <input
+                            type="text"
+                            value={editingData?.subtitle || ''}
+                            onChange={(e) => setEditingData({ ...editingData, subtitle: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Use this space to write..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Label (e.g. Proof)</label>
+                          <input
+                            type="text"
+                            value={editingData?.label || ''}
+                            onChange={(e) => setEditingData({ ...editingData, label: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Proof"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Placeholder</label>
+                          <input
+                            type="text"
+                            value={editingData?.placeholder || ''}
+                            onChange={(e) => setEditingData({ ...editingData, placeholder: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Write your identity statement here"
+                          />
+                        </div>
+                      </>
+                    )}
                     
                     <div className="flex gap-2 pt-2">
-                      <Button variant="primary" size="sm" onClick={handleSaveEdit}>
-                        Save Changes
-                      </Button>
                       <Button variant="secondary" size="sm" onClick={() => { setEditingIndex(null); setEditingData(null); }}>
-                        Cancel
+                        Done
                       </Button>
                     </div>
                   </div>
@@ -715,7 +1691,8 @@ export default function ContentEditor({
                   </div>
                 )}
               </div>
-            ))
+            );
+            })
           )}
         </div>
       </div>

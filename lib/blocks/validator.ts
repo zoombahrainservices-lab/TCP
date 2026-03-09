@@ -21,6 +21,11 @@ const QuoteBlockSchema = z.object({
   text: z.string(),
   author: z.string().optional(),
   role: z.string().optional(),
+  color: z.string().optional(),
+  bgColor: z.string().optional(),
+  borderColor: z.string().optional(),
+  align: z.enum(['left', 'center', 'right']).optional(),
+  fontSize: z.string().optional(),
 })
 
 const DividerBlockSchema = z.object({
@@ -36,12 +41,25 @@ const ImageBlockSchema = z.object({
   height: z.number().optional(),
 })
 
+const InlineImageBlockSchema = z.object({
+  type: z.literal('inline_image'),
+  src: z.string(),
+  alt: z.string(),
+  caption: z.string().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+})
+
 const CalloutBlockSchema = z.object({
   type: z.literal('callout'),
-  variant: z.enum(['science', 'tip', 'warning', 'example', 'truth', 'research']),
+  variant: z.enum(['science', 'tip', 'warning', 'example', 'truth', 'research', 'success', 'danger', 'info', 'custom']),
   title: z.string().optional(),
   text: z.string(),
   icon: z.string().optional(),
+  bgColor: z.string().optional(),
+  borderColor: z.string().optional(),
+  textColor: z.string().optional(),
+  iconColor: z.string().optional(),
 })
 
 const ListBlockSchema = z.object({
@@ -72,9 +90,11 @@ const ScaleQuestionsBlockSchema = z.object({
   id: z.string().min(1),
   title: z.string().optional(),
   description: z.string().optional(),
+  questionNumbering: z.enum(['auto', 'none', 'custom']).optional(),
   questions: z.array(z.object({
     id: z.string().min(1),
     text: z.string(),
+    number: z.number().optional(),
   })),
   scale: z.object({
     min: z.number(),
@@ -109,6 +129,31 @@ const YesNoCheckBlockSchema = z.object({
   }).optional(),
 })
 
+const MCQBlockSchema = z.object({
+  type: z.literal('mcq'),
+  id: z.string().min(1),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  questions: z.array(z.object({
+    id: z.string().min(1),
+    text: z.string(),
+    options: z.array(z.object({
+      id: z.string().min(1),
+      text: z.string(),
+    })),
+    correctOptionId: z.string().optional(),
+  })),
+  scoring: z.object({
+    showResults: z.boolean().optional(),
+    bands: z.array(z.object({
+      range: z.tuple([z.number(), z.number()]),
+      label: z.string(),
+      description: z.string().optional(),
+      color: z.string().optional(),
+    })),
+  }).optional(),
+})
+
 const TaskPlanBlockSchema = z.object({
   type: z.literal('task_plan'),
   id: z.string(),
@@ -127,6 +172,15 @@ const ChecklistBlockSchema = z.object({
   type: z.literal('checklist'),
   id: z.string(),
   title: z.string().optional(),
+  appearance: z.object({
+    containerBgColor: z.string().optional(),
+    containerBorderColor: z.string().optional(),
+    itemBgColor: z.string().optional(),
+    itemBorderColor: z.string().optional(),
+    checkboxColor: z.string().optional(),
+    titleColor: z.string().optional(),
+    textColor: z.string().optional(),
+  }).optional(),
   items: z.array(z.object({
     id: z.string(),
     text: z.string(),
@@ -180,7 +234,7 @@ const ButtonBlockSchema = z.object({
   text: z.string(),
   href: z.string().optional(),
   action: z.string().optional(),
-  variant: z.enum(['primary', 'secondary', 'outline']).optional(),
+  variant: z.enum(['primary', 'secondary', 'outline', 'resolution_cta']).optional(),
 })
 
 const ConditionalBlockSchema: z.ZodType<any> = z.lazy(() => z.object({
@@ -199,6 +253,31 @@ const VariableBlockSchema = z.object({
   variables: z.record(z.string(), z.unknown()),
 })
 
+const PageMetaBlockSchema = z.object({
+  type: z.literal('page_meta'),
+  title_style: z.object({
+    color: z.string().optional(),
+    fontSize: z.string().optional(),
+    fontWeight: z.string().optional(),
+  }).optional(),
+})
+
+const IdentityResolutionGuidanceBlockSchema = z.object({
+  type: z.literal('identity_resolution_guidance'),
+  title: z.string(),
+  subtitle: z.string(),
+  exampleText: z.string(),
+})
+
+const ResolutionProofBlockSchema = z.object({
+  type: z.literal('resolution_proof'),
+  id: z.string().min(1, 'Resolution proof ID is required'),
+  title: z.string(),
+  subtitle: z.string(),
+  label: z.string(),
+  placeholder: z.string().optional(),
+})
+
 const BlockSchema: z.ZodType<any> = z.union([
   HeadingBlockSchema,
   ParagraphBlockSchema,
@@ -206,11 +285,13 @@ const BlockSchema: z.ZodType<any> = z.union([
   QuoteBlockSchema,
   DividerBlockSchema,
   ImageBlockSchema,
+  InlineImageBlockSchema,
   CalloutBlockSchema,
   ListBlockSchema,
   PromptBlockSchema,
   ScaleQuestionsBlockSchema,
   YesNoCheckBlockSchema,
+  MCQBlockSchema,
   TaskPlanBlockSchema,
   ChecklistBlockSchema,
   ScriptsBlockSchema,
@@ -220,6 +301,9 @@ const BlockSchema: z.ZodType<any> = z.union([
   ButtonBlockSchema,
   ConditionalBlockSchema,
   VariableBlockSchema,
+  PageMetaBlockSchema,
+  IdentityResolutionGuidanceBlockSchema,
+  ResolutionProofBlockSchema,
 ])
 
 export function validateBlocks(content: unknown): { valid: boolean; errors: string[] } {

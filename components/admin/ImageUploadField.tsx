@@ -18,6 +18,8 @@ interface ImageUploadFieldProps {
   chapterSlug?: string
   stepSlug?: string
   pageOrder?: number
+  /** When true, hide the small thumbnail grid (e.g. when parent shows its own preview) */
+  hideCurrentPreview?: boolean
 }
 
 export default function ImageUploadField({
@@ -31,6 +33,7 @@ export default function ImageUploadField({
   chapterSlug = 'uploads',
   stepSlug = 'general',
   pageOrder = 0,
+  hideCurrentPreview = false,
 }: ImageUploadFieldProps) {
   const [uploading, setUploading] = useState(false)
   const [showGallery, setShowGallery] = useState(false)
@@ -129,7 +132,7 @@ export default function ImageUploadField({
       </label>
 
       {/* Current Images */}
-      {currentValue.length > 0 && (
+      {!hideCurrentPreview && currentValue.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-3">
           {currentValue.map((url, index) => (
             <div

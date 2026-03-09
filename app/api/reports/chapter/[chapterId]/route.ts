@@ -48,11 +48,13 @@ function buildCombinedReportHtml(
   const showAnswerBars = includeAnswers && hasAssessment
 
   const scoreBand = hasAssessment
-    ? assessmentData.score <= 14
-      ? { level: 'Low Risk', color: '#10b981', desc: 'Minimal signs of digital overload' }
-      : assessmentData.score <= 24
-      ? { level: 'Moderate Risk', color: '#f59e0b', desc: 'Some digital habits need attention' }
-      : { level: 'High Risk', color: '#ef4444', desc: 'Significant digital dependency detected' }
+    ? (() => {
+        const max = Math.max(assessmentData.maxScore || 1, 1)
+        const pct = ((assessmentData.score || 0) / max) * 100
+        if (pct <= 33) return { level: 'Low Risk', color: '#10b981', desc: 'Minimal signs of digital overload' }
+        if (pct <= 66) return { level: 'Moderate Risk', color: '#f59e0b', desc: 'Some digital habits need attention' }
+        return { level: 'High Risk', color: '#ef4444', desc: 'Significant digital dependency detected' }
+      })()
     : null
 
   // Self-Check Questions HTML
@@ -80,9 +82,9 @@ function buildCombinedReportHtml(
               ? `
           <div class="a-bar">
             <div class="a-bar-bg">
-              <div class="a-bar-fill" style="width: ${(q.userResponse / 7) * 100}%"></div>
+              <div class="a-bar-fill" style="width: ${(q.userResponse / Math.max(q.maxValue || 1, 1)) * 100}%"></div>
             </div>
-            <span class="a-val">${q.userResponse}/7</span>
+            <span class="a-val">${q.responseLabel ? escapeHtml(String(q.responseLabel)) : `${q.userResponse}/${q.maxValue || 7}`}</span>
           </div>
           `
               : `

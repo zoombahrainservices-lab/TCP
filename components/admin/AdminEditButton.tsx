@@ -9,9 +9,11 @@ interface AdminEditButtonProps {
   chapterId: string;
   pageId: string;
   stepId?: string;
+  /** When provided (e.g. from reading page), used as returnUrl so Back goes to this exact step/page */
+  returnUrl?: string;
 }
 
-export default function AdminEditButton({ chapterId, pageId, stepId }: AdminEditButtonProps) {
+export default function AdminEditButton({ chapterId, pageId, stepId, returnUrl: returnUrlProp }: AdminEditButtonProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -33,10 +35,12 @@ export default function AdminEditButton({ chapterId, pageId, stepId }: AdminEdit
 
   if (!isAdmin) return null;
 
-  // Build return URL so the editor can send the user back
-  const search = searchParams.toString();
-  const currentPath = search ? `${pathname}?${search}` : pathname;
-  const editUrl = `/admin/chapters/${chapterId}/pages/${pageId}/edit?from=reading&returnUrl=${encodeURIComponent(currentPath)}`;
+  // Use explicit returnUrl from reading page so Back returns to the same step/page; else build from current path
+  const returnUrl = returnUrlProp ?? (() => {
+    const search = searchParams.toString();
+    return search ? `${pathname}?${search}` : pathname;
+  })();
+  const editUrl = `/admin/chapters/${chapterId}/pages/${pageId}/edit?from=reading&returnUrl=${encodeURIComponent(returnUrl)}`;
 
   return (
     <Link href={editUrl}>

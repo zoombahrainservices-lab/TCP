@@ -4,13 +4,14 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/guards'
 import { revalidatePath } from 'next/cache'
+import { unstable_cache } from 'next/cache'
 
 // ============================================================================
 // DASHBOARD STATS
 // ============================================================================
 
-export async function getAdminDashboardStats() {
-  await requireAuth('admin')
+// Internal function that does the actual work
+async function fetchDashboardStats() {
   const admin = createAdminClient()
 
   try {
@@ -91,8 +92,20 @@ export async function getAdminDashboardStats() {
   }
 }
 
-export async function getRecentActivity(limit: number = 10) {
-  await requireAuth('admin')
+// Cached wrapper with 60s revalidation
+const getCachedDashboardStats = unstable_cache(
+  fetchDashboardStats,
+  ['admin-dashboard-stats'],
+  { revalidate: 60, tags: ['admin-dashboard'] }
+)
+
+export async function getAdminDashboardStats() {
+  await requireAuth('admin') // Auth still checked every time for security
+  return getCachedDashboardStats()
+}
+
+// Internal function that does the actual work
+async function fetchRecentActivity(limit: number = 10) {
   const admin = createAdminClient()
 
   try {
@@ -136,6 +149,18 @@ export async function getRecentActivity(limit: number = 10) {
     console.error('Error fetching recent activity:', error)
     throw error
   }
+}
+
+// Cached wrapper with 60s revalidation
+const getCachedRecentActivity = unstable_cache(
+  fetchRecentActivity,
+  ['admin-recent-activity'],
+  { revalidate: 60, tags: ['admin-recent-activity'] }
+)
+
+export async function getRecentActivity(limit: number = 10) {
+  await requireAuth('admin') // Auth still checked every time for security
+  return getCachedRecentActivity(limit)
 }
 
 // ============================================================================
@@ -659,6 +684,11 @@ export async function getChapter(chapterId: string) {
   const admin = createAdminClient()
 
   try {
+    // Handle "new" as a special case - return null instead of trying to fetch
+    if (chapterId === 'new') {
+      return null
+    }
+
     // Support both UUID chapter IDs and numeric chapter numbers (e.g. "1")
     const isNumericId = /^\d+$/.test(chapterId)
 
@@ -686,11 +716,52 @@ export async function getChapter(chapterId: string) {
   }
 }
 
+/** Single server action that loads everything for the chapter editor (1 round-trip instead of 6) */
+export async function getChapterFull(chapterId: string) {
+  const [chapterData, partsData, stepsData] = await Promise.all([
+    getChapter(chapterId),
+    getAllParts(),
+    getAllStepsForChapter(chapterId),
+  ])
+
+  let finalSteps = stepsData || []
+  try {
+    const ensureResult = await adminEnsureRequiredSteps(chapterId)
+    if (ensureResult.createdCount > 0) {
+      finalSteps = await getAllStepsForChapter(chapterId) || []
+    }
+  } catch (ensureErr) {
+    console.error('Error ensuring required steps:', ensureErr)
+  }
+
+  const allPages = finalSteps.length > 0 ? await getAllPagesForChapter(chapterId) : []
+  const pagesData: Record<string, any[]> = {}
+  allPages.forEach(page => {
+    if (!pagesData[page.step_id]) pagesData[page.step_id] = []
+    pagesData[page.step_id].push(page)
+  })
+  finalSteps.forEach(step => {
+    if (!pagesData[step.id]) pagesData[step.id] = []
+  })
+
+  return {
+    chapter: chapterData,
+    parts: partsData || [],
+    steps: finalSteps,
+    pages: pagesData,
+  }
+}
+
 export async function getAllStepsForChapter(chapterId: string) {
   await requireAuth('admin')
   const admin = createAdminClient()
 
   try {
+    // Handle "new" as a special case - return empty array
+    if (chapterId === 'new') {
+      return []
+    }
+
     // Support both UUID chapter IDs and numeric chapter numbers (e.g. "1")
     let realChapterId = chapterId
     const isNumericId = /^\d+$/.test(chapterId)
@@ -760,12 +831,44 @@ export async function createChapterWithSteps(data: {
   const admin = createAdminClient()
 
   try {
+    const normalizeSlug = (value: string) =>
+      value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'chapter'
+
+    const { data: existingChapters, error: existingError } = await admin
+      .from('chapters')
+      .select('chapter_number, slug')
+
+    if (existingError) throw existingError
+
+    const usedNumbers = new Set((existingChapters || []).map((c) => Number(c.chapter_number)).filter((n) => Number.isFinite(n)))
+    const usedSlugs = new Set((existingChapters || []).map((c) => String(c.slug || '').toLowerCase()).filter(Boolean))
+
+    let resolvedChapterNumber = Number(data.basicInfo.chapter_number)
+    if (!Number.isFinite(resolvedChapterNumber) || resolvedChapterNumber <= 0 || usedNumbers.has(resolvedChapterNumber)) {
+      const maxExisting = Math.max(0, ...Array.from(usedNumbers))
+      resolvedChapterNumber = maxExisting + 1
+    }
+
+    const baseSlug = normalizeSlug(data.basicInfo.slug || data.basicInfo.title || `chapter-${resolvedChapterNumber}`)
+    let resolvedSlug = baseSlug
+    let suffix = 2
+    while (usedSlugs.has(resolvedSlug)) {
+      resolvedSlug = `${baseSlug}-${suffix}`
+      suffix += 1
+    }
+
     // Create the chapter
     const { data: chapter, error: chapterError } = await admin
       .from('chapters')
       .insert({
         ...data.basicInfo,
-        order_index: data.basicInfo.chapter_number,
+        chapter_number: resolvedChapterNumber,
+        slug: resolvedSlug,
+        order_index: resolvedChapterNumber,
         is_published: false,
       })
       .select()
@@ -878,9 +981,49 @@ export async function createChapter(data: any) {
   const admin = createAdminClient()
 
   try {
+    const normalizeSlug = (value: string) =>
+      String(value || 'chapter')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'chapter'
+
+    const { data: existingChapters, error: existingError } = await admin
+      .from('chapters')
+      .select('chapter_number, slug')
+
+    if (existingError) throw existingError
+
+    const usedNumbers = new Set((existingChapters || []).map((c) => Number(c.chapter_number)).filter((n) => Number.isFinite(n)))
+    const usedSlugs = new Set((existingChapters || []).map((c) => String(c.slug || '').toLowerCase()).filter(Boolean))
+
+    let resolvedChapterNumber = Number(data?.chapter_number)
+    if (!Number.isFinite(resolvedChapterNumber) || resolvedChapterNumber <= 0 || usedNumbers.has(resolvedChapterNumber)) {
+      const maxExisting = Math.max(0, ...Array.from(usedNumbers))
+      resolvedChapterNumber = maxExisting + 1
+    }
+
+    const baseSlug = normalizeSlug(data?.slug || data?.title || `chapter-${resolvedChapterNumber}`)
+    let resolvedSlug = baseSlug
+    let suffix = 2
+    while (usedSlugs.has(resolvedSlug)) {
+      resolvedSlug = `${baseSlug}-${suffix}`
+      suffix += 1
+    }
+
+    const payload = {
+      ...data,
+      chapter_number: resolvedChapterNumber,
+      slug: resolvedSlug,
+      order_index:
+        Number.isFinite(Number(data?.order_index)) && Number(data.order_index) >= 0
+          ? Number(data.order_index)
+          : resolvedChapterNumber,
+    }
+
     const { data: chapter, error } = await admin
       .from('chapters')
-      .insert(data)
+      .insert(payload)
       .select()
       .single()
 
@@ -900,15 +1043,63 @@ export async function updateChapter(chapterId: string, data: any) {
   const admin = createAdminClient()
 
   try {
+    // Support both UUID and chapter_number (e.g. from URL /admin/chapters/1 or /admin/chapters/2)
+    let idToUse = chapterId
+    const isNumericId = /^\d+$/.test(chapterId)
+    if (isNumericId) {
+      const { data: chapter, error: fetchError } = await admin
+        .from('chapters')
+        .select('id')
+        .eq('chapter_number', Number(chapterId))
+        .single()
+      if (fetchError || !chapter?.id) {
+        throw new Error(`Chapter not found: ${chapterId}`)
+      }
+      idToUse = chapter.id
+    }
+
+    // Only send columns that exist on chapters table (avoids "column does not exist" errors)
+    // Note: framework_letter_images omitted - add to allowedKeys when column exists in DB
+    const allowedKeys = [
+      'title', 'subtitle', 'slug', 'chapter_number', 'part_id', 'thumbnail_url',
+      'framework_code', 'framework_letters', 'hero_image_url',
+      'pdf_url', 'level_min', 'order_index', 'is_published',
+    ] as const
+    const payload: Record<string, unknown> = {}
+    for (const key of allowedKeys) {
+      if (data && key in data) {
+        let value = data[key]
+        // Normalize values that can break the DB update
+        if (key === 'part_id' && (value === '' || value == null)) {
+          value = null
+        }
+        if ((key === 'chapter_number' || key === 'level_min' || key === 'order_index')) {
+          const n = typeof value === 'number' ? value : Number(value)
+          if (Number.isNaN(n)) continue
+          // Ensure integers for Postgres integer columns
+          value = Math.floor(n)
+        }
+        if (value !== undefined) {
+          payload[key] = value
+        }
+      }
+    }
+
     const { error } = await admin
       .from('chapters')
-      .update(data)
-      .eq('id', chapterId)
+      .update(payload)
+      .eq('id', idToUse)
 
-    if (error) throw error
+    if (error) {
+      // Throw a plain Error so the message reaches the client via server action
+      const errMessage = error.message || 'Failed to update chapter'
+      console.error('Supabase updateChapter error:', error.code, errMessage, payload)
+      throw new Error(errMessage)
+    }
 
     revalidatePath('/admin/chapters')
     revalidatePath(`/admin/chapters/${chapterId}`)
+    revalidatePath(`/admin/chapters/${idToUse}`)
 
     return { success: true }
   } catch (error) {
@@ -922,10 +1113,25 @@ export async function deleteChapter(chapterId: string) {
   const admin = createAdminClient()
 
   try {
+    // Support both UUID and chapter number (e.g. /admin/chapters/1)
+    let idToUse = chapterId
+    const isNumericId = /^\d+$/.test(chapterId)
+    if (isNumericId) {
+      const { data: chapter, error: fetchError } = await admin
+        .from('chapters')
+        .select('id')
+        .eq('chapter_number', Number(chapterId))
+        .single()
+      if (fetchError || !chapter?.id) {
+        throw new Error(`Chapter not found: ${chapterId}`)
+      }
+      idToUse = chapter.id
+    }
+
     const { error } = await admin
       .from('chapters')
       .delete()
-      .eq('id', chapterId)
+      .eq('id', idToUse)
 
     if (error) throw error
 
@@ -938,14 +1144,128 @@ export async function deleteChapter(chapterId: string) {
   }
 }
 
-export async function validateChapterForPublish(chapterId: string): Promise<{
+type PublishValidationResult = {
   valid: boolean
   errors: string[]
-}> {
+  dummyEligible: boolean
+  dummyIssues: string[]
+}
+
+const REQUIRED_STEP_DEFINITIONS = [
+  { step_type: 'read', slug: 'read', title: 'Reading', order_index: 0 },
+  { step_type: 'self_check', slug: 'assessment', title: 'Self-Check', order_index: 1 },
+  { step_type: 'framework', slug: 'framework', title: 'Framework', order_index: 2 },
+  { step_type: 'techniques', slug: 'techniques', title: 'Techniques', order_index: 3 },
+  { step_type: 'resolution', slug: 'proof', title: 'Resolution', order_index: 4 },
+  { step_type: 'follow_through', slug: 'follow-through', title: 'Follow-Through', order_index: 5 },
+] as const
+
+const DUMMY_COMING_SOON_BLOCK = [
+  {
+    type: 'paragraph',
+    text: 'Coming soon. Content for this section will be added soon.',
+  },
+]
+
+function makeUniqueSlug(base: string, used: Set<string>) {
+  const normalizedBase =
+    base
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'item'
+
+  let candidate = normalizedBase
+  let suffix = 2
+  while (used.has(candidate)) {
+    candidate = `${normalizedBase}-${suffix}`
+    suffix += 1
+  }
+  used.add(candidate)
+  return candidate
+}
+
+async function ensureDummyContentForPublish(chapterId: string) {
+  const admin = createAdminClient()
+
+  const { data: existingSteps, error: stepsError } = await admin
+    .from('chapter_steps')
+    .select('id, step_type, title, slug, order_index')
+    .eq('chapter_id', chapterId)
+    .order('order_index')
+
+  if (stepsError) throw stepsError
+
+  const steps = [...(existingSteps || [])]
+  const existingStepTypes = new Set(steps.map((s) => s.step_type))
+  const usedStepSlugs = new Set(steps.map((s) => String(s.slug || '').toLowerCase()).filter(Boolean))
+
+  // Add any missing canonical steps.
+  for (const def of REQUIRED_STEP_DEFINITIONS) {
+    if (existingStepTypes.has(def.step_type)) continue
+    const slug = makeUniqueSlug(def.slug, usedStepSlugs)
+    const { data: insertedStep, error: insertStepError } = await admin
+      .from('chapter_steps')
+      .insert({
+        chapter_id: chapterId,
+        step_type: def.step_type,
+        slug,
+        title: def.title,
+        order_index: def.order_index,
+        is_required: true,
+      })
+      .select('id, step_type, title, slug, order_index')
+      .single()
+
+    if (insertStepError) throw insertStepError
+    steps.push(insertedStep)
+    existingStepTypes.add(def.step_type)
+  }
+
+  // Ensure each step has at least one page and non-empty content.
+  for (const step of steps) {
+    const { data: pages, error: pagesError } = await admin
+      .from('step_pages')
+      .select('id, title, slug, content')
+      .eq('step_id', step.id)
+      .order('order_index')
+
+    if (pagesError) throw pagesError
+
+    if (!pages || pages.length === 0) {
+      const { error: createPageError } = await admin.from('step_pages').insert({
+        step_id: step.id,
+        title: `${step.title || 'Step'} - Coming Soon`,
+        slug: 'coming-soon',
+        order_index: 0,
+        estimated_minutes: 1,
+        xp_award: 0,
+        content: DUMMY_COMING_SOON_BLOCK,
+      })
+      if (createPageError) throw createPageError
+      continue
+    }
+
+    for (const page of pages) {
+      const isEmptyContent = !Array.isArray(page.content) || page.content.length === 0
+      if (!isEmptyContent) continue
+
+      const { error: updatePageError } = await admin
+        .from('step_pages')
+        .update({ content: DUMMY_COMING_SOON_BLOCK })
+        .eq('id', page.id)
+
+      if (updatePageError) throw updatePageError
+    }
+  }
+}
+
+export async function validateChapterForPublish(chapterId: string): Promise<PublishValidationResult> {
   await requireAuth('admin')
   const admin = createAdminClient()
 
   const errors: string[] = []
+  const dummyIssues: string[] = []
 
   try {
     // Get chapter steps
@@ -957,16 +1277,18 @@ export async function validateChapterForPublish(chapterId: string): Promise<{
 
     if (stepsError) {
       errors.push('Failed to fetch chapter steps')
-      return { valid: false, errors }
+      return { valid: false, errors, dummyEligible: false, dummyIssues: [] }
     }
 
     // Check for all 6 canonical step types
-    const REQUIRED_STEP_TYPES = ['read', 'self_check', 'framework', 'techniques', 'resolution', 'follow_through']
+    const REQUIRED_STEP_TYPES = REQUIRED_STEP_DEFINITIONS.map((s) => s.step_type)
     const existingStepTypes = new Set(steps?.map(s => s.step_type) || [])
     const missingStepTypes = REQUIRED_STEP_TYPES.filter(type => !existingStepTypes.has(type))
     
     if (missingStepTypes.length > 0) {
-      errors.push(`Missing required steps: ${missingStepTypes.join(', ')}`)
+      const message = `Missing required steps: ${missingStepTypes.join(', ')}`
+      errors.push(message)
+      dummyIssues.push(message)
     }
 
     // Check that each step has at least 1 page
@@ -982,7 +1304,9 @@ export async function validateChapterForPublish(chapterId: string): Promise<{
       }
 
       if (!pages || pages.length === 0) {
-        errors.push(`Step "${step.title}" has no pages`)
+        const message = `Step "${step.title}" has no pages`
+        errors.push(message)
+        dummyIssues.push(message)
         continue
       }
 
@@ -996,7 +1320,9 @@ export async function validateChapterForPublish(chapterId: string): Promise<{
         }
 
         if (page.content.length === 0) {
-          errors.push(`Step "${step.title}", Page ${i + 1}: No content blocks`)
+          const message = `Step "${step.title}", Page ${i + 1}: No content blocks`
+          errors.push(message)
+          dummyIssues.push(message)
           continue
         }
 
@@ -1020,17 +1346,25 @@ export async function validateChapterForPublish(chapterId: string): Promise<{
     return {
       valid: errors.length === 0,
       errors,
+      dummyEligible: errors.length > 0 && errors.length === dummyIssues.length,
+      dummyIssues,
     }
   } catch (error) {
     console.error('Error validating chapter:', error)
     return {
       valid: false,
       errors: ['Validation failed: ' + (error as Error).message],
+      dummyEligible: false,
+      dummyIssues: [],
     }
   }
 }
 
-export async function publishChapter(chapterId: string, isPublished: boolean) {
+export async function publishChapter(
+  chapterId: string,
+  isPublished: boolean,
+  options?: { allowDummyContent?: boolean }
+) {
   await requireAuth('admin')
   const admin = createAdminClient()
 
@@ -1039,7 +1373,15 @@ export async function publishChapter(chapterId: string, isPublished: boolean) {
     if (isPublished) {
       const validation = await validateChapterForPublish(chapterId)
       if (!validation.valid) {
-        throw new Error(`Cannot publish: ${validation.errors.join('; ')}`)
+        if (options?.allowDummyContent && validation.dummyEligible) {
+          await ensureDummyContentForPublish(chapterId)
+          const recheck = await validateChapterForPublish(chapterId)
+          if (!recheck.valid) {
+            throw new Error(`Cannot publish after dummy content: ${recheck.errors.join('; ')}`)
+          }
+        } else {
+          throw new Error(`Cannot publish: ${validation.errors.join('; ')}`)
+        }
       }
     }
 
@@ -1132,14 +1474,62 @@ export async function createPage(stepId: string, data: any) {
   const admin = createAdminClient()
 
   try {
-    const { data: page, error } = await admin
-      .from('step_pages')
-      .insert({
-        ...data,
-        step_id: stepId,
-      })
-      .select()
-      .single()
+    const toBaseSlug = (value: string) =>
+      value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'page'
+
+    const buildUniqueSlug = async (base: string) => {
+      const { data: existingPages, error: existingError } = await admin
+        .from('step_pages')
+        .select('slug')
+        .eq('step_id', stepId)
+
+      if (existingError) throw existingError
+
+      const used = new Set((existingPages || []).map((p: any) => String(p.slug || '').toLowerCase()))
+      if (!used.has(base)) return base
+
+      let suffix = 2
+      let candidate = `${base}-${suffix}`
+      while (used.has(candidate)) {
+        suffix += 1
+        candidate = `${base}-${suffix}`
+      }
+      return candidate
+    }
+
+    const rawSlug = String(data?.slug || data?.title || 'page')
+    const baseSlug = toBaseSlug(rawSlug)
+    let resolvedSlug = await buildUniqueSlug(baseSlug)
+    let page: any = null
+    let error: any = null
+
+    // Retry on rare race condition where another request inserts same slug.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const result = await admin
+        .from('step_pages')
+        .insert({
+          ...data,
+          slug: resolvedSlug,
+          step_id: stepId,
+        })
+        .select()
+        .single()
+
+      page = result.data
+      error = result.error
+      if (!error) break
+
+      if (error?.code === '23505') {
+        resolvedSlug = await buildUniqueSlug(baseSlug)
+        continue
+      }
+
+      break
+    }
 
     if (error) throw error
 
@@ -1161,6 +1551,7 @@ export async function updatePage(pageId: string, data: any) {
   if (data.title !== undefined) payload.title = data.title
   if (data.content !== undefined) payload.content = data.content
   if (data.hero_image_url !== undefined) payload.hero_image_url = data.hero_image_url
+  if (data.title_style !== undefined) payload.title_style = data.title_style
 
   try {
     const { error } = await admin
@@ -1174,9 +1565,9 @@ export async function updatePage(pageId: string, data: any) {
   } catch (err: any) {
     console.error('Error updating page:', err)
 
-    // If error suggests hero_image_url column doesn't exist or isn't in schema cache,
-    // retry without it so title + content still save (e.g. migration not run or cache stale)
     const message = err?.message ?? String(err)
+
+    // If hero_image_url column is missing, retry without it
     const isHeroColumnUnavailable =
       typeof message === 'string' &&
       message.includes('hero_image_url') &&
@@ -1193,7 +1584,49 @@ export async function updatePage(pageId: string, data: any) {
       if (!retryError) {
         return { success: true }
       }
-      console.error('Retry update failed:', retryError)
+      // Retry failed (e.g. title_style column also missing) - try with only title + content
+      const fallback: Record<string, unknown> = {}
+      if (payload.title !== undefined) fallback.title = payload.title
+      if (payload.content !== undefined) fallback.content = payload.content
+      const { error: fallbackError } = await admin
+        .from('step_pages')
+        .update(fallback)
+        .eq('id', pageId)
+      if (!fallbackError) {
+        return { success: true }
+      }
+      console.error('Fallback update failed:', fallbackError)
+    }
+
+    // If title_style column doesn't exist, retry without it (and without hero if present)
+    const isTitleStyleColumnUnavailable =
+      typeof message === 'string' &&
+      message.includes('title_style') &&
+      (message.includes('does not exist') ||
+       message.includes('schema cache') ||
+       message.includes('Could not find'))
+
+    if (isTitleStyleColumnUnavailable && payload.title_style !== undefined) {
+      const { title_style: __, ...payloadWithoutTitleStyle } = payload
+      const { error: retryError2 } = await admin
+        .from('step_pages')
+        .update(payloadWithoutTitleStyle)
+        .eq('id', pageId)
+      if (!retryError2) {
+        return { success: true }
+      }
+      // Try minimal payload (title + content only)
+      const fallback: Record<string, unknown> = {}
+      if (payload.title !== undefined) fallback.title = payload.title
+      if (payload.content !== undefined) fallback.content = payload.content
+      const { error: fallbackError } = await admin
+        .from('step_pages')
+        .update(fallback)
+        .eq('id', pageId)
+      if (!fallbackError) {
+        return { success: true }
+      }
+      console.error('Retry update without title_style failed:', retryError2)
     }
 
     // Normalize to Error with readable message for the client
@@ -1343,6 +1776,49 @@ export async function adminEnsureRequiredSteps(chapterId: string) {
           .from('chapter_steps')
           .update({ order_index: canonical.order_index })
           .eq('id', step.id)
+      }
+    }
+
+    // Ensure Resolution step has at least one editable page (so admin shows content to edit)
+    const resolutionStep = allSteps?.find(s => s.step_type === 'resolution')
+    if (resolutionStep) {
+      const { data: resolutionPages, error: pagesErr } = await admin
+        .from('step_pages')
+        .select('id')
+        .eq('step_id', resolutionStep.id)
+      if (!pagesErr && (!resolutionPages || resolutionPages.length === 0)) {
+        const resolutionBlocks = [
+          {
+            type: 'identity_resolution_guidance',
+            title: 'identityResolution',
+            subtitle: 'This is your anchor statement for this chapter. Use it as inspiration for one of your proof entries below.',
+            exampleText: 'Example: My focus is [MY GOAL] and I\'m committed to achieving it. I take responsibility for my progress by doing [SPECIFIC ACTION] consistently. I\'m removing [DISTRACTIONS / EXCUSES] and staying disciplined. I know results come from effort. I feel [DETERMINED / FOCUSED] moving forward.',
+          },
+          {
+            type: 'resolution_proof',
+            id: 'resolution_proof',
+            title: 'Write your response here.',
+            subtitle: 'Use this space to write what your identity actually looks like in real life.',
+            label: 'Proof',
+            placeholder: 'Write your identity statement here',
+          },
+          {
+            type: 'button',
+            text: 'Save & Continue to Follow-through',
+            variant: 'resolution_cta',
+          },
+        ]
+        await admin
+          .from('step_pages')
+          .insert({
+            step_id: resolutionStep.id,
+            title: 'Resolution',
+            slug: 'resolution',
+            order_index: 0,
+            estimated_minutes: 5,
+            xp_award: 10,
+            content: resolutionBlocks,
+          })
       }
     }
 

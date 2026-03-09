@@ -12,11 +12,13 @@ import StoryBlock from './blocks/StoryBlock';
 import QuoteBlock from './blocks/QuoteBlock';
 import DividerBlock from './blocks/DividerBlock';
 import ImageBlock from './blocks/ImageBlock';
+import InlineImageBlock from './blocks/InlineImageBlock';
 import CalloutBlock from './blocks/CalloutBlock';
 import ListBlock from './blocks/ListBlock';
 import PromptBlock from './blocks/PromptBlock';
 import ScaleQuestionsBlock from './blocks/ScaleQuestionsBlock';
 import YesNoCheckBlock from './blocks/YesNoCheckBlock';
+import MCQBlock from './blocks/MCQBlock';
 import TaskPlanBlock from './blocks/TaskPlanBlock';
 import ChecklistBlock from './blocks/ChecklistBlock';
 import ScriptsBlock from './blocks/ScriptsBlock';
@@ -27,6 +29,8 @@ import VariableBlock from './blocks/VariableBlock';
 import FrameworkCoverBlock from './blocks/FrameworkCoverBlock';
 import FrameworkIntroBlock from './blocks/FrameworkIntroBlock';
 import FrameworkLetterBlock from './blocks/FrameworkLetterBlock';
+import IdentityResolutionGuidanceBlock from './blocks/IdentityResolutionGuidanceBlock';
+import ResolutionProofBlock from './blocks/ResolutionProofBlock';
 
 interface BlockRendererProps {
   block: Block;
@@ -86,6 +90,9 @@ export default function BlockRenderer({
       case 'image':
         return <ImageBlock {...block} />;
 
+      case 'inline_image':
+        return <InlineImageBlock {...block} />;
+
       case 'callout':
         return <CalloutBlock {...block} />;
 
@@ -116,6 +123,15 @@ export default function BlockRenderer({
       case 'yes_no_check':
         return (
           <YesNoCheckBlock
+            {...block}
+            responses={userResponses?.[block.id]}
+            onChange={(responses) => onResponseChange?.(block.id, responses)}
+          />
+        );
+
+      case 'mcq':
+        return (
+          <MCQBlock
             {...block}
             responses={userResponses?.[block.id]}
             onChange={(responses) => onResponseChange?.(block.id, responses)}
@@ -164,9 +180,31 @@ export default function BlockRenderer({
       case 'framework_letter':
         return <FrameworkLetterBlock {...block} />;
 
+      case 'identity_resolution_guidance':
+        return <IdentityResolutionGuidanceBlock {...block} />;
+
+      case 'resolution_proof':
+        return (
+          <ResolutionProofBlock
+            {...block}
+            value={userResponses?.[block.id]}
+            onChange={(value) => {
+              onResponseChange?.(block.id, value);
+              debouncedSave(block.id, value);
+            }}
+            chapterId={chapterId}
+            stepId={stepId}
+            pageId={pageId}
+          />
+        );
+
       case 'title_slide':
         // Title slides are now handled by ChapterCoverPage component
         // Silently ignore these blocks in content
+        return null;
+
+      case 'page_meta':
+        // Page metadata (e.g. title_style); not rendered
         return null;
 
       default:

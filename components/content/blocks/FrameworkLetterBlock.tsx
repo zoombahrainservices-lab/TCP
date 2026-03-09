@@ -1,4 +1,5 @@
 import type { FrameworkLetterBlock as Props } from '@/lib/blocks/types';
+import { processHTMLContent } from '@/lib/utils/htmlDecode';
 
 export default function FrameworkLetterBlock({
   letter,
@@ -7,6 +8,7 @@ export default function FrameworkLetterBlock({
   image,
 }: Props) {
   const _unused = { letter, title };
+  const { isHTML, content: renderedContent } = processHTMLContent(content);
 
   return (
     <div className="framework-letter mt-2 mb-6">
@@ -19,13 +21,16 @@ export default function FrameworkLetterBlock({
       )}
 
       {/* Body copy only – page title above supplies the heading */}
-      <div className="prose dark:prose-invert max-w-none">
-        {content.split('\n\n').map((paragraph, i) => (
-          <p key={i} className="text-lg leading-relaxed mb-4">
-            {paragraph}
-          </p>
-        ))}
-      </div>
+      {isHTML ? (
+        <div
+          className="prose dark:prose-invert max-w-none text-lg leading-relaxed [&_p:empty]:h-5 [&_p:empty]:my-0"
+          dangerouslySetInnerHTML={{ __html: renderedContent }}
+        />
+      ) : (
+        <div className="text-lg leading-relaxed whitespace-pre-wrap text-[#2a2416] dark:text-gray-200">
+          {content}
+        </div>
+      )}
     </div>
   );
 }

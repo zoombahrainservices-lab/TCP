@@ -43,6 +43,7 @@ export function ChapterMapClient({ chapters, isAdmin, currentChapterSlug, initia
   const [isPanelOpen, setIsPanelOpen] = useState(true)
   
   const selectedChapter = chapters.find(c => c.chapter_number === selectedChapterNumber) || chapters[0]
+  const sidebarChapterSlug = selectedChapter?.slug || currentChapterSlug
   
   // Flatten all pages for the selected chapter
   const allPages: (Page & { stepSlug: string })[] = []
@@ -62,7 +63,7 @@ export function ChapterMapClient({ chapters, isAdmin, currentChapterSlug, initia
     <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
       {/* Left Sidebar - Hidden on mobile, visible on desktop */}
       <div className="hidden lg:block">
-        <MapSidebar currentChapterSlug={currentChapterSlug} isAdmin={isAdmin} />
+        <MapSidebar currentChapterSlug={sidebarChapterSlug} isAdmin={isAdmin} />
       </div>
       
       {/* Center Map Area */}

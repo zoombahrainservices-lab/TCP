@@ -5,7 +5,6 @@ import Link from 'next/link'
 
 // OPTIMIZED: Revalidate every 60 seconds for fresh data
 export const revalidate = 60
-export const dynamic = 'force-dynamic'
 
 export default async function AdminDashboard() {
   const stats = await getAdminDashboardStats()

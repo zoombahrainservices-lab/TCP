@@ -2,12 +2,15 @@
 
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { Download } from 'lucide-react';
 
 interface ChapterCoverPageProps {
   chapterNumber: number;
   title: string;
   subtitle?: string | null;
   onContinue: () => void;
+  onDownload?: () => void;
+  showDownloadButton?: boolean;
 }
 
 export default function ChapterCoverPage({
@@ -15,6 +18,8 @@ export default function ChapterCoverPage({
   title,
   subtitle,
   onContinue,
+  onDownload,
+  showDownloadButton = false,
 }: ChapterCoverPageProps) {
   return (
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
@@ -92,12 +97,12 @@ export default function ChapterCoverPage({
             ))}
           </motion.div>
 
-          {/* Continue Button */}
+          {/* Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 1 }}
-            className="pt-6"
+            className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <button
               onClick={onContinue}
@@ -105,6 +110,16 @@ export default function ChapterCoverPage({
             >
               Continue
             </button>
+            {showDownloadButton && onDownload && (
+              <button
+                type="button"
+                onClick={onDownload}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white text-sm font-semibold shadow-lg transition-all border border-white/20"
+              >
+                <Download className="w-4 h-4" />
+                Download Chapter Report
+              </button>
+            )}
           </motion.div>
         </motion.div>
       </div>

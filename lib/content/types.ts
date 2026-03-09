@@ -42,6 +42,7 @@ export interface PageWithContent {
   estimated_minutes: number | null;
   xp_award: number;
   content: any[]; // Block[]
+  title_style?: { color?: string; fontSize?: string; fontWeight?: string } | null;
   created_at: string;
   updated_at: string;
 }

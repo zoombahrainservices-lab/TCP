@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Save, Eye } from 'lucide-react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
@@ -21,13 +22,24 @@ export default function PageContentEditorPage() {
   const chapterId = params.id as string
   const pageId = params.pageId as string
 
+  // OPTIMIZED: Use React Query for single consolidated fetch
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-page-full', pageId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/pages/${pageId}/full`)
+      if (!res.ok) throw new Error('Failed to load page')
+      return res.json()
+    },
+    staleTime: 30000,
+  })
+
   const [page, setPage] = useState<any>(null)
   const [chapter, setChapter] = useState<any>(null)
   const [step, setStep] = useState<any>(null)
   const [pageTitle, setPageTitle] = useState('')
   const [heroImageUrl, setHeroImageUrl] = useState('')
+  const [titleStyle, setTitleStyle] = useState<{ color?: string; fontSize?: string; fontWeight?: string }>({})
   const [content, setContent] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [migrating, setMigrating] = useState(false)
   const [previewMode, setPreviewMode] = useState(false)
@@ -35,20 +47,44 @@ export default function PageContentEditorPage() {
   const from = searchParams.get('from')
   const returnUrlParam = searchParams.get('returnUrl')
 
+  // Initialize state when data loads
+  useEffect(() => {
+    if (!data) return
+
+    setPage(data.page)
+    setChapter(data.chapter)
+    setStep(data.step)
+    setPageTitle(data.page.title || '')
+    setHeroImageUrl(data.page.hero_image_url || '')
+    
+    // Title style: prefer page_meta block in content (works without DB column), else title_style column
+    const firstBlock = data.page.content?.[0]
+    const fromPageMeta = firstBlock?.type === 'page_meta' && firstBlock?.title_style
+    setTitleStyle(fromPageMeta ? (firstBlock.title_style || {}) : (data.page.title_style && typeof data.page.title_style === 'object' ? data.page.title_style : {}))
+    setContent(data.page.content || [])
+    
+    console.log('Loaded page content:', data.page.content)
+  }, [data])
+
   const handleBack = () => {
     if (returnUrlParam) {
-      // Prefer explicit returnUrl when provided
+      // Prefer explicit returnUrl when provided (e.g. from reading page or steps with expand)
       router.push(returnUrlParam)
       return
     }
 
     if (from === 'steps') {
-      router.push(`/admin/chapters/${chapterId}?tab=steps`)
+      // Return to steps tab with same step expanded and same page in URL so we scroll to it
+      const expand = step?.id ? `&expand=${step.id}` : ''
+      const pageParam = page?.id ? `&page=${page.id}` : ''
+      router.push(`/admin/chapters/${chapterId}?tab=steps${expand}${pageParam}`)
       return
     }
 
     if (from === 'reading' && chapter?.slug) {
-      router.push(`/read/${chapter.slug}/reading`)
+      // Go to the step that contains this page, not always the first step
+      const stepSlug = step?.slug ?? 'reading'
+      router.push(`/read/${chapter.slug}/${stepSlug}`)
       return
     }
 
@@ -56,59 +92,10 @@ export default function PageContentEditorPage() {
     router.push(`/admin/chapters/${chapterId}`)
   }
 
-  useEffect(() => {
-    loadPage()
-    loadChapter()
-  }, [pageId, chapterId])
-
-  const loadChapter = async () => {
-    try {
-      const response = await fetch(`/api/admin/chapters/${chapterId}`)
-      const data = await response.json()
-      if (data && !data.error) {
-        setChapter(data)
-      }
-    } catch (error) {
-      console.error('Error loading chapter:', error)
-    }
-  }
-
-  const loadPage = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch(`/api/admin/pages/${pageId}`)
-      const data = await response.json()
-      
-      if (data && !data.error) {
-        setPage(data)
-        setPageTitle(data.title || '')
-        setHeroImageUrl(data.hero_image_url || '')
-        setContent(data.content || [])
-        
-        // Fetch step info if we have step_id
-        if (data.step_id) {
-          const stepResponse = await fetch(`/api/admin/steps/${data.step_id}`)
-          const stepData = await stepResponse.json()
-          if (stepData && !stepData.error) {
-            setStep(stepData)
-          }
-        }
-        
-        console.log('Loaded page content:', data.content)
-      } else {
-        toast.error(data.error || 'Failed to load page')
-      }
-    } catch (error) {
-      console.error('Error loading page:', error)
-      toast.error('Failed to load page')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   /**
    * Normalize content so it is plain JSON-serializable and framework_intro blocks
    * have required fields. Prevents server-action serialization and DB validation issues.
+   * Also normalizes scale_questions so validation passes (scale + question ids).
    */
   const prepareContentForSave = (raw: any[]): any[] => {
     const normalized = raw.map((block: any) => {
@@ -131,6 +118,31 @@ export default function PageContentEditorPage() {
           ...(typeof block.accentColor === 'string' ? { accentColor: block.accentColor } : {}),
         }
       }
+      if (block.type === 'scale_questions') {
+        const questions = Array.isArray(block.questions) ? block.questions : []
+        const scale = block.scale && typeof block.scale === 'object'
+          ? {
+              min: typeof block.scale.min === 'number' ? block.scale.min : 1,
+              max: typeof block.scale.max === 'number' ? block.scale.max : 5,
+              minLabel: typeof block.scale.minLabel === 'string' ? block.scale.minLabel : 'Not at all',
+              maxLabel: typeof block.scale.maxLabel === 'string' ? block.scale.maxLabel : 'Completely',
+            }
+          : { min: 1, max: 5, minLabel: 'Not at all', maxLabel: 'Completely' }
+        return {
+          type: 'scale_questions',
+          id: typeof block.id === 'string' && block.id.trim() ? block.id : 'scale_questions',
+          ...(block.title != null && { title: block.title }),
+          ...(block.description != null && { description: block.description }),
+          ...(block.questionNumbering && { questionNumbering: block.questionNumbering }),
+          questions: questions.map((q: any, i: number) => ({
+            id: (q && typeof q.id === 'string' && q.id.trim()) ? q.id : `q${i}`,
+            text: (q && typeof q.text === 'string') ? q.text : 'Question',
+            ...(q && typeof q.number === 'number' && { number: q.number }),
+          })),
+          scale,
+          ...(block.scoring && typeof block.scoring === 'object' && { scoring: block.scoring }),
+        }
+      }
       return block
     })
     return JSON.parse(JSON.stringify(normalized))
@@ -139,7 +151,19 @@ export default function PageContentEditorPage() {
   const savePage = async (contentToSave: any[]) => {
     setSaving(true)
     try {
-      const prepared = prepareContentForSave(contentToSave)
+      // Embed title_style in content as page_meta block so it persists without needing title_style column
+      const pageMetaBlock = {
+        type: 'page_meta',
+        title_style: {
+          ...(titleStyle.color && { color: titleStyle.color }),
+          fontSize: titleStyle.fontSize || 'lg',
+          fontWeight: titleStyle.fontWeight || 'bold',
+        },
+      }
+      const contentWithoutMeta = contentToSave.filter((b: any) => b?.type !== 'page_meta')
+      const contentWithMeta = [pageMetaBlock, ...contentWithoutMeta]
+
+      const prepared = prepareContentForSave(contentWithMeta)
       const validation = validateBlocks(prepared)
       if (!validation.valid) {
         toast.error(`Validation failed: ${validation.errors.join('; ')}`)
@@ -222,7 +246,7 @@ export default function PageContentEditorPage() {
       }
 
       // Reload page to show updated content
-      await loadPage()
+      window.location.reload()
 
     } catch (error: any) {
       console.error('Migration error:', error)
@@ -242,7 +266,7 @@ export default function PageContentEditorPage() {
     !block.src.startsWith('./')
   )
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="p-6 lg:p-8">
         <div className="flex items-center justify-center h-64">
@@ -270,23 +294,23 @@ export default function PageContentEditorPage() {
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-gray-900">
-      {/* Header */}
-      <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-4 lg:p-6">
+      {/* Header - same color/design as Page Title section */}
+      <div className="flex-shrink-0 border-b border-amber-200 dark:border-amber-800 p-4 lg:p-6 bg-gradient-to-br from-amber-50/80 to-orange-50/50 dark:from-amber-950/30 dark:to-orange-950/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={handleBack}
-              className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              className="inline-flex items-center gap-2 text-amber-800 dark:text-amber-200 hover:text-amber-900 dark:hover:text-amber-100"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl font-bold tracking-tight text-[#1c1917] dark:text-amber-50">
                 {page.title || 'Untitled Page'}
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-sm text-amber-700/90 dark:text-amber-300/80 mt-1">
                 {page.slug} • {(page.content || []).length} blocks
               </p>
             </div>
@@ -352,63 +376,76 @@ export default function PageContentEditorPage() {
         ) : (
           <div className="h-full flex flex-col">
             {/* Page Title Editor - Above Content Blocks */}
-            <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-900/50 space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Page Title (shown to users)
-                </label>
-                <input
-                  type="text"
-                  value={pageTitle}
-                  onChange={(e) => setPageTitle(e.target.value)}
-                  placeholder="Enter page title..."
-                  className="w-full px-4 py-3 text-xl font-bold border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--color-amber)] focus:border-transparent"
-                />
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  This title appears at the top of the page for users. It's separate from content blocks below.
-                </p>
-              </div>
+            <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-6 bg-gradient-to-br from-amber-50/80 to-orange-50/50 dark:from-amber-950/30 dark:to-orange-950/20">
+              <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left: Page Title */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-200 mb-2">
+                    Page Title (shown to users)
+                  </label>
+                  <input
+                    type="text"
+                    value={pageTitle}
+                    onChange={(e) => setPageTitle(e.target.value)}
+                    placeholder="Enter page title..."
+                    className="w-full px-5 py-4 text-2xl font-bold tracking-tight border-2 border-amber-200 dark:border-amber-800 rounded-xl bg-white dark:bg-gray-900 text-[#1c1917] dark:text-amber-50 placeholder:text-gray-400 dark:placeholder:text-amber-900/50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:border-amber-400 dark:focus:ring-amber-600 dark:focus:border-amber-600 shadow-sm"
+                  />
+                  <p className="mt-2.5 text-sm text-amber-700/90 dark:text-amber-300/80">
+                    This title appears at the top of the page for users. It's separate from content blocks below.
+                  </p>
+                </div>
 
-              {/* Hero Image Section */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Hero Image (Main Left-Side Image)
-                </label>
-                
-                {/* Hero Image Preview - Large */}
-                {heroImageUrl && (
-                  <div className="mb-4">
-                    <div className="relative w-full max-w-2xl aspect-[4/3] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700">
-                      <img
-                        src={heroImageUrl}
-                        alt="Hero image preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.style.display = 'none'
-                        }}
-                      />
+                {/* Right: Page Title Style */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-200 mb-3">
+                    Page Title Style (on the reading page)
+                  </label>
+                  <div className="flex flex-wrap gap-6">
+                    <div>
+                      <span className="block text-xs text-amber-700 dark:text-amber-300 mb-1">Color</span>
+                      <select
+                        value={titleStyle.color ?? ''}
+                        onChange={(e) => setTitleStyle((s) => ({ ...s, color: e.target.value || undefined }))}
+                        className="px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-white dark:bg-gray-900 text-[#1c1917] dark:text-amber-50 text-sm"
+                      >
+                        <option value="">Default (theme)</option>
+                        <option value="#1c1917">Dark</option>
+                        <option value="#c2410c">Orange</option>
+                        <option value="#1e40af">Blue</option>
+                        <option value="#166534">Green</option>
+                        <option value="#7c2d12">Brown</option>
+                      </select>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      👆 This is how the main image will appear on the left side of the page
-                    </p>
+                    <div>
+                      <span className="block text-xs text-amber-700 dark:text-amber-300 mb-1">Size</span>
+                      <select
+                        value={titleStyle.fontSize ?? 'lg'}
+                        onChange={(e) => setTitleStyle((s) => ({ ...s, fontSize: e.target.value }))}
+                        className="px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-white dark:bg-gray-900 text-[#1c1917] dark:text-amber-50 text-sm"
+                      >
+                        <option value="sm">Small</option>
+                        <option value="md">Medium</option>
+                        <option value="lg">Large</option>
+                        <option value="xl">Extra large</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="block text-xs text-amber-700 dark:text-amber-300 mb-1">Weight</span>
+                      <select
+                        value={titleStyle.fontWeight ?? 'bold'}
+                        onChange={(e) => setTitleStyle((s) => ({ ...s, fontWeight: e.target.value }))}
+                        className="px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-white dark:bg-gray-900 text-[#1c1917] dark:text-amber-50 text-sm"
+                      >
+                        <option value="normal">Normal</option>
+                        <option value="semibold">Semibold</option>
+                        <option value="bold">Bold</option>
+                      </select>
+                    </div>
                   </div>
-                )}
-                
-                {/* Upload/Change Hero Image */}
-                <ImageUploadField
-                  label={heroImageUrl ? "Change Hero Image" : "Upload Hero Image"}
-                  value={heroImageUrl}
-                  onChange={(url) => setHeroImageUrl(typeof url === 'string' ? url : url[0] || '')}
-                  chapterSlug={chapter?.slug || 'general'}
-                  stepSlug={step?.slug || 'content'}
-                  pageOrder={page?.order_index || 0}
-                  helperText="Main image shown on the left side of the page. Leave empty to use first image block from content."
-                />
-                
-                <p className="mt-3 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded">
-                  💡 <strong>Tip:</strong> For smaller inline images within text (right side), use the "Image" block in content below.
-                </p>
+                  <p className="mt-2 text-xs text-amber-700/90 dark:text-amber-300/80">
+                    Controls how the heading looks when users view this page (color, size, bold).
+                  </p>
+                </div>
               </div>
             </div>
 

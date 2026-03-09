@@ -8,18 +8,29 @@ export async function GET(
 ) {
   try {
     await requireAuth('admin')
-    
+
     const { chapterId } = await params
-    
+
     const supabase = await createClient()
-    const { data: chapter, error } = await supabase
-      .from('chapters')
-      .select('*')
-      .eq('id', chapterId)
-      .single()
+
+    // Support both UUID and chapter number (e.g. /admin/chapters/1 or /admin/chapters/2)
+    const isNumericId = /^\d+$/.test(chapterId)
+    let query = supabase.from('chapters').select('*')
+
+    if (isNumericId) {
+      query = query.eq('chapter_number', Number(chapterId))
+    } else {
+      query = query.eq('id', chapterId)
+    }
+
+    const { data: chapter, error } = await query.single()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (!chapter) {
+      return NextResponse.json({ error: 'Chapter not found' }, { status: 404 })
     }
 
     return NextResponse.json(chapter)

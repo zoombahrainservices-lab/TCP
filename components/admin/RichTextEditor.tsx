@@ -181,8 +181,17 @@ export default function RichTextEditor({
           </button>
           
           {showColorPicker && (
-            <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3 z-10">
-              <div className="grid grid-cols-3 gap-2">
+            <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3 z-10 min-w-[200px]">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Pick a color
+              </label>
+              <input
+                type="color"
+                onChange={(e) => setColor(e.target.value)}
+                className="w-full h-10 rounded-lg border-2 border-gray-300 dark:border-gray-600 cursor-pointer bg-white dark:bg-gray-700 mb-2"
+                title="Pick text color"
+              />
+              <div className="grid grid-cols-3 gap-2 mb-2">
                 {textColors.map((color) => (
                   <button
                     key={color.value}
@@ -201,7 +210,7 @@ export default function RichTextEditor({
               <button
                 type="button"
                 onClick={() => editor.chain().focus().unsetColor().run()}
-                className="w-full mt-2 px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
+                className="w-full px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
               >
                 Remove Color
               </button>

@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useRef, useCallback, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import { Plus, Edit, Eye, Trash2 } from 'lucide-react'
-import { getCachedAllChapters } from '@/lib/content/cache.server'
-import { deleteChapter } from '@/app/actions/admin'
+import { deleteChapter, getChapterFull, createChapterWithSteps } from '@/app/actions/admin'
+import ChapterWizard from '@/components/admin/ChapterWizard'
 import toast from 'react-hot-toast'
 
 // Skeleton loader component
@@ -29,40 +30,59 @@ function ChapterCardSkeleton() {
 }
 
 export default function ChaptersListPage() {
-  const [chapters, setChapters] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
+  const [wizardOpen, setWizardOpen] = useState(false)
+  
+  // Pagination state (currently showing all, ready for pagination)
+  const currentPage = parseInt(searchParams.get('page') || '1', 10)
 
-  useEffect(() => {
-    loadChapters()
+  const { data: chapters = [], isLoading } = useQuery({
+    queryKey: ['admin-chapters'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/chapters')
+      if (!res.ok) throw new Error('Failed to load chapters')
+      return res.json()
+    },
+    staleTime: 30000, // Fresh for 30s
+  })
+
+  // Fetch parts for the wizard
+  const { data: parts = [] } = useQuery({
+    queryKey: ['admin-parts'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/parts')
+      if (!res.ok) return []
+      return res.json()
+    },
+    staleTime: 60000,
+  })
+
+  // Debounced prefetch: only after 400ms hover so we don't flood on mouse move
+  const prefetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prefetchedIdsRef = useRef<Set<string>>(new Set())
+
+  const handlePrefetchChapter = useCallback((chapterId: string) => {
+    if (prefetchedIdsRef.current.has(chapterId)) return
+    if (prefetchTimeoutRef.current) clearTimeout(prefetchTimeoutRef.current)
+    prefetchTimeoutRef.current = setTimeout(() => {
+      prefetchTimeoutRef.current = null
+      prefetchedIdsRef.current.add(chapterId)
+      queryClient.prefetchQuery({
+        queryKey: ['admin-chapter', chapterId],
+        queryFn: () => getChapterFull(chapterId),
+        staleTime: 60000,
+      })
+    }, 400)
+  }, [queryClient])
+
+  const handlePrefetchCancel = useCallback(() => {
+    if (prefetchTimeoutRef.current) {
+      clearTimeout(prefetchTimeoutRef.current)
+      prefetchTimeoutRef.current = null
+    }
   }, [])
-
-  const loadChapters = async () => {
-    // Don't show loading for cached data
-    const cachedData = sessionStorage.getItem('admin-chapters-cache')
-    if (cachedData) {
-      try {
-        const parsed = JSON.parse(cachedData)
-        setChapters(parsed)
-        setLoading(false)
-      } catch (e) {
-        // Invalid cache, ignore
-      }
-    }
-
-    try {
-      const data = await fetch('/api/admin/chapters').then(res => res.json())
-      setChapters(data || [])
-      // Cache the data
-      sessionStorage.setItem('admin-chapters-cache', JSON.stringify(data || []))
-    } catch (error) {
-      console.error('Error loading chapters:', error)
-      toast.error('Failed to load chapters')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleDelete = async (chapterId: string, chapterNumber: number) => {
     if (!confirm(`Delete Chapter ${chapterNumber}? This cannot be undone.`)) return
@@ -70,11 +90,24 @@ export default function ChaptersListPage() {
     try {
       await deleteChapter(chapterId)
       toast.success('Chapter deleted successfully')
-      // Clear cache and reload
-      sessionStorage.removeItem('admin-chapters-cache')
-      loadChapters()
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['admin-chapters'] })
     } catch (error) {
       toast.error('Failed to delete chapter')
+    }
+  }
+
+  const handleCreateChapter = async (data: any) => {
+    try {
+      const result = await createChapterWithSteps(data)
+      toast.success('Chapter created successfully!')
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['admin-chapters'] })
+      // Navigate to the new chapter
+      router.push(`/admin/chapters/${result.chapter.id}`)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create chapter')
+      throw error
     }
   }
 
@@ -89,17 +122,15 @@ export default function ChaptersListPage() {
             Manage all platform chapters
           </p>
         </div>
-        <Link href="/admin/chapters/new">
-          <Button variant="primary">
-            <Plus className="w-4 h-4 mr-2" />
-            New Chapter
-          </Button>
-        </Link>
+        <Button variant="primary" onClick={() => setWizardOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          New Chapter
+        </Button>
       </div>
 
       {/* Chapters Grid with Skeleton Loading */}
       <div className="grid grid-cols-1 gap-4">
-        {loading && chapters.length === 0 ? (
+        {isLoading && chapters.length === 0 ? (
           // Show skeletons only if no cached data
           <>
             <ChapterCardSkeleton />
@@ -108,14 +139,20 @@ export default function ChaptersListPage() {
           </>
         ) : chapters.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
               No chapters yet. Click "New Chapter" to create one.
             </p>
+            <Button variant="primary" onClick={() => setWizardOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Your First Chapter
+            </Button>
           </div>
         ) : (
-          chapters.map((chapter) => (
+          chapters.map((chapter: any) => (
             <div
               key={chapter.id}
+              onMouseEnter={() => handlePrefetchChapter(chapter.id)}
+              onMouseLeave={handlePrefetchCancel}
               className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex items-center justify-between"
             >
               <div className="flex items-center gap-4">
@@ -156,7 +193,7 @@ export default function ChaptersListPage() {
                     <Eye className="w-4 h-4" />
                   </Button>
                 </Link>
-                <Link href={`/admin/chapters/${chapter.id}`}>
+                <Link href={`/admin/chapters/${chapter.id}${currentPage > 1 ? `?returnPage=${currentPage}` : ''}`}>
                   <Button variant="ghost" size="sm">
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -173,6 +210,14 @@ export default function ChaptersListPage() {
           ))
         )}
       </div>
+
+      {/* Chapter Creation Wizard */}
+      <ChapterWizard
+        isOpen={wizardOpen}
+        parts={parts}
+        onClose={() => setWizardOpen(false)}
+        onCreate={handleCreateChapter}
+      />
     </div>
   )
 }

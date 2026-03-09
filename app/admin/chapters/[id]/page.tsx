@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { 
-  getChapter, 
-  getAllParts, 
-  getAllStepsForChapter, 
+  getChapterFull,
   updateChapter, 
   createStep, 
   updateStep, 
@@ -13,8 +12,6 @@ import {
   createPage, 
   updatePage, 
   deletePage, 
-  getAllPagesForStep,
-  getAllPagesForChapter,
   toggleStepRequired,
   reorderSteps,
   reorderPages,
@@ -41,25 +38,62 @@ export default function ChapterEditorPage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const chapterId = params.id as string
+  
+  // Pagination state for returning to chapters list
+  const returnPage = searchParams.get('returnPage')
 
-  const [chapter, setChapter] = useState<any>(null)
-  const [parts, setParts] = useState<any[]>([])
-  const [steps, setSteps] = useState<any[]>([])
-  const [pages, setPages] = useState<Record<string, any[]>>({})
+  // OPTIMIZED: Single server action = 1 POST instead of 6
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin-chapter', chapterId],
+    queryFn: () => getChapterFull(chapterId),
+    staleTime: 60000, // Fresh for 60s
+    enabled: !!chapterId,
+  })
+
+  // Derive state from query data
+  const chapter = data?.chapter
+  const parts = data?.parts ?? []
+  const steps = data?.steps ?? []
+  const pages = data?.pages ?? {}
+
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   
   // OPTIMIZED: Get initial tab from URL or default to 'steps' (most common use case)
   const initialTab = (searchParams.get('tab') as 'settings' | 'steps' | 'content') || 'steps'
   const [activeTab, setActiveTab] = useState<'settings' | 'steps' | 'content'>(initialTab)
   
+  // When returning from page editor: expand the step and switch to Steps tab so user is on the Nth page
+  useEffect(() => {
+    const expandStepId = searchParams.get('expand')
+    const pageIdToScroll = searchParams.get('page')
+    if (expandStepId && steps.some(s => s.id === expandStepId)) {
+      setExpandedSteps(prev => new Set(prev).add(expandStepId))
+      setActiveTab('steps') // ensure we're on Steps tab when we have expand
+    }
+    // Scroll the edited page row into view after step is expanded and DOM updated
+    // Use instant scroll (auto) so smooth scroll doesn't steal the first click
+    if (pageIdToScroll && expandStepId && steps.some(s => s.id === expandStepId)) {
+      const timer = setTimeout(() => {
+        const el = document.querySelector(`[data-page-id="${pageIdToScroll}"]`)
+        if (el) el.scrollIntoView({ behavior: 'auto', block: 'nearest' })
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams, steps])
+  
   const [editingStep, setEditingStep] = useState<any>(null)
   const [showStepSettings, setShowStepSettings] = useState(false)
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
   const [currentStepForTemplate, setCurrentStepForTemplate] = useState<string | null>(null)
-  const [publishValidation, setPublishValidation] = useState<{ valid: boolean; errors: string[] } | null>(null)
+  const [publishValidation, setPublishValidation] = useState<{
+    valid: boolean
+    errors: string[]
+    dummyEligible?: boolean
+    dummyIssues?: string[]
+  } | null>(null)
   const [showPublishModal, setShowPublishModal] = useState(false)
   
   // OPTIMIZED: Track pending operations for loading indicators
@@ -104,100 +138,29 @@ export default function ChapterEditorPage() {
     is_published: false,
   })
 
+  // Initialize formData when chapter data loads
   useEffect(() => {
-    loadData()
-  }, [chapterId])
-
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      // Use server actions instead of direct client calls
-      const [chapterData, partsData, stepsData] = await Promise.all([
-        getChapter(chapterId),
-        getAllParts(),
-        getAllStepsForChapter(chapterId),
-      ])
-
-      if (chapterData) {
-        setChapter(chapterData)
-        setFormData({
-          ...chapterData,
-          framework_letters: (chapterData.framework_letters || []).join(', '),
-          framework_letter_images: chapterData.framework_letter_images || [],
-        })
-      }
-      setParts(partsData || [])
-      setSteps(stepsData || [])
-      
-      // OPTIMIZED: Load all pages for the chapter in one query (fixes N+1 pattern)
-      if (stepsData && stepsData.length > 0) {
-        try {
-          const allPages = await getAllPagesForChapter(chapterId)
-          const pagesData: Record<string, any[]> = {}
-          
-          // Group pages by step_id
-          allPages.forEach(page => {
-            if (!pagesData[page.step_id]) {
-              pagesData[page.step_id] = []
-            }
-            pagesData[page.step_id].push(page)
-          })
-          
-          // Ensure all steps have an entry (even if empty)
-          stepsData.forEach(step => {
-            if (!pagesData[step.id]) {
-              pagesData[step.id] = []
-            }
-          })
-          
-          setPages(pagesData)
-        } catch (error) {
-          console.error('Error loading pages for chapter:', error)
-          setPages({})
-        }
-      }
-    } catch (error) {
-      console.error('Error loading chapter:', error)
-      toast.error('Failed to load chapter')
-    } finally {
-      setLoading(false)
+    if (chapter) {
+      setFormData({
+        ...chapter,
+        framework_letters: (chapter.framework_letters || []).join(', '),
+        framework_letter_images: chapter.framework_letter_images || [],
+      })
     }
-  }
-  
-  // OPTIMIZED: Selective refresh functions (replace loadData)
-  const refreshPages = useCallback(async (stepId: string) => {
-    try {
-      const updatedPages = await getAllPagesForStep(stepId)
-      setPages(prev => ({ ...prev, [stepId]: updatedPages }))
-    } catch (error) {
-      console.error('Error refreshing pages:', error)
-    }
-  }, [])
+  }, [chapter])
+
+  // OPTIMIZED: Selective refresh = invalidate so useQuery refetches
+  const refreshPages = useCallback(async (_stepId: string) => {
+    queryClient.invalidateQueries({ queryKey: ['admin-chapter', chapterId] })
+  }, [queryClient, chapterId])
 
   const refreshSteps = useCallback(async () => {
-    try {
-      const updatedSteps = await getAllStepsForChapter(chapterId)
-      setSteps(updatedSteps)
-    } catch (error) {
-      console.error('Error refreshing steps:', error)
-    }
-  }, [chapterId])
+    queryClient.invalidateQueries({ queryKey: ['admin-chapter', chapterId] })
+  }, [queryClient, chapterId])
 
   const refreshChapter = useCallback(async () => {
-    try {
-      const updatedChapter = await getChapter(chapterId)
-      if (updatedChapter) {
-        setChapter(updatedChapter)
-        setFormData({
-          ...updatedChapter,
-          framework_letters: (updatedChapter.framework_letters || []).join(', '),
-          framework_letter_images: updatedChapter.framework_letter_images || [],
-        })
-      }
-    } catch (error) {
-      console.error('Error refreshing chapter:', error)
-    }
-  }, [chapterId])
+    queryClient.invalidateQueries({ queryKey: ['admin-chapter', chapterId] })
+  }, [queryClient, chapterId])
 
   // OPTIMIZED: Memoized toggleStep callback
   const toggleStep = useCallback((stepId: string) => {
@@ -218,26 +181,32 @@ export default function ChapterEditorPage() {
     if (!title) return
     
     const tempId = `temp-${Date.now()}`
-    const newPage = {
-      id: tempId,
-      title,
-      slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      order_index: (pages[stepId] || []).length,
-      estimated_minutes: 5,
-      xp_award: 10,
-      content: [],
-      step_id: stepId,
-      chunk_id: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      _isPending: true, // Mark as pending for UI indication
-    }
     
-    // OPTIMISTIC UPDATE: Instantly add to UI
-    setPages(prev => ({
-      ...prev,
-      [stepId]: [...(prev[stepId] || []), newPage]
-    }))
+    // OPTIMISTIC UPDATE via query mutation
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      const newPage = {
+        id: tempId,
+        title,
+        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        order_index: (old.pages[stepId] || []).length,
+        estimated_minutes: 5,
+        xp_award: 10,
+        content: [],
+        step_id: stepId,
+        chunk_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        _isPending: true,
+      }
+      return {
+        ...old,
+        pages: {
+          ...old.pages,
+          [stepId]: [...(old.pages[stepId] || []), newPage]
+        }
+      }
+    })
     
     // Track pending operation
     addPendingOperation(tempId)
@@ -246,34 +215,46 @@ export default function ChapterEditorPage() {
       // Background server call
       const result = await createPage(stepId, {
         title,
-        slug: newPage.slug,
-        order_index: newPage.order_index,
+        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        order_index: (pages[stepId] || []).length,
         estimated_minutes: 5,
         xp_award: 10,
         content: [],
       })
       
-      // Replace temp with real data (remove pending flag)
-      setPages(prev => ({
-        ...prev,
-        [stepId]: prev[stepId].map(p => 
-          p.id === tempId ? { ...result.page } : p
-        )
-      }))
+      // Replace temp with real data
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: {
+            ...old.pages,
+            [stepId]: old.pages[stepId].map((p: any) => 
+              p.id === tempId ? result.page : p
+            )
+          }
+        }
+      })
       
       toast.success('Page created successfully')
     } catch (error) {
       // ROLLBACK: Remove temp page on error
-      setPages(prev => ({
-        ...prev,
-        [stepId]: prev[stepId].filter(p => p.id !== tempId)
-      }))
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: {
+            ...old.pages,
+            [stepId]: old.pages[stepId].filter((p: any) => p.id !== tempId)
+          }
+        }
+      })
       toast.error('Failed to create page')
       console.error('Error creating page:', error)
     } finally {
       removePendingOperation(tempId)
     }
-  }, [pages, addPendingOperation, removePendingOperation])
+  }, [pages, chapterId, queryClient, addPendingOperation, removePendingOperation])
   
   // OPTIMIZED: Optimistic page deletion with instant UI update
   const handleDeletePage = useCallback(async (pageId: string) => {
@@ -295,10 +276,16 @@ export default function ChapterEditorPage() {
     if (!targetStepId || !removedPage) return
     
     // OPTIMISTIC UPDATE: Instantly remove from UI
-    setPages(prev => ({
-      ...prev,
-      [targetStepId!]: prev[targetStepId!].filter(p => p.id !== pageId)
-    }))
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      return {
+        ...old,
+        pages: {
+          ...old.pages,
+          [targetStepId!]: old.pages[targetStepId!].filter((p: any) => p.id !== pageId)
+        }
+      }
+    })
     
     try {
       // Background server call
@@ -306,18 +293,29 @@ export default function ChapterEditorPage() {
       toast.success('Page deleted successfully')
     } catch (error) {
       // ROLLBACK: Restore page on error
-      setPages(prev => ({
-        ...prev,
-        [targetStepId!]: [...prev[targetStepId!], removedPage].sort((a, b) => a.order_index - b.order_index)
-      }))
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: {
+            ...old.pages,
+            [targetStepId!]: [...old.pages[targetStepId!], removedPage].sort((a: any, b: any) => a.order_index - b.order_index)
+          }
+        }
+      })
       toast.error('Failed to delete page')
       console.error('Error deleting page:', error)
     }
-  }, [pages])
+  }, [pages, chapterId, queryClient])
 
   const handleSaveChapter = useCallback(async () => {
     setSaving(true)
     try {
+      const idToUse = chapter?.id ?? chapterId
+      if (!idToUse) {
+        toast.error('Chapter not loaded. Please refresh and try again.')
+        return
+      }
       // Convert framework_letters string to array
       const dataToSave = {
         ...formData,
@@ -325,16 +323,17 @@ export default function ChapterEditorPage() {
           ? formData.framework_letters.split(',').map(s => s.trim()).filter(Boolean)
           : [],
       }
-      await updateChapter(chapterId, dataToSave)
+      await updateChapter(idToUse, dataToSave)
       toast.success('Chapter saved successfully')
-      // OPTIMIZED: Only refresh chapter data, not everything
       refreshChapter()
-    } catch (error) {
-      toast.error('Failed to save chapter')
+    } catch (error: any) {
+      console.error('Error saving chapter:', error)
+      const message = (error?.message && String(error.message)) || 'Failed to save chapter'
+      toast.error(message)
     } finally {
       setSaving(false)
     }
-  }, [formData, chapterId, refreshChapter])
+  }, [formData, chapterId, chapter?.id, refreshChapter])
 
   // OPTIMIZED: Optimistic step creation
   const handleCreateStep = useCallback(async () => {
@@ -345,56 +344,70 @@ export default function ChapterEditorPage() {
     if (!title) return
 
     const tempId = `temp-${Date.now()}`
-    const newStep = {
-      id: tempId,
-      step_type: stepType,
-      title,
-      slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      order_index: steps.length,
-      is_required: true,
-      chapter_id: chapterId,
-      unlock_rule: null,
-      hero_image_url: null,
-      created_at: new Date().toISOString(),
-    }
-
-    // OPTIMISTIC UPDATE: Instantly add to UI
-    setSteps(prev => [...prev, newStep])
-    setPages(prev => ({ ...prev, [tempId]: [] }))
+    
+    // OPTIMISTIC UPDATE: Instantly add to UI via query
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      const newStep = {
+        id: tempId,
+        step_type: stepType,
+        title,
+        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        order_index: old.steps.length,
+        is_required: true,
+        chapter_id: chapterId,
+        unlock_rule: null,
+        hero_image_url: null,
+        created_at: new Date().toISOString(),
+      }
+      return {
+        ...old,
+        steps: [...old.steps, newStep],
+        pages: { ...old.pages, [tempId]: [] }
+      }
+    })
 
     try {
       const result = await createStep(chapterId, {
         step_type: stepType,
         title,
-        slug: newStep.slug,
-        order_index: newStep.order_index,
+        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        order_index: steps.length,
         is_required: true,
       })
       
       // Replace temp with real data
-      setSteps(prev => prev.map(s => s.id === tempId ? result.step : s))
-      setPages(prev => {
-        const newPages = { ...prev }
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        const newPages = { ...old.pages }
         if (result.step.id !== tempId) {
-          newPages[result.step.id] = prev[tempId] || []
+          newPages[result.step.id] = old.pages[tempId] || []
           delete newPages[tempId]
         }
-        return newPages
+        return {
+          ...old,
+          steps: old.steps.map((s: any) => s.id === tempId ? result.step : s),
+          pages: newPages
+        }
       })
       
       toast.success('Step created successfully')
     } catch (error) {
       // ROLLBACK: Remove temp step on error
-      setSteps(prev => prev.filter(s => s.id !== tempId))
-      setPages(prev => {
-        const newPages = { ...prev }
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        const newPages = { ...old.pages }
         delete newPages[tempId]
-        return newPages
+        return {
+          ...old,
+          steps: old.steps.filter((s: any) => s.id !== tempId),
+          pages: newPages
+        }
       })
       toast.error('Failed to create step')
       console.error('Error creating step:', error)
     }
-  }, [steps, chapterId])
+  }, [steps, chapterId, queryClient])
 
   // OPTIMIZED: Optimistic step deletion
   const handleDeleteStep = useCallback(async (stepId: string) => {
@@ -406,11 +419,15 @@ export default function ChapterEditorPage() {
     if (!removedStep) return
 
     // OPTIMISTIC UPDATE: Instantly remove from UI
-    setSteps(prev => prev.filter(s => s.id !== stepId))
-    setPages(prev => {
-      const newPages = { ...prev }
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      const newPages = { ...old.pages }
       delete newPages[stepId]
-      return newPages
+      return {
+        ...old,
+        steps: old.steps.filter((s: any) => s.id !== stepId),
+        pages: newPages
+      }
     })
 
     try {
@@ -418,12 +435,18 @@ export default function ChapterEditorPage() {
       toast.success('Step deleted successfully')
     } catch (error) {
       // ROLLBACK: Restore step and pages on error
-      setSteps(prev => [...prev, removedStep].sort((a, b) => a.order_index - b.order_index))
-      setPages(prev => ({ ...prev, [stepId]: removedPages }))
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          steps: [...old.steps, removedStep].sort((a: any, b: any) => a.order_index - b.order_index),
+          pages: { ...old.pages, [stepId]: removedPages }
+        }
+      })
       toast.error('Failed to delete step')
       console.error('Error deleting step:', error)
     }
-  }, [steps, pages])
+  }, [steps, pages, chapterId, queryClient])
 
   const handleEnsureRequiredSteps = useCallback(async () => {
     try {
@@ -441,7 +464,7 @@ export default function ChapterEditorPage() {
   }, [chapterId, refreshSteps])
 
   // OPTIMIZED: Optimistic page metadata update
-  const handleUpdatePageMeta = useCallback(async (pageId: string, data: any) => {
+  const handleUpdatePageMeta = useCallback(async (pageId: string, updateData: any) => {
     // Find the step containing this page
     let targetStepId: string | null = null
     let originalPage: any = null
@@ -458,28 +481,40 @@ export default function ChapterEditorPage() {
     if (!targetStepId || !originalPage) return
     
     // OPTIMISTIC UPDATE: Instantly update in UI
-    setPages(prev => ({
-      ...prev,
-      [targetStepId!]: prev[targetStepId!].map(p =>
-        p.id === pageId ? { ...p, ...data } : p
-      )
-    }))
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      return {
+        ...old,
+        pages: {
+          ...old.pages,
+          [targetStepId!]: old.pages[targetStepId!].map((p: any) =>
+            p.id === pageId ? { ...p, ...updateData } : p
+          )
+        }
+      }
+    })
     
     try {
-      await updatePage(pageId, data)
+      await updatePage(pageId, updateData)
       toast.success('Page metadata updated')
     } catch (error) {
       // ROLLBACK: Restore original data on error
-      setPages(prev => ({
-        ...prev,
-        [targetStepId!]: prev[targetStepId!].map(p =>
-          p.id === pageId ? originalPage : p
-        )
-      }))
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: {
+            ...old.pages,
+            [targetStepId!]: old.pages[targetStepId!].map((p: any) =>
+              p.id === pageId ? originalPage : p
+            )
+          }
+        }
+      })
       toast.error('Failed to update page metadata')
       console.error('Error updating page metadata:', error)
     }
-  }, [pages])
+  }, [pages, chapterId, queryClient])
 
   const handleValidateForPublish = useCallback(async () => {
     try {
@@ -500,6 +535,17 @@ export default function ChapterEditorPage() {
       refreshChapter()
     } catch (error: any) {
       toast.error(error.message || 'Failed to publish chapter')
+    }
+  }, [chapterId, refreshChapter])
+
+  const handlePublishWithDummy = useCallback(async () => {
+    try {
+      await publishChapter(chapterId, true, { allowDummyContent: true })
+      toast.success('Chapter published with dummy content placeholders')
+      setShowPublishModal(false)
+      refreshChapter()
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to publish chapter with dummy content')
     }
   }, [chapterId, refreshChapter])
 
@@ -557,6 +603,7 @@ export default function ChapterEditorPage() {
     setShowStepSettings(true)
   }, [])
 
+  // OPTIMIZED: Optimistic step settings update
   const handleSaveStepSettings = useCallback(async (data: { title: string; slug: string; is_required: boolean; hero_image_url?: string }) => {
     if (!editingStep) return
 
@@ -564,9 +611,15 @@ export default function ChapterEditorPage() {
     if (!originalStep) return
 
     // OPTIMISTIC UPDATE: Instantly update in UI
-    setSteps(prev => prev.map(s => 
-      s.id === editingStep.id ? { ...s, ...data } : s
-    ))
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      return {
+        ...old,
+        steps: old.steps.map((s: any) => 
+          s.id === editingStep.id ? { ...s, ...data } : s
+        )
+      }
+    })
 
     try {
       await updateStep(editingStep.id, data)
@@ -578,13 +631,19 @@ export default function ChapterEditorPage() {
       setEditingStep(null)
     } catch (error) {
       // ROLLBACK: Restore original step on error
-      setSteps(prev => prev.map(s => 
-        s.id === editingStep.id ? originalStep : s
-      ))
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          steps: old.steps.map((s: any) => 
+            s.id === editingStep.id ? originalStep : s
+          )
+        }
+      })
       toast.error('Failed to update step')
       console.error('Error updating step:', error)
     }
-  }, [editingStep, steps])
+  }, [editingStep, steps, chapterId, queryClient])
 
   // OPTIMIZED: Optimistic step reordering
   const handleStepMoveUp = useCallback(async (stepId: string) => {
@@ -603,18 +662,24 @@ export default function ChapterEditorPage() {
     }))
 
     // OPTIMISTIC UPDATE: Instantly reorder in UI
-    setSteps(newOrder)
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      return { ...old, steps: newOrder }
+    })
 
     try {
       await reorderSteps(chapterId, orderUpdates)
       toast.success('Step reordered')
     } catch (error) {
       // ROLLBACK: Restore original order on error
-      setSteps(originalSteps)
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return { ...old, steps: originalSteps }
+      })
       toast.error('Failed to reorder step')
       console.error('Error reordering step:', error)
     }
-  }, [steps, chapterId])
+  }, [steps, chapterId, queryClient])
 
   // OPTIMIZED: Optimistic step reordering (down)
   const handleStepMoveDown = useCallback(async (stepId: string) => {
@@ -633,18 +698,24 @@ export default function ChapterEditorPage() {
     }))
 
     // OPTIMISTIC UPDATE: Instantly reorder in UI
-    setSteps(newOrder)
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      return { ...old, steps: newOrder }
+    })
 
     try {
       await reorderSteps(chapterId, orderUpdates)
       toast.success('Step reordered')
     } catch (error) {
       // ROLLBACK: Restore original order on error
-      setSteps(originalSteps)
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return { ...old, steps: originalSteps }
+      })
       toast.error('Failed to reorder step')
       console.error('Error reordering step:', error)
     }
-  }, [steps, chapterId])
+  }, [steps, chapterId, queryClient])
 
   // OPTIMIZED: Optimistic page reordering
   const handlePageMoveUp = useCallback(async (stepId: string, pageId: string) => {
@@ -664,18 +735,27 @@ export default function ChapterEditorPage() {
     }))
 
     // OPTIMISTIC UPDATE: Instantly reorder in UI
-    setPages(prev => ({ ...prev, [stepId]: newOrder }))
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      return {
+        ...old,
+        pages: { ...old.pages, [stepId]: newOrder }
+      }
+    })
 
     try {
       await reorderPages(stepId, orderUpdates)
       toast.success('Page reordered')
     } catch (error) {
       // ROLLBACK: Restore original order on error
-      setPages(originalPages)
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return { ...old, pages: originalPages }
+      })
       toast.error('Failed to reorder page')
       console.error('Error reordering page:', error)
     }
-  }, [pages])
+  }, [pages, chapterId, queryClient])
 
   // OPTIMIZED: Optimistic page reordering (down)
   const handlePageMoveDown = useCallback(async (stepId: string, pageId: string) => {
@@ -695,18 +775,27 @@ export default function ChapterEditorPage() {
     }))
 
     // OPTIMISTIC UPDATE: Instantly reorder in UI
-    setPages(prev => ({ ...prev, [stepId]: newOrder }))
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      return {
+        ...old,
+        pages: { ...old.pages, [stepId]: newOrder }
+      }
+    })
 
     try {
       await reorderPages(stepId, orderUpdates)
       toast.success('Page reordered')
     } catch (error) {
       // ROLLBACK: Restore original order on error
-      setPages(originalPages)
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return { ...old, pages: originalPages }
+      })
       toast.error('Failed to reorder page')
       console.error('Error reordering page:', error)
     }
-  }, [pages])
+  }, [pages, chapterId, queryClient])
 
   const handleAddFromTemplate = useCallback((stepId: string) => {
     setCurrentStepForTemplate(stepId)
@@ -720,55 +809,73 @@ export default function ChapterEditorPage() {
     if (!title) return
 
     const tempId = `temp-${Date.now()}`
-    const newPage = {
-      id: tempId,
-      title,
-      slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      order_index: (pages[currentStepForTemplate] || []).length,
-      estimated_minutes: 5,
-      xp_award: 10,
-      content: templateBlocks,
-      step_id: currentStepForTemplate,
-      chunk_id: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-
+    
     // OPTIMISTIC UPDATE: Instantly add to UI
-    setPages(prev => ({
-      ...prev,
-      [currentStepForTemplate]: [...(prev[currentStepForTemplate] || []), newPage]
-    }))
+    queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+      if (!old) return old
+      const newPage = {
+        id: tempId,
+        title,
+        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        order_index: (old.pages[currentStepForTemplate] || []).length,
+        estimated_minutes: 5,
+        xp_award: 10,
+        content: templateBlocks,
+        step_id: currentStepForTemplate,
+        chunk_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      return {
+        ...old,
+        pages: {
+          ...old.pages,
+          [currentStepForTemplate]: [...(old.pages[currentStepForTemplate] || []), newPage]
+        }
+      }
+    })
 
     try {
       const result = await createPage(currentStepForTemplate, {
         title,
-        slug: newPage.slug,
-        order_index: newPage.order_index,
+        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        order_index: (pages[currentStepForTemplate] || []).length,
         estimated_minutes: 5,
         xp_award: 10,
         content: templateBlocks,
       })
       
       // Replace temp with real data
-      setPages(prev => ({
-        ...prev,
-        [currentStepForTemplate]: prev[currentStepForTemplate].map(p => 
-          p.id === tempId ? result.page : p
-        )
-      }))
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: {
+            ...old.pages,
+            [currentStepForTemplate]: old.pages[currentStepForTemplate].map((p: any) => 
+              p.id === tempId ? result.page : p
+            )
+          }
+        }
+      })
       
       toast.success('Page created from template')
     } catch (error) {
       // ROLLBACK: Remove temp page on error
-      setPages(prev => ({
-        ...prev,
-        [currentStepForTemplate]: prev[currentStepForTemplate].filter(p => p.id !== tempId)
-      }))
+      queryClient.setQueryData(['admin-chapter', chapterId], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: {
+            ...old.pages,
+            [currentStepForTemplate]: old.pages[currentStepForTemplate].filter((p: any) => p.id !== tempId)
+          }
+        }
+      })
       toast.error('Failed to create page')
       console.error('Error creating page from template:', error)
     }
-  }, [currentStepForTemplate, pages])
+  }, [currentStepForTemplate, pages, chapterId, queryClient])
 
   // OPTIMIZED: Stable callback creators for StepCard props (prevent re-renders)
   const createToggleCallback = useCallback((stepId: string) => () => toggleStep(stepId), [toggleStep])
@@ -782,7 +889,7 @@ export default function ChapterEditorPage() {
   const createPageMoveDownCallback = useCallback((stepId: string) => (pageId: string) => handlePageMoveDown(stepId, pageId), [handlePageMoveDown])
 
   // Skeleton loader for chapter editor
-  if (loading) {
+  if (isLoading) {
     return (
       <AdminErrorBoundary fallbackMessage="An error occurred while loading this chapter.">
         <div className="p-6 lg:p-8">
@@ -840,7 +947,7 @@ export default function ChapterEditorPage() {
       {/* Header */}
       <div className="mb-8">
         <Link
-          href="/admin/chapters"
+          href={returnPage ? `/admin/chapters?page=${returnPage}` : '/admin/chapters'}
           className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -951,8 +1058,11 @@ export default function ChapterEditorPage() {
               </label>
               <input
                 type="number"
-                value={formData.chapter_number}
-                onChange={(e) => setFormData({ ...formData, chapter_number: parseInt(e.target.value) })}
+                value={formData.chapter_number ?? ''}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10)
+                  setFormData({ ...formData, chapter_number: Number.isNaN(n) ? 1 : n })
+                }}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
@@ -977,24 +1087,15 @@ export default function ChapterEditorPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Minimum Level
-              </label>
-              <input
-                type="number"
-                value={formData.level_min}
-                onChange={(e) => setFormData({ ...formData, level_min: parseInt(e.target.value) })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Order Index
               </label>
               <input
                 type="number"
-                value={formData.order_index}
-                onChange={(e) => setFormData({ ...formData, order_index: parseInt(e.target.value) })}
+                value={formData.order_index ?? ''}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10)
+                  setFormData({ ...formData, order_index: Number.isNaN(n) ? 0 : n })
+                }}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
@@ -1252,6 +1353,16 @@ export default function ChapterEditorPage() {
                       ))}
                     </ul>
                   </div>
+                  {publishValidation.dummyEligible && (
+                    <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                      <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">
+                        Continue with dummy content?
+                      </h3>
+                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                        You can publish now with auto-generated placeholder blocks (Coming soon), or close this dialog and add real content before publishing.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1260,7 +1371,7 @@ export default function ChapterEditorPage() {
                   variant="secondary"
                   onClick={() => setShowPublishModal(false)}
                 >
-                  Close
+                  {publishValidation.valid ? 'Close' : 'Add Content Then Publish Later'}
                 </Button>
                 {publishValidation.valid && (
                   <Button
@@ -1268,6 +1379,14 @@ export default function ChapterEditorPage() {
                     onClick={handlePublish}
                   >
                     Publish Now
+                  </Button>
+                )}
+                {!publishValidation.valid && publishValidation.dummyEligible && (
+                  <Button
+                    variant="primary"
+                    onClick={handlePublishWithDummy}
+                  >
+                    Continue with Dummy Content
                   </Button>
                 )}
               </div>

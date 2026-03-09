@@ -17,11 +17,13 @@ export type AssessmentReportData = {
   maxScore: number
   completedAt: string
   questions: Array<{
-    id: number
+    id: number | string
     question: string
     low: string
     high: string
     userResponse: number
+    maxValue: number
+    responseLabel?: string
   }>
 }
 
@@ -167,6 +169,125 @@ export async function getChaptersForReports(): Promise<
 // FETCH ASSESSMENT REPORT DATA (always scoped to authenticated user)
 // ============================================================================
 
+async function buildDynamicAssessmentQuestions(
+  supabase: ReturnType<typeof createAdminClient>,
+  chapterId: number,
+  responses: Record<string, unknown>
+) {
+  const { data: chapterRow } = await supabase
+    .from('chapters')
+    .select('id, title, chapter_number')
+    .eq('chapter_number', chapterId)
+    .limit(1)
+    .maybeSingle()
+
+  if (!chapterRow?.id) {
+    return { chapterTitle: `Chapter ${chapterId}`, questions: [] as AssessmentReportData['questions'] }
+  }
+
+  const { data: stepRows } = await supabase
+    .from('chapter_steps')
+    .select('id')
+    .eq('chapter_id', chapterRow.id)
+    .eq('step_type', 'self_check')
+    .order('order_index', { ascending: true })
+    .limit(1)
+
+  const stepId = stepRows?.[0]?.id
+  if (!stepId) {
+    return { chapterTitle: String(chapterRow.title || `Chapter ${chapterId}`), questions: [] as AssessmentReportData['questions'] }
+  }
+
+  const { data: pages } = await supabase
+    .from('step_pages')
+    .select('content')
+    .eq('step_id', stepId)
+    .order('order_index', { ascending: true })
+
+  const questions: AssessmentReportData['questions'] = []
+  let scaleIndex = 1
+
+  for (const page of pages || []) {
+    const pageRecord = page as { content?: unknown }
+    const blocks = Array.isArray(pageRecord.content) ? pageRecord.content : []
+    for (const block of blocks) {
+      if (!block || typeof block !== 'object') continue
+      const blockRecord = block as Record<string, unknown>
+
+      if (blockRecord.type === 'scale_questions') {
+        const scaleBlock = blockRecord
+        const blockQuestions = Array.isArray(scaleBlock.questions) ? scaleBlock.questions : []
+        const scaleMeta =
+          scaleBlock.scale && typeof scaleBlock.scale === 'object'
+            ? (scaleBlock.scale as Record<string, unknown>)
+            : {}
+        const maxValue =
+          typeof scaleMeta.max === 'number' && scaleMeta.max > 0
+            ? scaleMeta.max
+            : 7
+        const low = String(scaleMeta.minLabel || 'Low')
+        const high = String(scaleMeta.maxLabel || 'High')
+
+        for (const q of blockQuestions) {
+          if (!q || typeof q !== 'object') continue
+          const qRecord = q as Record<string, unknown>
+          const questionText = String(qRecord.text || qRecord.question || '').trim()
+          const answerKeyCandidates = [String(scaleIndex), scaleIndex]
+          const numericResponseRaw =
+            responses[answerKeyCandidates[0]] ?? responses[String(answerKeyCandidates[1])]
+          const numericResponse = typeof numericResponseRaw === 'number' ? numericResponseRaw : Number(numericResponseRaw || 0)
+          questions.push({
+            id: scaleIndex,
+            question: questionText || `Question ${scaleIndex}`,
+            low,
+            high,
+            userResponse: Number.isFinite(numericResponse) ? numericResponse : 0,
+            maxValue,
+          })
+          scaleIndex += 1
+        }
+      }
+
+      if (blockRecord.type === 'mcq') {
+        const mcqBlock = blockRecord
+        const blockQuestions = Array.isArray(mcqBlock.questions) ? mcqBlock.questions : []
+        for (const q of blockQuestions) {
+          if (!q || typeof q !== 'object') continue
+          const qRecord = q as Record<string, unknown>
+          const qId = String(qRecord.id || `mcq_${questions.length + 1}`)
+          const questionText = String(qRecord.text || '').trim()
+          const options = Array.isArray(qRecord.options) ? qRecord.options : []
+          const selectedOptionId = String(responses[qId] ?? '')
+          const selectedOption = options.find((opt) => {
+            if (!opt || typeof opt !== 'object') return false
+            return String((opt as Record<string, unknown>).id || '') === selectedOptionId
+          }) as Record<string, unknown> | undefined
+          const correctOptionId = String(qRecord.correctOptionId || '')
+          const hasCorrect = correctOptionId.trim().length > 0
+          const isCorrect = hasCorrect && selectedOptionId && selectedOptionId === correctOptionId
+
+          questions.push({
+            id: qId,
+            question: questionText || `Question ${questions.length + 1}`,
+            low: hasCorrect ? 'Incorrect' : 'No response',
+            high: hasCorrect ? 'Correct' : 'Answered',
+            userResponse: hasCorrect ? (isCorrect ? 1 : 0) : (selectedOptionId ? 1 : 0),
+            maxValue: 1,
+            responseLabel: hasCorrect
+              ? (isCorrect ? 'Correct' : 'Incorrect')
+              : (selectedOption?.text ? `Selected: ${String(selectedOption.text)}` : 'No response'),
+          })
+        }
+      }
+    }
+  }
+
+  return {
+    chapterTitle: String(chapterRow.title || `Chapter ${chapterId}`),
+    questions,
+  }
+}
+
 export async function getAssessmentReportData(
   chapterId: number
 ): Promise<{ success: true; data: AssessmentReportData } | { success: false; error: string }> {
@@ -224,21 +345,40 @@ export async function getAssessmentReportData(
     }
 
     const config = getAssessmentConfig(chapterId, `Chapter ${chapterId}`)
-    if (!config.questions.length) {
-      return { success: false, error: 'No assessment config for this chapter' }
+    const responses = (finalAssessment.responses as Record<string, unknown>) || {}
+
+    let questionsWithResponses: AssessmentReportData['questions'] = []
+    let chapterTitle = config.chapterTitle
+    let maxScore = config.maxScore
+
+    if (config.questions.length > 0) {
+      questionsWithResponses = config.questions.map((q) => {
+        const raw = responses[String(q.id)]
+        const userResponse = typeof raw === 'number' ? raw : Number(raw || 0)
+        return {
+          ...q,
+          userResponse: Number.isFinite(userResponse) ? userResponse : 0,
+          maxValue: 7,
+        }
+      })
+    } else {
+      const dynamic = await buildDynamicAssessmentQuestions(supabase, chapterId, responses)
+      chapterTitle = dynamic.chapterTitle
+      questionsWithResponses = dynamic.questions
+      maxScore = questionsWithResponses.reduce((sum, q) => sum + (q.maxValue || 0), 0)
+      if (!questionsWithResponses.length) {
+        return { success: false, error: 'No assessment questions found for this chapter' }
+      }
     }
 
-    const questionsWithResponses = config.questions.map((q) => ({
-      ...q,
-      userResponse: (finalAssessment.responses as Record<number, number>)?.[q.id] ?? 0,
-    }))
+    const computedScore = questionsWithResponses.reduce((sum, q) => sum + (q.userResponse || 0), 0)
 
     const reportData: AssessmentReportData = {
       chapterId,
-      chapterTitle: config.chapterTitle,
+      chapterTitle,
       assessmentType: 'Self-Check (Baseline)',
-      score: finalAssessment.score ?? 0,
-      maxScore: config.maxScore,
+      score: typeof finalAssessment.score === 'number' ? finalAssessment.score : computedScore,
+      maxScore,
       completedAt: finalAssessment.created_at,
       questions: questionsWithResponses,
     }

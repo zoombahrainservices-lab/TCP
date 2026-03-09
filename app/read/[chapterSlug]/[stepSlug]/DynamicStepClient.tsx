@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -11,6 +11,7 @@ import BlockRenderer from '@/components/content/BlockRenderer';
 import ChapterCoverPage from '@/components/content/ChapterCoverPage';
 import FrameworkCoverPage from '@/components/content/FrameworkCoverPage';
 import SelfCheckAssessment, { type AssessmentQuestion } from '@/components/assessment/SelfCheckAssessment';
+import SelfCheckMCQAssessment, { type MCQAssessmentQuestion } from '@/components/assessment/SelfCheckMCQAssessment';
 import AdminEditButton from '@/components/admin/AdminEditButton';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
@@ -18,6 +19,7 @@ import { submitAssessment } from '@/app/actions/prompts';
 import { celebrateSectionCompletion } from '@/lib/celebration/celebrate';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
+import { playClickSound } from '@/lib/celebration/sounds';
 
 interface Props {
   chapter: Chapter;
@@ -42,6 +44,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const [userResponses, setUserResponses] = useState<Record<string, any>>(initialAnswers);
   const [isProcessing, setIsProcessing] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
+  const continueButtonRef = useRef<HTMLButtonElement>(null);
 
   // Build next URL - handle special case for Resolution step
   const nextUrl = nextStepSlug 
@@ -68,23 +71,30 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const handleDownloadChapter = useClickSound(handleDownloadChapterCore);
 
   // Jump to specific page from URL query param (?page=3)
-  // Note: For "read" steps, page param should only apply to content pages (not cover)
+  // Note: page param is the array index (0-based in state, but passed as 1-based in URL for readability)
   useEffect(() => {
     const pageParam = searchParams.get('page');
     if (!pageParam || pages.length === 0) return;
 
     const pageNumber = Number(pageParam);
-    if (!Number.isFinite(pageNumber) || pageNumber < 1) return;
+    if (!Number.isFinite(pageNumber) || pageNumber < 0) return;
 
-    // Find page by order_index (1-based)
-    const targetIndex = pages.findIndex((p) => p.order_index === pageNumber);
-    if (targetIndex >= 0 && targetIndex !== currentPage) {
-      // Only apply if we're not on cover page, or if explicitly requested
-      if (currentPage !== -1 || pageNumber > 1) {
-        setCurrentPage(targetIndex);
-      }
+    // Page param is the actual array index
+    if (pageNumber >= 0 && pageNumber < pages.length && pageNumber !== currentPage) {
+      setCurrentPage(pageNumber);
     }
-  }, [searchParams, pages, currentPage]);
+  }, [searchParams, pages.length]); // Removed currentPage from deps to avoid loops
+
+  // When returning from edit (?page= in URL): focus Continue button so first tap activates it (fixes double-tap)
+  useEffect(() => {
+    const pageParam = searchParams.get('page');
+    if (!pageParam) return;
+
+    const t = setTimeout(() => {
+      continueButtonRef.current?.focus({ preventScroll: true });
+    }, 100);
+    return () => clearTimeout(t);
+  }, [searchParams]);
 
   // Aggressive prefetching for instant navigation (route code only). Use canonical URL so we never trigger server redirect → MPA → #310.
   useEffect(() => {
@@ -146,7 +156,69 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     }
   };
 
-  const handlePrevious = useClickSound(handlePreviousCore);
+  const handledNavRef = useRef<'prev' | 'next' | null>(null);
+
+  const onPreviousPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    if (e.pointerType === 'touch') return; // handled by onTouchStart
+    e.preventDefault();
+    e.stopPropagation();
+    handledNavRef.current = 'prev';
+    playClickSound();
+    handlePreviousCore();
+  };
+  const onPreviousTouchStart = (e: React.TouchEvent) => {
+    handledNavRef.current = 'prev';
+    playClickSound();
+    handlePreviousCore();
+    e.preventDefault();
+  };
+  const onPreviousClick = (e: React.MouseEvent) => {
+    if (handledNavRef.current === 'prev') {
+      e.preventDefault();
+      handledNavRef.current = null;
+      return;
+    }
+    playClickSound();
+    handlePreviousCore();
+  };
+
+  const onNextPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    if (e.pointerType === 'touch') return; // handled by onTouchStart
+    e.preventDefault();
+    e.stopPropagation();
+    handledNavRef.current = 'next';
+    playClickSound();
+    if (currentPage === pages.length - 1) {
+      handleCompleteCore();
+    } else {
+      handleNextCore();
+    }
+  };
+  const onNextTouchStart = (e: React.TouchEvent) => {
+    handledNavRef.current = 'next';
+    playClickSound();
+    if (currentPage === pages.length - 1) {
+      handleCompleteCore();
+    } else {
+      handleNextCore();
+    }
+    e.preventDefault();
+  };
+  const onNextClick = (e: React.MouseEvent) => {
+    if (handledNavRef.current === 'next') {
+      e.preventDefault();
+      handledNavRef.current = null;
+      return;
+    }
+    playClickSound();
+    if (currentPage === pages.length - 1) {
+      handleCompleteCore();
+    } else {
+      handleNextCore();
+    }
+  };
 
   const handleCompleteCore = async () => {
     if (isProcessing) return;
@@ -222,8 +294,6 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     }
   };
 
-  const handleComplete = useClickSound(handleCompleteCore);
-
   const currentPageData = pages[currentPage >= 0 ? currentPage : 0];
   // Calculate progress including cover page for "read" steps and framework steps with cover
   const hasCoverPage = step.step_type === 'read' || hasFrameworkCover;
@@ -231,18 +301,53 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const currentPageIndex = hasCoverPage ? currentPage + 1 : currentPage;
   const progress = totalPages ? ((currentPageIndex + 1) / totalPages) * 100 : 0;
 
-  // Derive hero image and content blocks
-  // Hero image (left side): Use page.hero_image_url → step → chapter → placeholder
-  // Image blocks (right side): Keep ALL image blocks in content for inline display
+  // Derive hero image and content blocks so that image is on the LEFT
+  // Priority: page.hero_image_url → first image block from current page → step.hero_image_url → chapter images → placeholder
+  // CRITICAL: Remove ALL image blocks from content so they never appear on the right
   const rawBlocks = (currentPageData?.content ?? []) as any[];
   
-  const heroImageSrc: string = currentPageData?.hero_image_url || (step.hero_image_url ?? chapter.hero_image_url ?? chapter.thumbnail_url ?? '/placeholder.png');
-  const heroImageAlt: string = currentPageData?.title || step.title;
+  // Title style: from page_meta block (stored in content) or from page.title_style column
+  const pageMetaBlock = rawBlocks[0]?.type === 'page_meta' ? rawBlocks[0] : null;
+  const titleStyleResolved = (pageMetaBlock as any)?.title_style || currentPageData?.title_style || null;
 
-  // Keep all blocks in content (including image blocks for right-side inline display)
-  // Only remove framework_cover blocks (they're shown as full-page cover)
-  const contentBlocks = rawBlocks.filter(
+  const getSafeImageSrc = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  let heroImageSrc: string | null =
+    getSafeImageSrc(currentPageData?.hero_image_url) ??
+    getSafeImageSrc(step.hero_image_url) ??
+    getSafeImageSrc(chapter.hero_image_url) ??
+    getSafeImageSrc(chapter.thumbnail_url);
+  let heroImageAlt: string = currentPageData?.title || step.title;
+  let contentBlocks: any[] = rawBlocks;
+
+  // Find first image block in current page (fallback if page.hero_image_url is not set)
+  const firstImageBlock = rawBlocks.find(
+    (block) => block && typeof block === 'object' && block.type === 'image' && block.src
+  );
+
+  // If no hero_image_url is set on the page, use the first image block as fallback
+  if (!getSafeImageSrc(currentPageData?.hero_image_url) && firstImageBlock) {
+    // Use the first image found in page content as hero
+    heroImageSrc = getSafeImageSrc(firstImageBlock.src) ?? heroImageSrc;
+    heroImageAlt = firstImageBlock.alt || currentPageData?.title || step.title;
+    // Remove this image block from content
+    contentBlocks = rawBlocks.filter(block => block !== firstImageBlock);
+  } else {
+    // Keep all blocks (since we're using the dedicated hero_image_url)
+    contentBlocks = rawBlocks;
+  }
+
+  // Remove ALL framework_cover blocks from content (they're shown as full-page cover, never on right)
+  contentBlocks = contentBlocks.filter(
     (block) => !(block && typeof block === 'object' && block.type === 'framework_cover')
+  );
+  // Remove page_meta blocks (they only hold title_style; not rendered)
+  contentBlocks = contentBlocks.filter(
+    (block) => !(block && typeof block === 'object' && block.type === 'page_meta')
   );
 
   // Avoid duplicate heading: if the first content block is already a heading, don't render page title as h1 (content will show it once).
@@ -360,36 +465,61 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   }
 
   const isSelfCheck = step.step_type === 'self_check';
+  const selfCheckAnalysis = useMemo(() => {
+    if (!isSelfCheck) {
+      return {
+        hasScaleBlocks: false,
+        hasMcqBlocks: false,
+        questions: [] as AssessmentQuestion[],
+        mcqQuestions: [] as MCQAssessmentQuestion[],
+      };
+    }
 
-  // Self-check: use old-style SelfCheckAssessment component with slider questions
-  if (isSelfCheck) {
-    // Convert ALL self-check pages' blocks to question format
     const questions: AssessmentQuestion[] = [];
+    const mcqQuestions: MCQAssessmentQuestion[] = [];
     let questionCounter = 1;
+    let hasScaleBlocks = false;
+    let hasMcqBlocks = false;
 
-    // Extract questions from ALL pages' scale_questions blocks
     for (const page of pages) {
       const pageBlocks = (page.content ?? []) as any[];
       for (const block of pageBlocks) {
-        if (block && typeof block === 'object' && block.type === 'scale_questions') {
+        if (!block || typeof block !== 'object') continue;
+
+        if (block.type === 'mcq') {
+          hasMcqBlocks = true;
+          const blockQuestions = Array.isArray((block as any).questions) ? (block as any).questions : [];
+          for (const q of blockQuestions) {
+            const qId = String(q?.id || `mcq_q_${mcqQuestions.length + 1}`);
+            const qText = String(q?.text || '').trim();
+            const qOptions = Array.isArray(q?.options)
+              ? q.options.map((opt: any, idx: number) => ({
+                  id: String(opt?.id || `opt_${idx + 1}`),
+                  text: String(opt?.text || `Option ${idx + 1}`),
+                }))
+              : [];
+            if (!qText || qOptions.length === 0) continue;
+            mcqQuestions.push({
+              id: qId,
+              question: qText,
+              options: qOptions,
+              ...(q?.correctOptionId ? { correctOptionId: String(q.correctOptionId) } : {}),
+            });
+          }
+        }
+
+        if (block.type === 'scale_questions') {
+          hasScaleBlocks = true;
           const scaleBlock = block as any;
           if (scaleBlock.questions && Array.isArray(scaleBlock.questions)) {
             for (const q of scaleBlock.questions) {
-              // Clean up question text: remove any inline "(1 = ..., 7 = ...)" hints
               const rawText = q.text || q.question || '';
               const cleanedText = rawText.replace(/\(1\s*=\s*[^)]*\)/i, '').trim();
 
-              // Normalize labels: always show Rarely / Always in UI
               const rawMin = (scaleBlock.scale?.minLabel as string | undefined) || '';
               const rawMax = (scaleBlock.scale?.maxLabel as string | undefined) || '';
-              const lowLabel =
-                rawMin.toLowerCase() === 'low' || rawMin.trim() === ''
-                  ? 'Rarely'
-                  : rawMin;
-              const highLabel =
-                rawMax.toLowerCase() === 'high' || rawMax.trim() === ''
-                  ? 'Always'
-                  : rawMax;
+              const lowLabel = rawMin.toLowerCase() === 'low' || rawMin.trim() === '' ? 'Rarely' : rawMin;
+              const highLabel = rawMax.toLowerCase() === 'high' || rawMax.trim() === '' ? 'Always' : rawMax;
 
               questions.push({
                 id: questionCounter++,
@@ -403,27 +533,30 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       }
     }
 
-    // Fallback: if no questions found, create 3 default questions
+    return { hasScaleBlocks, hasMcqBlocks, questions, mcqQuestions };
+  }, [isSelfCheck, pages]);
+
+  // Use legacy slider UI only for pure scale-based self-check steps.
+  // If MCQ exists (or mixed content), fall back to normal block rendering below.
+  if (isSelfCheck && selfCheckAnalysis.hasScaleBlocks && !selfCheckAnalysis.hasMcqBlocks) {
+    const questions = selfCheckAnalysis.questions;
     if (questions.length === 0) {
-      questions.push(
-        {
-          id: 1,
-          question: 'I avoid speaking situations when possible',
-          low: 'Rarely',
-          high: 'Always',
-        },
-        {
-          id: 2,
-          question: 'My mind goes blank when speaking',
-          low: 'Never',
-          high: 'Every time',
-        },
-        {
-          id: 3,
-          question: 'Physical symptoms (shaking/racing heart) overwhelm me',
-          low: 'Manageable',
-          high: 'Paralyzing',
-        },
+      return (
+        <ReadingLayout
+          currentProgress={progress}
+          onClose={() => router.push('/dashboard')}
+          serverCurrentChapter={chapter.chapter_number}
+          collapseSidebarByDefault={true}
+        >
+          <div className="mx-auto w-full max-w-3xl px-6 py-10">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
+              <h2 className="text-2xl font-bold text-amber-900 mb-2">Self-Check Not Configured</h2>
+              <p className="text-amber-800">
+                This self-check has scale blocks but no questions configured yet. Please add questions in the admin editor.
+              </p>
+            </div>
+          </div>
+        </ReadingLayout>
       );
     }
 
@@ -441,7 +574,12 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     // Save answers callback
     const handleSaveAnswers = async (answers: Record<number, number>, totalScore: number) => {
       console.log('Saving self-check answers:', { chapterNumber: chapter.chapter_number, totalScore });
-      const result = await submitAssessment(chapter.chapter_number, 'baseline', answers, totalScore);
+      const result = await submitAssessment(
+        chapter.chapter_number,
+        'baseline',
+        answers as any,
+        totalScore
+      );
       
       if (!result.success) {
         console.error('Failed to save self-check:', result.error);
@@ -492,30 +630,118 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     );
   }
 
+  // Self-check MCQ (or mixed assessment content): render full-page MCQ flow, one question per page.
+  if (isSelfCheck && selfCheckAnalysis.hasMcqBlocks) {
+    const mcqQuestions = selfCheckAnalysis.mcqQuestions;
+    if (mcqQuestions.length === 0) {
+      return (
+        <ReadingLayout
+          currentProgress={progress}
+          onClose={() => router.push('/dashboard')}
+          serverCurrentChapter={chapter.chapter_number}
+          collapseSidebarByDefault={true}
+        >
+          <div className="mx-auto w-full max-w-3xl px-6 py-10">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
+              <h2 className="text-2xl font-bold text-amber-900 mb-2">Self-Check MCQ Not Configured</h2>
+              <p className="text-amber-800">
+                MCQ blocks were found, but no valid MCQ questions/options are configured yet.
+              </p>
+            </div>
+          </div>
+        </ReadingLayout>
+      );
+    }
+
+    const selfCheckKey = `ch${chapter.chapter_number}_self_check_baseline`;
+    const hasCompletedBefore = !!(initialAnswers && initialAnswers[selfCheckKey]);
+
+    const handleSaveMcqAnswers = async (answers: Record<string, string>, totalScore: number) => {
+      const result = await submitAssessment(
+        chapter.chapter_number,
+        'baseline',
+        answers as any,
+        totalScore
+      );
+      if (!result.success) {
+        toast.error('Failed to save your answers. Please try again.');
+        return result;
+      }
+
+      try {
+        const sectionResult = await completeDynamicSection({
+          chapterNumber: chapter.chapter_number,
+          stepType: 'self_check',
+        });
+
+        if (sectionResult && sectionResult.success) {
+          setTimeout(() => {
+            celebrateSectionCompletion({
+              xpResult: (sectionResult as any).xpResult,
+              reasonCode: (sectionResult as any).reasonCode,
+              streakResult: (sectionResult as any).streakResult,
+              chapterCompleted: (sectionResult as any).chapterCompleted,
+              title: 'Self-Check Complete!',
+            });
+          }, 600);
+        }
+      } catch (error) {
+        console.error('Error completing self-check section:', error);
+      }
+
+      return result;
+    };
+
+    return (
+      <SelfCheckMCQAssessment
+        chapterId={chapter.chapter_number}
+        chapterSlug={chapter.slug}
+        questions={mcqQuestions}
+        nextStepUrl={nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : '/dashboard'}
+        questionsStepTitle={`Chapter ${chapter.chapter_number} Self-Check`}
+        questionsStepSubtitle="Answer one question at a time. Be honest—only you see this."
+        hasCompletedBefore={hasCompletedBefore}
+        onSaveAnswers={handleSaveMcqAnswers}
+      />
+    );
+  }
+
+  // Explicit empty-state for self-check steps with no supported assessment blocks.
+  if (isSelfCheck && !selfCheckAnalysis.hasScaleBlocks && !selfCheckAnalysis.hasMcqBlocks) {
+    return (
+      <ReadingLayout
+        currentProgress={progress}
+        onClose={() => router.push('/dashboard')}
+        serverCurrentChapter={chapter.chapter_number}
+        collapseSidebarByDefault={true}
+      >
+        <div className="mx-auto w-full max-w-3xl px-6 py-10">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-6">
+            <h2 className="text-2xl font-bold text-red-900 mb-2">Self-Check Content Missing</h2>
+            <p className="text-red-800">
+              No `scale_questions` or `mcq` blocks were found for this chapter&apos;s self-check step.
+            </p>
+          </div>
+        </div>
+      </ReadingLayout>
+    );
+  }
+
   // If we're on the cover page (currentPage === -1) for "read" step, show cover
   if (currentPage === -1 && step.step_type === 'read') {
     return (
-      <ReadingLayout currentProgress={progress} onClose={() => router.push('/dashboard')}>
-        <div className="relative w-full h-full">
-          <ChapterCoverPage
-            chapterNumber={chapter.chapter_number}
-            title={chapter.title}
-            subtitle={chapter.subtitle}
-            onContinue={handleNext}
-          />
-
-                  {/* Download chapter PDF button – anchored near bottom center */}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-10 flex justify-center">
-                    <button
-                      type="button"
-                      onClick={handleDownloadChapter}
-                      className="pointer-events-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/95 text-gray-900 text-xs sm:text-sm font-semibold shadow-lg hover:bg-white transition-colors"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download Chapter
-                    </button>
-                  </div>
-        </div>
+      <ReadingLayout 
+        currentProgress={progress} 
+        onClose={() => router.push('/dashboard')} 
+        serverCurrentChapter={chapter.chapter_number}
+        collapseSidebarByDefault={true}
+      >
+        <ChapterCoverPage
+          chapterNumber={chapter.chapter_number}
+          title={chapter.title}
+          subtitle={chapter.subtitle}
+          onContinue={handleNext}
+        />
       </ReadingLayout>
     );
   }
@@ -529,7 +755,12 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
 
     if (frameworkCoverBlock) {
       return (
-        <ReadingLayout currentProgress={progress} onClose={() => router.push('/dashboard')}>
+        <ReadingLayout 
+          currentProgress={progress} 
+          onClose={() => router.push('/dashboard')} 
+          serverCurrentChapter={chapter.chapter_number}
+          collapseSidebarByDefault={true}
+        >
           <FrameworkCoverPage
             frameworkCode={frameworkCoverBlock.frameworkCode}
             frameworkTitle={frameworkCoverBlock.frameworkTitle}
@@ -545,18 +776,27 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
 
   // Other steps: use image left, content right layout
   return (
-    <ReadingLayout currentProgress={progress} onClose={() => router.push('/dashboard')}>
+    <ReadingLayout 
+      currentProgress={progress} 
+      onClose={() => router.push('/dashboard')} 
+      serverCurrentChapter={chapter.chapter_number}
+      collapseSidebarByDefault={true}
+    >
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* Left side: Image */}
         <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative overflow-hidden bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
-          <Image
-            src={heroImageSrc}
-            alt={heroImageAlt}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 50vw"
-            priority
-          />
+          {heroImageSrc ? (
+            <Image
+              src={heroImageSrc}
+              alt={heroImageAlt}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-[#F2E9D8] to-[#E8DBC0] dark:from-[#0f1b2d] dark:to-[#13233a]" />
+          )}
         </div>
 
         {/* Right side: Content + Navigation */}
@@ -570,7 +810,34 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
                 </p>
                 {frameworkStrip}
                 {showPageTitle && (
-                  <h1 className="text-3xl md:text-4xl font-bold text-[#2a2416] dark:text-white">
+                  <h1
+                    className="text-3xl md:text-4xl font-bold text-[#2a2416] dark:text-white"
+                    style={{
+                      ...(titleStyleResolved?.color && { color: titleStyleResolved.color }),
+                      ...(titleStyleResolved?.fontSize && {
+                        fontSize:
+                          titleStyleResolved.fontSize === 'sm'
+                            ? '1.25rem'
+                            : titleStyleResolved.fontSize === 'md'
+                              ? '1.5rem'
+                              : titleStyleResolved.fontSize === 'lg'
+                                ? '1.875rem'
+                                : titleStyleResolved.fontSize === 'xl'
+                                  ? '2.25rem'
+                                  : undefined,
+                      }),
+                      ...(titleStyleResolved?.fontWeight && {
+                        fontWeight:
+                          titleStyleResolved.fontWeight === 'normal'
+                            ? 400
+                            : titleStyleResolved.fontWeight === 'semibold'
+                              ? 600
+                              : titleStyleResolved.fontWeight === 'bold'
+                                ? 700
+                                : undefined,
+                      }),
+                    }}
+                  >
                     {currentPageData.title}
                   </h1>
                 )}
@@ -594,7 +861,10 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
             <div className="flex items-center justify-center gap-4 sm:gap-6 max-w-3xl mx-auto">
               {(currentPage > 0 || (currentPage === 0 && (step.step_type === 'read' || hasFrameworkCover))) && (
                 <button
-                  onClick={handlePrevious}
+                  type="button"
+                  onPointerDown={onPreviousPointerDown}
+                  onTouchStart={onPreviousTouchStart}
+                  onClick={onPreviousClick}
                   className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
                 >
                   Previous
@@ -605,10 +875,15 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
                   chapterId={chapter.id}
                   pageId={currentPageData.id}
                   stepId={step.id}
+                  returnUrl={`/read/${chapter.slug}/${step.slug}?page=${currentPage}`}
                 />
               )}
               <button
-                onClick={currentPage === pages.length - 1 ? handleComplete : handleNext}
+                ref={continueButtonRef}
+                type="button"
+                onPointerDown={onNextPointerDown}
+                onTouchStart={onNextTouchStart}
+                onClick={onNextClick}
                 disabled={isProcessing}
                 className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-[#FF6B35] hover:bg-[#FF5722] text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
               >

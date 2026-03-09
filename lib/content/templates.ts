@@ -6,7 +6,7 @@ export interface ContentTemplate {
   key: string
   name: string
   description: string
-  category: 'your-turn' | 'reading' | 'framework' | 'assessment'
+  category: 'your-turn' | 'reading' | 'framework' | 'assessment' | 'resolution'
   blocks: any[]
 }
 
@@ -44,24 +44,20 @@ export const contentTemplates: ContentTemplate[] = [
         type: 'paragraph', 
         text: 'Rate yourself on the following statements. Be honest - this helps you track your progress.' 
       },
-      { 
+      {
         type: 'scale_questions',
+        id: 'self_assessment',
+        title: 'Self-Assessment',
         questions: [
-          {
-            text: 'I understand the key concepts from this section',
-            min: 1,
-            max: 5,
-            minLabel: 'Not at all',
-            maxLabel: 'Completely'
-          },
-          {
-            text: 'I can apply this in real situations',
-            min: 1,
-            max: 5,
-            minLabel: 'Not confident',
-            maxLabel: 'Very confident'
-          }
-        ]
+          { id: 'q1', text: 'I understand the key concepts from this section' },
+          { id: 'q2', text: 'I can apply this in real situations' },
+        ],
+        scale: {
+          min: 1,
+          max: 5,
+          minLabel: 'Not at all',
+          maxLabel: 'Completely',
+        },
       }
     ]
   },
@@ -95,6 +91,53 @@ export const contentTemplates: ContentTemplate[] = [
       }
     ]
   },
+
+  {
+    key: 'commitment_card',
+    name: 'Commitment Card (Checklist + Reminder)',
+    description: 'Checklist section with pink cards, commitment box, and reminder callout',
+    category: 'your-turn',
+    blocks: [
+      { type: 'heading', level: 2, text: 'YOUR COMMITMENT' },
+      {
+        type: 'paragraph',
+        text: 'Pick ONE action you will complete before tomorrow:'
+      },
+      {
+        type: 'checklist',
+        id: 'commitment_actions',
+        appearance: {
+          containerBgColor: '#ffffff',
+          containerBorderColor: '#f1d0de',
+          itemBgColor: '#f7e6ef',
+          itemBorderColor: '#f0cadd',
+          checkboxColor: '#cc2e6f',
+          textColor: '#2a2416',
+          titleColor: '#ad1457'
+        },
+        items: [
+          { id: 'c1', text: 'Take the Spatial Thinking Check (6 yes/no questions above) and write down your score.' },
+          { id: 'c2', text: 'Before your next essay or study session, draw the concept first - then translate it into words.' },
+          { id: 'c3', text: 'Try the Method of Loci: place 5 things you need to remember along a familiar mental route.' },
+          { id: 'c4', text: 'Tell one teacher or study partner: "I think spatially - can I include a diagram alongside my work?"' }
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '<div style="border:1px solid #cc2e6f; padding:14px 16px;"><h3 style="color:#ad1457; margin:0 0 8px 0;">My Commitment for Today:</h3><p style="margin:0 0 8px 0;">I will: _________________________________</p><p style="margin:0 0 8px 0;">By: ____________________________________</p><p style="margin:0;">How I\'ll know I did it: __________________</p></div>'
+      },
+      {
+        type: 'callout',
+        variant: 'custom',
+        title: 'Elena\'s Reminder:',
+        text: '"Stop trying to think like everyone else. Figure out how YOUR brain works, then find ways to translate that into formats others can understand. Your different thinking is valuable."',
+        bgColor: '#dbe9ed',
+        borderColor: '#1f8a9d',
+        textColor: '#17353d',
+        iconColor: '#1f8a9d'
+      }
+    ]
+  },
   
   {
     key: 'yes_no_baseline',
@@ -114,6 +157,98 @@ export const contentTemplates: ContentTemplate[] = [
           { text: 'I feel confident in my communication skills', value: false },
           { text: 'I can handle difficult conversations effectively', value: false },
           { text: 'I understand how to read social cues', value: false }
+        ]
+      }
+    ]
+  },
+
+  {
+    key: 'mcq_graded',
+    name: 'Multiple Choice Quiz (Graded)',
+    description: 'Knowledge-check quiz with correct answers',
+    category: 'assessment',
+    blocks: [
+      { type: 'heading', level: 2, text: 'Knowledge Check' },
+      { 
+        type: 'callout',
+        variant: 'tip',
+        text: 'Answer each question to the best of your ability. You\'ll receive feedback after completion.'
+      },
+      { 
+        type: 'mcq',
+        id: 'quiz_1',
+        questions: [
+          {
+            id: 'q1',
+            text: 'What is active listening?',
+            options: [
+              { id: 'a', text: 'Waiting for your turn to speak' },
+              { id: 'b', text: 'Fully concentrating on what is being said' },
+              { id: 'c', text: 'Interrupting to show you understand' },
+              { id: 'd', text: 'Thinking about your response while they talk' }
+            ],
+            correctOptionId: 'b'
+          },
+          {
+            id: 'q2',
+            text: 'Which technique helps de-escalate conflict?',
+            options: [
+              { id: 'a', text: 'Speaking louder to assert dominance' },
+              { id: 'b', text: 'Acknowledging the other person\'s emotions' },
+              { id: 'c', text: 'Ignoring their concerns' },
+              { id: 'd', text: 'Insisting you are right' }
+            ],
+            correctOptionId: 'b'
+          }
+        ],
+        scoring: {
+          showResults: true,
+          bands: [
+            { range: [0, 0], label: 'Review Needed', description: 'Consider reviewing the chapter content.', color: '#EF4444' },
+            { range: [1, 1], label: 'Good Progress', description: 'You\'re on the right track!', color: '#F59E0B' },
+            { range: [2, 2], label: 'Excellent!', description: 'You\'ve mastered the concepts!', color: '#10B981' }
+          ]
+        }
+      }
+    ]
+  },
+
+  {
+    key: 'mcq_reflection',
+    name: 'Multiple Choice (Reflection)',
+    description: 'Opinion/reflection questions without grading',
+    category: 'assessment',
+    blocks: [
+      { type: 'heading', level: 2, text: 'Self-Reflection' },
+      { 
+        type: 'callout',
+        variant: 'tip',
+        text: 'There are no right or wrong answers. Choose the response that best reflects your perspective.'
+      },
+      { 
+        type: 'mcq',
+        id: 'reflection_1',
+        questions: [
+          {
+            id: 'q1',
+            text: 'How do you typically handle conflict?',
+            options: [
+              { id: 'a', text: 'I avoid it whenever possible' },
+              { id: 'b', text: 'I address it directly and immediately' },
+              { id: 'c', text: 'I wait for the right moment to discuss it' },
+              { id: 'd', text: 'I seek help from a third party' }
+            ]
+          },
+          {
+            id: 'q2',
+            text: 'What motivates you most in difficult conversations?',
+            options: [
+              { id: 'a', text: 'Finding a solution' },
+              { id: 'b', text: 'Being understood' },
+              { id: 'c', text: 'Maintaining the relationship' },
+              { id: 'd', text: 'Standing up for my values' }
+            ]
+          }
         ]
       }
     ]
@@ -372,15 +507,16 @@ export const contentTemplates: ContentTemplate[] = [
       },
       { 
         type: 'scale_questions',
+        id: 'technique_confidence',
         questions: [
-          {
-            text: 'How confident do you feel using this technique?',
-            min: 1,
-            max: 5,
-            minLabel: 'Not confident',
-            maxLabel: 'Very confident'
-          }
-        ]
+          { id: 'conf1', text: 'How confident do you feel using this technique?' },
+        ],
+        scale: {
+          min: 1,
+          max: 5,
+          minLabel: 'Not confident',
+          maxLabel: 'Very confident',
+        },
       }
     ]
   },
@@ -444,7 +580,36 @@ export const contentTemplates: ContentTemplate[] = [
         text: 'Pro tip: Set a reminder on your phone right now for when you plan to do this!'
       }
     ]
-  }
+  },
+
+  // Resolution step – exact replica of Resolution page (identity + proof + CTA)
+  {
+    key: 'resolution_identity_proof',
+    name: 'Resolution (Identity + Proof)',
+    description: 'Identity resolution guidance card, proof entries with Add Entry / Add Another Proof, and Save & Continue CTA',
+    category: 'resolution',
+    blocks: [
+      {
+        type: 'identity_resolution_guidance',
+        title: 'identityResolution',
+        subtitle: 'This is your anchor statement for Chapter 3. Use it as inspiration for one of your proof entries below.',
+        exampleText: 'Example: My focus is [MY GOAL] and I\'m committed to achieving it. I take responsibility for my progress by doing [SPECIFIC ACTION] consistently. I\'m removing [DISTRACTIONS / EXCUSES] and staying disciplined. I know results come from effort. I feel [DETERMINED / FOCUSED] moving forward.',
+      },
+      {
+        type: 'resolution_proof',
+        id: 'resolution_proof',
+        title: 'Write your response here.',
+        subtitle: 'Use this space to write what your identity actually looks like in real life.',
+        label: 'Proof',
+        placeholder: 'Write your identity statement here',
+      },
+      {
+        type: 'button',
+        text: 'Save & Continue to Follow-through',
+        variant: 'resolution_cta',
+      },
+    ]
+  },
 ]
 
 export function getTemplateByKey(key: string): ContentTemplate | undefined {

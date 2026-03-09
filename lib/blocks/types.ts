@@ -26,6 +26,11 @@ export interface QuoteBlock {
   text: string;
   author?: string;
   role?: string;
+  color?: string;
+  bgColor?: string;
+  borderColor?: string;
+  align?: 'left' | 'center' | 'right';
+  fontSize?: string;
 }
 
 export interface DividerBlock {
@@ -45,12 +50,25 @@ export interface ImageBlock {
   height?: number;
 }
 
+export interface InlineImageBlock {
+  type: 'inline_image';
+  src: string;
+  alt: string;
+  caption?: string;
+  width?: number;
+  height?: number;
+}
+
 export interface CalloutBlock {
   type: 'callout';
-  variant: 'science' | 'tip' | 'warning' | 'example' | 'truth' | 'research';
+  variant: 'science' | 'tip' | 'warning' | 'example' | 'truth' | 'research' | 'success' | 'danger' | 'info' | 'custom';
   title?: string;
   text: string;
   icon?: string;
+  bgColor?: string;
+  borderColor?: string;
+  textColor?: string;
+  iconColor?: string;
 }
 
 export interface ListBlock {
@@ -85,9 +103,13 @@ export interface ScaleQuestionsBlock {
   id: string; // e.g., "ch1_self_check"
   title?: string;
   description?: string;
+  /** How to display question numbers: auto (1,2,3), none (no prefix), custom (use question.number e.g. 11, 22) */
+  questionNumbering?: 'auto' | 'none' | 'custom';
   questions: Array<{
     id: string;
     text: string;
+    /** Optional display number when questionNumbering is 'custom' (e.g. 11, 22) */
+    number?: number;
   }>;
   scale: {
     min: number;
@@ -122,6 +144,31 @@ export interface YesNoCheckBlock {
   };
 }
 
+export interface MCQBlock {
+  type: 'mcq';
+  id: string; // e.g., "ch1_quiz_q1"
+  title?: string;
+  description?: string;
+  questions: Array<{
+    id: string;
+    text: string;
+    options: Array<{
+      id: string;
+      text: string;
+    }>;
+    correctOptionId?: string; // Optional - if provided, this is a graded MCQ; if omitted, it's a survey/reflection MCQ
+  }>;
+  scoring?: {
+    showResults?: boolean; // Whether to show correct/incorrect feedback
+    bands?: Array<{
+      range: [number, number]; // [min score, max score]
+      label: string;
+      description?: string;
+      color?: string;
+    }>;
+  };
+}
+
 // ============================================
 // Planning & Action Blocks
 // ============================================
@@ -144,6 +191,15 @@ export interface ChecklistBlock {
   type: 'checklist';
   id: string;
   title?: string;
+  appearance?: {
+    containerBgColor?: string;
+    containerBorderColor?: string;
+    itemBgColor?: string;
+    itemBorderColor?: string;
+    checkboxColor?: string;
+    titleColor?: string;
+    textColor?: string;
+  };
   items: Array<{
     id: string;
     text: string;
@@ -228,7 +284,7 @@ export interface ButtonBlock {
   text: string;
   href?: string;
   action?: string; // For client-side actions
-  variant?: 'primary' | 'secondary' | 'outline';
+  variant?: 'primary' | 'secondary' | 'outline' | 'resolution_cta';
 }
 
 // ============================================
@@ -251,6 +307,35 @@ export interface VariableBlock {
   variables: Record<string, string>; // Map of variable names to prompt IDs
 }
 
+export interface PageMetaBlock {
+  type: 'page_meta';
+  title_style?: {
+    color?: string;
+    fontSize?: string;
+    fontWeight?: string;
+  };
+}
+
+// ============================================
+// Resolution Step Blocks (identity + proof)
+// ============================================
+
+export interface IdentityResolutionGuidanceBlock {
+  type: 'identity_resolution_guidance';
+  title: string;
+  subtitle: string;
+  exampleText: string;
+}
+
+export interface ResolutionProofBlock {
+  type: 'resolution_proof';
+  id: string;
+  title: string;
+  subtitle: string;
+  label: string;
+  placeholder?: string;
+}
+
 // ============================================
 // Union Type
 // ============================================
@@ -262,11 +347,13 @@ export type Block =
   | QuoteBlock
   | DividerBlock
   | ImageBlock
+  | InlineImageBlock
   | CalloutBlock
   | ListBlock
   | PromptBlock
   | ScaleQuestionsBlock
   | YesNoCheckBlock
+  | MCQBlock
   | TaskPlanBlock
   | ChecklistBlock
   | ScriptsBlock
@@ -274,6 +361,9 @@ export type Block =
   | ButtonBlock
   | ConditionalBlock
   | VariableBlock
+  | PageMetaBlock
+  | IdentityResolutionGuidanceBlock
+  | ResolutionProofBlock
   | FrameworkCoverBlock
   | FrameworkIntroBlock
   | FrameworkLetterBlock
@@ -293,6 +383,7 @@ export interface Page {
   xp_award: number;
   chunk_id: number | null;
   hero_image_url?: string | null; // Main hero image for the page (left side)
+  title_style?: { color?: string; fontSize?: string; fontWeight?: string } | null;
   content: Block[];
   created_at: string;
   updated_at: string;
