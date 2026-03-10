@@ -457,12 +457,6 @@ export default function PageContentEditorPage() {
                 chapterSlug={chapter?.slug || 'general'}
                 stepSlug={step?.slug || 'content'}
                 pageOrder={page?.order_index || 0}
-                onSaveContent={async (updatedContent) => {
-                  // Update local state immediately so the UI matches
-                  // the just-saved version, then persist to the server.
-                  setContent(updatedContent)
-                  await savePage(updatedContent)
-                }}
               />
             </div>
           </div>
