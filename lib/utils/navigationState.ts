@@ -84,7 +84,7 @@ export function buildEditUrlWithReturn(editUrl: string, returnUrl: string): stri
  * @returns Object with extracted values
  */
 export function extractReturnState(
-  searchParams: URLSearchParams | ReadonlyURLSearchParams,
+  searchParams: URLSearchParams | { get: (key: string) => string | null },
   keys: string[]
 ): Record<string, string> {
   const state: Record<string, string> = {}
@@ -137,7 +137,7 @@ export function buildReturnUrl(baseUrl: string, state: Record<string, string | n
  * ```
  */
 export function useReturnNavigation(
-  searchParams: URLSearchParams | ReadonlyURLSearchParams,
+  searchParams: URLSearchParams | { get: (key: string) => string | null },
   defaultReturnUrl: string
 ) {
   const returnUrl = searchParams.get('returnUrl')
@@ -161,7 +161,9 @@ export interface PaginationState {
   sortOrder?: 'asc' | 'desc'
 }
 
-export function extractPaginationState(searchParams: URLSearchParams | ReadonlyURLSearchParams): PaginationState {
+export function extractPaginationState(
+  searchParams: URLSearchParams | { get: (key: string) => string | null }
+): PaginationState {
   return {
     page: parseInt(searchParams.get('page') || '1', 10),
     pageSize: searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!, 10) : undefined,
