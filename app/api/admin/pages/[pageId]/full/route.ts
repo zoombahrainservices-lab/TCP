@@ -30,10 +30,35 @@ export async function GET(
         : Promise.resolve({ data: null })
     ])
 
+    // Fetch adjacent pages (previous and next) within the same step
+    let prevPage = null
+    let nextPage = null
+    
+    if (page.step_id) {
+      // Get all pages in the step ordered by order_index
+      const { data: stepPages } = await supabase
+        .from('step_pages')
+        .select('id, title, slug, order_index')
+        .eq('step_id', page.step_id)
+        .order('order_index', { ascending: true })
+      
+      if (stepPages && stepPages.length > 1) {
+        const currentIndex = stepPages.findIndex(p => p.id === pageId)
+        if (currentIndex > 0) {
+          prevPage = stepPages[currentIndex - 1]
+        }
+        if (currentIndex < stepPages.length - 1) {
+          nextPage = stepPages[currentIndex + 1]
+        }
+      }
+    }
+
     return NextResponse.json({
       page,
       chapter: chapterRes.data,
       step: stepRes.data,
+      prevPage,
+      nextPage,
     })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

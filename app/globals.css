@@ -202,6 +202,131 @@ body {
   color: #f9fafb;
 }
 
+/* Force all text to be readable in dark mode */
+.dark p,
+.dark span,
+.dark div:not(.mapNode):not(.mapNodeFull):not(.tcpMarker):not(.gmLabel):not(.mapLabel):not(.mapLabelFull):not(.chapterLabel):not(.tcpMarkerLabel) {
+  color: #e5e7eb !important;
+}
+
+/* Ensure strong emphasis remains white */
+.dark strong,
+.dark b {
+  color: #ffffff !important;
+}
+
+/* List items should be white */
+.dark li {
+  color: #e5e7eb !important;
+}
+
+/* Blockquotes */
+.dark blockquote {
+  color: #d1d5db !important;
+}
+
+/* Override any component-level dark colors that might be too dark */
+.dark [class*="text-blue-"]:not([class*="text-blue-50"]):not([class*="text-blue-100"]):not([class*="text-blue-200"]),
+.dark [class*="text-green-"]:not([class*="text-green-50"]):not([class*="text-green-100"]):not([class*="text-green-200"]),
+.dark [class*="text-yellow-"]:not([class*="text-yellow-50"]):not([class*="text-yellow-100"]):not([class*="text-yellow-200"]),
+.dark [class*="text-purple-"]:not([class*="text-purple-50"]):not([class*="text-purple-100"]):not([class*="text-purple-200"]),
+.dark [class*="text-indigo-"]:not([class*="text-indigo-50"]):not([class*="text-indigo-100"]):not([class*="text-indigo-200"]),
+.dark [class*="text-orange-"]:not([class*="text-orange-50"]):not([class*="text-orange-100"]):not([class*="text-orange-200"]) {
+  color: #f3f4f6 !important;
+}
+
+/* Override inline styles with dark colors in dark mode */
+.dark [style*="color: rgb(0, 0, 0)"],
+.dark [style*="color: #000000"],
+.dark [style*="color: #000"],
+.dark [style*="color: rgb(42, 36, 22)"],
+.dark [style*="color: #2a2416"],
+.dark [style*="color: rgb(17, 17, 17)"],
+.dark [style*="color: #111111"],
+.dark [style*="color: #111"],
+.dark [style*="color: black"] {
+  color: #ffffff !important;
+}
+
+/* Target any very dark text colors (RGB values where all components are < 100) */
+.dark [style*="color: rgb(0,"],
+.dark [style*="color: rgb(1,"],
+.dark [style*="color: rgb(2,"],
+.dark [style*="color: rgb(3,"],
+.dark [style*="color: rgb(4,"],
+.dark [style*="color: rgb(5,"],
+.dark [style*="color: rgb(6,"],
+.dark [style*="color: rgb(7,"],
+.dark [style*="color: rgb(8,"],
+.dark [style*="color: rgb(9,"] {
+  color: #ffffff !important;
+}
+
+/* Ensure all prose content inverts in dark mode */
+.dark .prose {
+  --tw-prose-body: #e5e7eb;
+  --tw-prose-headings: #ffffff;
+  --tw-prose-lead: #d1d5db;
+  --tw-prose-links: #60a5fa;
+  --tw-prose-bold: #ffffff;
+  --tw-prose-counters: #9ca3af;
+  --tw-prose-bullets: #9ca3af;
+  --tw-prose-hr: #4b5563;
+  --tw-prose-quotes: #d1d5db;
+  --tw-prose-quote-borders: #4b5563;
+  --tw-prose-captions: #9ca3af;
+  --tw-prose-code: #f3f4f6;
+  --tw-prose-pre-code: #f3f4f6;
+  --tw-prose-pre-bg: #1f2937;
+  --tw-prose-th-borders: #4b5563;
+  --tw-prose-td-borders: #4b5563;
+}
+
+/* Force all prose text elements to be light in dark mode, overriding inline styles */
+.dark .prose p,
+.dark .prose span,
+.dark .prose div {
+  color: #e5e7eb !important;
+}
+
+.dark .prose strong,
+.dark .prose b {
+  color: #ffffff !important;
+}
+
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4,
+.dark .prose h5,
+.dark .prose h6 {
+  color: #ffffff !important;
+}
+
+/* Override any inline styled dark colors within prose */
+.dark .prose [style*="color: rgb(0, 0, 0)"],
+.dark .prose [style*="color: #000000"],
+.dark .prose [style*="color: #000"],
+.dark .prose [style*="color: rgb(42, 36, 22)"],
+.dark .prose [style*="color: #2a2416"],
+.dark .prose [style*="color: rgb(17, 17, 17)"],
+.dark .prose [style*="color: #111111"],
+.dark .prose [style*="color: #111"],
+.dark .prose [style*="color: black"] {
+  color: #ffffff !important;
+}
+
+/* Keep bright colors (like orange) visible but ensure they're bright enough */
+.dark .prose [style*="color: rgb(255, 106, 56)"],
+.dark .prose [style*="color: #ff6a38"],
+.dark .prose [style*="color: rgb(245, 179, 1)"],
+.dark .prose [style*="color: #f5b301"],
+.dark .prose [style*="color: orange"],
+.dark .prose [style*="color: rgb(255"][style*="165"][style*="0"] {
+  /* Orange colors stay as-is */
+  filter: brightness(1.1);
+}
+
 /* iOS Safari bottom padding fix */
 @supports (padding: max(0px)) {
   .pb-safe {

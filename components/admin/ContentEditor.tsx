@@ -184,6 +184,7 @@ export default function ContentEditor({
     // Normalize scale_questions so block always has valid scale and question ids
     if (block?.type === 'scale_questions') {
       const questions = Array.isArray(block.questions) ? block.questions : []
+      const usedQuestionIds = new Set<string>()
       dataToSave = {
         ...block,
         id: (block.id && String(block.id).trim()) ? block.id : 'scale_questions',
@@ -194,11 +195,21 @@ export default function ContentEditor({
           minLabel: String(block.scale.minLabel ?? 'Not at all'),
           maxLabel: String(block.scale.maxLabel ?? 'Completely'),
         } : { min: 1, max: 5, minLabel: 'Not at all', maxLabel: 'Completely' },
-        questions: questions.map((q: any, i: number) => ({
-          id: (q?.id && String(q.id).trim()) ? q.id : `q${i}`,
-          text: (q?.text != null) ? String(q.text) : 'Question',
-          ...(typeof q?.number === 'number' && { number: q.number }),
-        })),
+        questions: questions.map((q: any, i: number) => {
+          const baseId = (q?.id && String(q.id).trim()) ? String(q.id).trim() : `q${i + 1}`
+          let id = baseId
+          let suffix = 2
+          while (usedQuestionIds.has(id)) {
+            id = `${baseId}_${suffix}`
+            suffix += 1
+          }
+          usedQuestionIds.add(id)
+          return {
+            id,
+            text: (q?.text != null) ? String(q.text) : 'Question',
+            ...(typeof q?.number === 'number' && { number: q.number }),
+          }
+        }),
       }
     }
 

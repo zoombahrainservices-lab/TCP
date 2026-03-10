@@ -1546,12 +1546,13 @@ export async function updatePage(pageId: string, data: any) {
   await requireAuth('admin')
   const admin = createAdminClient()
 
-  // Build update payload: only include defined keys so we don't send undefined
+  // Build update payload: only include stable, schema-safe keys.
+  // NOTE: We intentionally avoid hero_image_url and title_style here because
+  // those columns may not exist in all environments; hero/title styling is
+  // persisted via blocks (page_meta, image blocks) instead.
   const payload: Record<string, unknown> = {}
   if (data.title !== undefined) payload.title = data.title
   if (data.content !== undefined) payload.content = data.content
-  if (data.hero_image_url !== undefined) payload.hero_image_url = data.hero_image_url
-  if (data.title_style !== undefined) payload.title_style = data.title_style
 
   try {
     const { error } = await admin
@@ -1564,72 +1565,7 @@ export async function updatePage(pageId: string, data: any) {
     return { success: true }
   } catch (err: any) {
     console.error('Error updating page:', err)
-
     const message = err?.message ?? String(err)
-
-    // If hero_image_url column is missing, retry without it
-    const isHeroColumnUnavailable =
-      typeof message === 'string' &&
-      message.includes('hero_image_url') &&
-      (message.includes('does not exist') ||
-       message.includes('schema cache') ||
-       message.includes('Could not find'))
-
-    if (isHeroColumnUnavailable && payload.hero_image_url !== undefined) {
-      const { hero_image_url: _, ...payloadWithoutHero } = payload
-      const { error: retryError } = await admin
-        .from('step_pages')
-        .update(payloadWithoutHero)
-        .eq('id', pageId)
-      if (!retryError) {
-        return { success: true }
-      }
-      // Retry failed (e.g. title_style column also missing) - try with only title + content
-      const fallback: Record<string, unknown> = {}
-      if (payload.title !== undefined) fallback.title = payload.title
-      if (payload.content !== undefined) fallback.content = payload.content
-      const { error: fallbackError } = await admin
-        .from('step_pages')
-        .update(fallback)
-        .eq('id', pageId)
-      if (!fallbackError) {
-        return { success: true }
-      }
-      console.error('Fallback update failed:', fallbackError)
-    }
-
-    // If title_style column doesn't exist, retry without it (and without hero if present)
-    const isTitleStyleColumnUnavailable =
-      typeof message === 'string' &&
-      message.includes('title_style') &&
-      (message.includes('does not exist') ||
-       message.includes('schema cache') ||
-       message.includes('Could not find'))
-
-    if (isTitleStyleColumnUnavailable && payload.title_style !== undefined) {
-      const { title_style: __, ...payloadWithoutTitleStyle } = payload
-      const { error: retryError2 } = await admin
-        .from('step_pages')
-        .update(payloadWithoutTitleStyle)
-        .eq('id', pageId)
-      if (!retryError2) {
-        return { success: true }
-      }
-      // Try minimal payload (title + content only)
-      const fallback: Record<string, unknown> = {}
-      if (payload.title !== undefined) fallback.title = payload.title
-      if (payload.content !== undefined) fallback.content = payload.content
-      const { error: fallbackError } = await admin
-        .from('step_pages')
-        .update(fallback)
-        .eq('id', pageId)
-      if (!fallbackError) {
-        return { success: true }
-      }
-      console.error('Retry update without title_style failed:', retryError2)
-    }
-
-    // Normalize to Error with readable message for the client
     const code = err?.code ?? ''
     const hint = err?.hint ?? ''
     const detail = err?.details ?? ''

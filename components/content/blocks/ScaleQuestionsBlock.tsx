@@ -43,12 +43,24 @@ export default function ScaleQuestionsBlock({
     return scoring.bands.find(band => total >= band.range[0] && total <= band.range[1]);
   };
 
-  // Normalize questions so each has an id (old templates may have only text)
-  const normalizedQuestions = (questions || []).map((q: any, i: number) => ({
-    id: q.id || `q${i}`,
-    text: q.text ?? '',
-    number: q.number != null && typeof q.number === 'number' ? q.number : undefined,
-  }));
+  // Normalize questions so each has an id (old templates may have only text).
+  // Also de-dupe ids defensively so React keys + response mapping stay stable.
+  const usedIds = new Set<string>();
+  const normalizedQuestions = (questions || []).map((q: any, i: number) => {
+    const baseId = (q?.id && String(q.id).trim()) ? String(q.id).trim() : `q${i + 1}`;
+    let resolvedId = baseId;
+    let suffix = 2;
+    while (usedIds.has(resolvedId)) {
+      resolvedId = `${baseId}_${suffix}`;
+      suffix += 1;
+    }
+    usedIds.add(resolvedId);
+    return {
+      id: resolvedId,
+      text: q?.text ?? '',
+      number: q?.number != null && typeof q.number === 'number' ? q.number : undefined,
+    };
+  });
 
   const numbering = questionNumbering ?? 'auto';
 
@@ -93,7 +105,7 @@ export default function ScaleQuestionsBlock({
 
       <div className="space-y-6">
         {normalizedQuestions.map((question, index) => (
-          <div key={question.id} className="question-item">
+          <div key={`${question.id}-${index}`} className="question-item">
             <p className="text-base font-medium text-[#2a2416] dark:text-white mb-3">
               {getQuestionLabel(question, index)}
             </p>

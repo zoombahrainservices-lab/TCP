@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Save, Eye } from 'lucide-react'
+import { ArrowLeft, Save, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import BlockRenderer from '@/components/content/BlockRenderer'
@@ -36,6 +36,8 @@ export default function PageContentEditorPage() {
   const [page, setPage] = useState<any>(null)
   const [chapter, setChapter] = useState<any>(null)
   const [step, setStep] = useState<any>(null)
+  const [prevPage, setPrevPage] = useState<any>(null)
+  const [nextPage, setNextPage] = useState<any>(null)
   const [pageTitle, setPageTitle] = useState('')
   const [heroImageUrl, setHeroImageUrl] = useState('')
   const [titleStyle, setTitleStyle] = useState<{ color?: string; fontSize?: string; fontWeight?: string }>({})
@@ -54,6 +56,8 @@ export default function PageContentEditorPage() {
     setPage(data.page)
     setChapter(data.chapter)
     setStep(data.step)
+    setPrevPage(data.prevPage)
+    setNextPage(data.nextPage)
     setPageTitle(data.page.title || '')
     setHeroImageUrl(data.page.hero_image_url || '')
     
@@ -90,6 +94,16 @@ export default function PageContentEditorPage() {
 
     // Fallback: go to chapter editor
     router.push(`/admin/chapters/${chapterId}`)
+  }
+
+  const handleNavigateToPage = (targetPageId: string) => {
+    // Preserve current query params for context
+    const params = new URLSearchParams()
+    if (from) params.set('from', from)
+    if (returnUrlParam) params.set('returnUrl', returnUrlParam)
+    
+    const queryString = params.toString()
+    router.push(`/admin/chapters/${chapterId}/pages/${targetPageId}/edit${queryString ? `?${queryString}` : ''}`)
   }
 
   /**
@@ -316,6 +330,33 @@ export default function PageContentEditorPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Page Navigation */}
+            <div className="flex items-center gap-1 mr-2 border-r border-amber-300 dark:border-amber-700 pr-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => prevPage && handleNavigateToPage(prevPage.id)}
+                disabled={!prevPage}
+                title={prevPage ? `Previous: ${prevPage.title || prevPage.slug}` : 'No previous page'}
+                className="px-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-xs text-amber-700 dark:text-amber-300 px-2 whitespace-nowrap">
+                Page {page.order_index + 1}
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => nextPage && handleNavigateToPage(nextPage.id)}
+                disabled={!nextPage}
+                title={nextPage ? `Next: ${nextPage.title || nextPage.slug}` : 'No next page'}
+                className="px-2"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+            
             {hasExternalImages && (
               <Button
                 variant="secondary"
