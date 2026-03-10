@@ -100,6 +100,87 @@ export default function ResolutionPage({
     }
   }, [])
 
+  // ---------------------------------------------------------------------------
+  // Dynamic Resolution Copy (chapter-specific)
+  // ---------------------------------------------------------------------------
+  /**
+   * We want the identity example + proof instructions on this page
+   * to match whatever the admin has configured for the chapter's
+   * Resolution step (identity_resolution_guidance + resolution_proof blocks).
+   *
+   * For backward compatibility, we start with the original Chapter 1
+   * hard-coded copy as defaults, then override from the DB if we find
+   * a Resolution step + page for this chapter.
+   */
+  const [resolutionCopy, setResolutionCopy] = useState(() => ({
+    headingTitle: 'Identity Resolution',
+    headingSubtitle: `This is your anchor statement for Chapter ${chapterId}. Use it as inspiration for one of your proof entries below.`,
+    exampleText: 'Loading your chapter-specific guidance...',
+    proofTitle: 'Write Your Response',
+    proofSubtitle: 'Use this space to document your progress and proof.',
+    proofLabel: 'Proof',
+    proofPlaceholder: 'Write your proof here...',
+  }))
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadResolutionCopyForChapter() {
+      try {
+        const res = await fetch(`/api/chapter/${chapterId}/resolution-copy`);
+
+        if (!res.ok) {
+          console.error('[Resolution] Failed to fetch resolution copy via API:', res.status);
+          return;
+        }
+
+        const json = await res.json();
+
+        if (!json?.success) {
+          console.warn('[Resolution] Resolution copy API returned error or unsuccessful response:', json?.error);
+          return;
+        }
+
+        if (cancelled) return;
+
+        const guidance = json.guidance as
+          | {
+              title?: string;
+              subtitle?: string;
+              exampleText?: string;
+            }
+          | null;
+
+        const proofBlock = json.proof as
+          | {
+              title?: string;
+              subtitle?: string;
+              label?: string;
+              placeholder?: string;
+            }
+          | null;
+
+        setResolutionCopy((prev) => ({
+          headingTitle: guidance?.title || prev.headingTitle,
+          headingSubtitle: guidance?.subtitle || prev.headingSubtitle,
+          exampleText: guidance?.exampleText || prev.exampleText,
+          proofTitle: proofBlock?.title || prev.proofTitle,
+          proofSubtitle: proofBlock?.subtitle || prev.proofSubtitle,
+          proofLabel: proofBlock?.label || prev.proofLabel,
+          proofPlaceholder: proofBlock?.placeholder || prev.proofPlaceholder,
+        }));
+      } catch (err) {
+        console.error('[Resolution] Failed to load chapter-specific copy:', err)
+      }
+    }
+
+    loadResolutionCopyForChapter()
+
+    return () => {
+      cancelled = true
+    }
+  }, [chapterId, supabase])
+
   // One-time per chapter: if proof already submitted, show completed view
   useEffect(() => {
     hasProofForChapter(chapterId).then(setAlreadyCompleted)
@@ -458,7 +539,10 @@ export default function ResolutionPage({
   }
 
   return (
-    <div className="min-h-full bg-[var(--color-offwhite)] dark:bg-[#142A4A]">
+    <div
+      className="min-h-screen bg-cover bg-center bg-no-repeat dark:bg-[#142A4A]"
+      style={{ backgroundImage: "url('/BG.png')" }}
+    >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Page heading */}
         <div className="mb-4 sm:mb-6">
@@ -486,20 +570,16 @@ export default function ResolutionPage({
               </div>
               <div className="min-w-0">
                 <h2 className="text-xl sm:text-2xl font-black text-[var(--color-charcoal)] dark:text-white leading-tight mb-1">
-                  identityResolution
+                  {resolutionCopy.headingTitle}
                 </h2>
                 <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-300">
-                  This is your anchor statement for Chapter {chapterId}. Use it as inspiration for one of your proof
-                  entries below.
+                  {resolutionCopy.headingSubtitle}
                 </p>
                 <div className="mt-3 rounded-2xl bg-white/90 dark:bg-gray-900/90 border border-amber-100/80 dark:border-amber-500/40 px-4 py-3 shadow-sm">
                   <p className="text-sm sm:text-base text-[var(--color-charcoal)] dark:text-gray-100">
                     <span className="font-bold">Example:&nbsp;</span>
                     <span className="font-semibold">
-                      My focus is [MY GOAL] and I&apos;m committed to achieving it. I take responsibility for my
-                      progress by doing [SPECIFIC ACTION] consistently. I&apos;m removing [DISTRACTIONS / EXCUSES] and
-                      staying disciplined. I know results come from effort. I feel [DETERMINED / FOCUSED] moving
-                      forward.
+                      {resolutionCopy.exampleText}
                     </span>
                   </p>
                 </div>
@@ -520,10 +600,10 @@ export default function ResolutionPage({
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-xl sm:text-2xl font-black text-[var(--color-charcoal)] dark:text-white leading-tight">
-                    Write your response here.
+                    {resolutionCopy.proofTitle}
                   </h2>
                   <p className="text-sm sm:text-base text-[var(--color-gray)] dark:text-gray-300">
-                    Use this space to write what your identity actually looks like in real life.
+                    {resolutionCopy.proofSubtitle}
                   </p>
                 </div>
               </div>
@@ -552,7 +632,7 @@ export default function ResolutionPage({
                         value={item.notes}
                         onChange={e => handleNotesChange(item.id, e.target.value)}
                         rows={4}
-                        placeholder="Write your identity statement here"
+                        placeholder={resolutionCopy.proofPlaceholder}
                         className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-[var(--color-charcoal)] dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#f7b418] resize-none"
                       />
                     ) : (

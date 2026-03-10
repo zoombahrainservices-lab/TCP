@@ -33,6 +33,20 @@ interface Props {
 export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, nextStep, initialAnswers = {} }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Redirect any legacy "resolution" step in the reading flow to the
+  // unified proof page so there is only ONE Resolution experience.
+  useEffect(() => {
+    if (step.step_type === 'resolution') {
+      router.replace(`/chapter/${chapter.chapter_number}/proof`);
+    }
+  }, [step.step_type, chapter.chapter_number, router]);
+
+  // Don't render the old in-flow resolution UI at all
+  if (step.step_type === 'resolution') {
+    return null;
+  }
+
   // Start at -1 to show cover page first for "read" step type
   // For framework, check if first page has framework_cover block
   const hasFrameworkCover = step.step_type === 'framework' && pages[0]?.content?.some(

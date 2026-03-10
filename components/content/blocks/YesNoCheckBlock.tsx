@@ -18,6 +18,25 @@ export default function YesNoCheckBlock({
 }: YesNoCheckBlockProps) {
   const [localResponses, setLocalResponses] = useState<Record<string, boolean>>(responses || {});
 
+  // Normalize statements to ensure each has a stable, unique id
+  const normalizedStatements = (() => {
+    const usedIds = new Set<string>();
+    return statements.map((s, index) => {
+      const baseId =
+        s && typeof s.id === 'string' && s.id.trim()
+          ? s.id.trim()
+          : `s${index + 1}`;
+      let safeId = baseId;
+      let suffix = 2;
+      while (usedIds.has(safeId)) {
+        safeId = `${baseId}_${suffix}`;
+        suffix += 1;
+      }
+      usedIds.add(safeId);
+      return { ...s, id: safeId };
+    });
+  })();
+
   useEffect(() => {
     setLocalResponses(responses || {});
   }, [responses]);
@@ -38,7 +57,7 @@ export default function YesNoCheckBlock({
     return scoring.bands.find(band => yesCount >= band.range[0] && yesCount <= band.range[1]);
   };
 
-  const allStatementsAnswered = statements.every(s => localResponses[s.id] !== undefined);
+  const allStatementsAnswered = normalizedStatements.every(s => localResponses[s.id] !== undefined);
   const yesCount = calculateYesCount();
   const scoreBand = getScoreBand();
 
@@ -51,8 +70,11 @@ export default function YesNoCheckBlock({
       )}
 
       <div className="space-y-4">
-        {statements.map((statement, index) => (
-          <div key={statement.id} className="statement-item p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+        {normalizedStatements.map((statement, index) => (
+          <div
+            key={`${statement.id}-${index}`}
+            className="statement-item p-4 bg-gray-50 dark:bg-gray-900 rounded-lg"
+          >
             <p className="text-base text-[#2a2416] dark:text-white mb-3">
               {index + 1}. {statement.text}
             </p>

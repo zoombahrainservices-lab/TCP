@@ -213,6 +213,34 @@ export default function ContentEditor({
       }
     }
 
+    if (block?.type === 'yes_no_check') {
+      const statements = Array.isArray(block.statements) ? block.statements : []
+      const usedIds = new Set<string>()
+      dataToSave = {
+        ...block,
+        id: (block.id && String(block.id).trim()) ? block.id : `yes_no_${Date.now()}`,
+        ...(block.title && { title: block.title }),
+        statements: statements.map((s: any, i: number) => {
+          const baseId =
+            s?.id && String(s.id).trim()
+              ? String(s.id).trim()
+              : `s${i + 1}`
+          let safeId = baseId
+          let suffix = 2
+          while (usedIds.has(safeId)) {
+            safeId = `${baseId}_${suffix}`
+            suffix += 1
+          }
+          usedIds.add(safeId)
+          return {
+            id: safeId,
+            text: String(s?.text ?? ''),
+          }
+        }),
+        ...(block.scoring && typeof block.scoring === 'object' && { scoring: block.scoring }),
+      }
+    }
+
     // Normalize MCQ so block always has valid question and option ids
     if (block?.type === 'mcq') {
       const questions = Array.isArray(block.questions) ? block.questions : []
@@ -693,6 +721,35 @@ export default function ContentEditor({
                             />
                           </div>
                         </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Text Size
+                          </label>
+                          <select
+                            value={editingData?.fontSize || 'default'}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              const next = { ...editingData }
+                              if (value === 'default') {
+                                // Remove custom size so default style applies
+                                delete next.fontSize
+                              } else {
+                                // Store semantic size key; QuoteBlock maps this to classes
+                                next.fontSize = value
+                              }
+                              setEditingData(next)
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                          >
+                            <option value="default">Default</option>
+                            <option value="small">Small</option>
+                            <option value="xsmall">Extra small</option>
+                            <option value="large">Large</option>
+                          </select>
+                          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                            Use <span className="font-semibold">Extra small</span> if you want the quote text to be smaller than the normal size.
+                          </p>
+                        </div>
                       </>
                     )}
 
@@ -1155,6 +1212,73 @@ export default function ContentEditor({
                           >
                             <Plus className="w-4 h-4" />
                             Add question
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {block.type === 'yes_no_check' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Block Title (optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.title || ''}
+                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Baseline Assessment"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Yes/No Statements
+                          </label>
+                          <div className="space-y-2">
+                            {(editingData?.statements || []).map((stmt: any, stmtIdx: number) => (
+                              <div key={stmt.id || stmtIdx} className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={stmt?.text || ''}
+                                  onChange={(e) => {
+                                    const nextStatements = [...(editingData?.statements || [])]
+                                    nextStatements[stmtIdx] = { ...stmt, text: e.target.value }
+                                    setEditingData({ ...editingData, statements: nextStatements })
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                                  placeholder={`Statement ${stmtIdx + 1}`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextStatements = (editingData?.statements || []).filter((_: any, i: number) => i !== stmtIdx)
+                                    setEditingData({ ...editingData, statements: nextStatements })
+                                  }}
+                                  className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                  title="Delete statement"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextStatements = [
+                                ...(editingData?.statements || []),
+                                {
+                                  id: `s${(editingData?.statements?.length || 0) + 1}`,
+                                  text: 'New yes/no statement',
+                                },
+                              ]
+                              setEditingData({ ...editingData, statements: nextStatements })
+                            }}
+                            className="mt-2 flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-amber)] hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add statement
                           </button>
                         </div>
                       </>

@@ -5,7 +5,14 @@ interface ExtendedQuoteBlock extends QuoteBlockType {
   color?: string;
   bgColor?: string;
   borderColor?: string;
-  fontSize?: string;
+  /**
+   * Optional semantic font size key for the quote text.
+   * - 'small'   => slightly smaller than default
+   * - 'xsmall'  => extra small (much smaller)
+   * - 'large'   => slightly larger than default
+   * - undefined => default size
+   */
+  fontSize?: 'small' | 'xsmall' | 'large' | string;
   align?: 'left' | 'center' | 'right';
 }
 
@@ -18,6 +25,16 @@ export default function QuoteBlock({ text, author, role, color, bgColor, borderC
     center: 'text-center',
     right: 'text-right',
   }[align];
+
+  // Map semantic fontSize value to Tailwind classes.
+  const sizeClass =
+    fontSize === 'small'
+      ? 'text-base md:text-lg'
+      : fontSize === 'xsmall'
+      ? 'text-sm md:text-base'
+      : fontSize === 'large'
+      ? 'text-xl md:text-2xl'
+      : 'text-lg md:text-xl';
 
   const style: React.CSSProperties = {};
   if (bgColor) style.background = bgColor;
@@ -32,14 +49,14 @@ export default function QuoteBlock({ text, author, role, color, bgColor, borderC
       style={style}
     >
       {isHTML ? (
-        <div 
-          className={`${fontSize || 'text-lg md:text-xl'} leading-relaxed mb-3 italic ${alignClass} ${!color ? 'text-[#2a2416] dark:text-gray-200' : ''} prose dark:prose-invert max-w-none`}
+        <div
+          className={`${sizeClass} leading-relaxed mb-3 italic ${alignClass} ${!color ? 'text-[#2a2416] dark:text-gray-200' : ''} prose dark:prose-invert max-w-none`}
           style={textStyle}
           dangerouslySetInnerHTML={{ __html: htmlContent }}
         />
       ) : (
-        <p 
-          className={`${fontSize || 'text-lg md:text-xl'} leading-relaxed mb-3 italic ${alignClass} ${!color ? 'text-[#2a2416] dark:text-gray-200' : ''}`}
+        <p
+          className={`${sizeClass} leading-relaxed mb-3 italic ${alignClass} ${!color ? 'text-[#2a2416] dark:text-gray-200' : ''}`}
           style={textStyle}
         >
           "{text}"
