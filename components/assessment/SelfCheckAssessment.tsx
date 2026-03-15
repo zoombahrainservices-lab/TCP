@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardNav } from '@/components/ui/DashboardNav';
 import { MainWithBackground } from '@/components/dashboard/MainWithBackground';
@@ -80,6 +80,73 @@ export default function SelfCheckAssessment({
   const totalScore = Object.values(answers).reduce((sum, val) => sum + val, 0);
   const maxScore = questions.length * 7;
 
+  // ---------------------------------------------------------------------------
+  // Dynamic intro/results copy per chapter (admin-controlled)
+  // ---------------------------------------------------------------------------
+  const [copy, setCopy] = useState(() => ({
+    introTitle: 'Self-Check',
+    introSubtitle: 'Take a quick snapshot of where you are in this chapter.',
+    introBody1:
+      'This check is just for you. Answer based on how things feel right now, not how you wish they were.',
+    introBody2:
+      "It\'s not a test or a grade. It\'s a baseline for this chapter so you can see your progress as you move through the lessons.",
+    highlightTitle: `You'll rate ${questions.length} statements from 1 to 7.`,
+    highlightBody: "Takes about a minute. Your score shows which zone you\'re in and what to focus on next.",
+    resultTitle: 'Self-Check Results',
+    resultSubtitle: 'This is your starting point for this chapter—not your ending point.',
+  }));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCopy() {
+      try {
+        const res = await fetch(`/api/chapter/${chapterId}/self-check-copy`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!json?.success) return;
+
+        if (cancelled) return;
+
+        const intro = json.intro as
+          | {
+              title?: string;
+              subtitle?: string;
+              body1?: string;
+              body2?: string;
+              highlightTitle?: string;
+              highlightBody?: string;
+            }
+          | null;
+
+        const result = json.result as
+          | {
+              title?: string;
+              subtitle?: string;
+            }
+          | null;
+
+        setCopy((prev) => ({
+          introTitle: intro?.title || prev.introTitle,
+          introSubtitle: intro?.subtitle || prev.introSubtitle,
+          introBody1: intro?.body1 || prev.introBody1,
+          introBody2: intro?.body2 || prev.introBody2,
+          highlightTitle: intro?.highlightTitle || prev.highlightTitle,
+          highlightBody: intro?.highlightBody || prev.highlightBody,
+          resultTitle: result?.title || prev.resultTitle,
+          resultSubtitle: result?.subtitle || prev.resultSubtitle,
+        }));
+      } catch {
+        // ignore, fall back to defaults
+      }
+    }
+
+    loadCopy();
+    return () => {
+      cancelled = true;
+    };
+  }, [chapterId, questions.length]);
+
   // Score band logic
   const getScoreBand = () => {
     const percent = (totalScore / maxScore) * 100;
@@ -156,26 +223,26 @@ export default function SelfCheckAssessment({
         <MainWithBackground>
           <div className="mx-auto max-w-[980px] px-6 py-12 lg:py-16">
             <h1 className="text-5xl font-black text-[#111827] dark:text-white mb-3">
-              YOUR SELF-CHECK
+              {copy.introTitle}
             </h1>
             <h2 className="text-2xl text-gray-500 dark:text-gray-400 mb-10">
-              How intense is your speaking anxiety right now?
+              {copy.introSubtitle}
             </h2>
 
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm mb-8 space-y-6">
               <p className="text-lg text-gray-800 dark:text-gray-200 leading-relaxed">
-                Before Tony could use VOICE and the techniques, he needed an honest snapshot of where he stood. Not where he wished he was—where he actually was.
+                {copy.introBody1}
               </p>
               <p className="text-lg text-gray-800 dark:text-gray-200 leading-relaxed">
-                This isn't a judgment. It's a baseline. Be honest—only you see this. The more accurate you are now, the better your plan will be.
+                {copy.introBody2}
               </p>
 
               <div className="bg-[#f7b418]/10 dark:bg-[#f7b418]/20 p-6 rounded-xl border border-[#f7b418]/30">
                 <p className="text-gray-900 dark:text-white font-bold text-lg mb-2">
-                  You'll rate {questions.length} statements from 1 to 7.
+                  {copy.highlightTitle}
                 </p>
                 <p className="text-gray-600 dark:text-gray-300">
-                  Takes about a minute. Your score shows which zone you're in and what to focus on.
+                  {copy.highlightBody}
                 </p>
               </div>
             </div>
@@ -200,10 +267,10 @@ export default function SelfCheckAssessment({
         <MainWithBackground>
           <div className="mx-auto flex h-full max-w-[980px] flex-col px-6 py-8 lg:py-10">
             <h1 className="text-4xl font-black text-[#111827] dark:text-white mb-1">
-              Your Baseline Score
+              {copy.resultTitle}
             </h1>
             <p className="text-lg text-gray-500 dark:text-gray-400 mb-6">
-              This is your starting point—not your ending point.
+              {copy.resultSubtitle}
             </p>
 
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm mb-4 text-center">

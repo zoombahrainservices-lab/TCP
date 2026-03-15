@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react';
 import { YesNoCheckBlock as YesNoCheckBlockType } from '@/lib/blocks/types';
 
+type YesNoValue = 'yes' | 'no' | 'not_sure';
+
 interface YesNoCheckBlockProps extends YesNoCheckBlockType {
-  responses?: Record<string, boolean>;
-  onChange?: (responses: Record<string, boolean>) => void;
+  // Allow legacy boolean responses as well as new tri-state values.
+  responses?: Record<string, YesNoValue | boolean>;
+  onChange?: (responses: Record<string, YesNoValue>) => void;
 }
 
 export default function YesNoCheckBlock({
@@ -16,7 +19,20 @@ export default function YesNoCheckBlock({
   responses,
   onChange,
 }: YesNoCheckBlockProps) {
-  const [localResponses, setLocalResponses] = useState<Record<string, boolean>>(responses || {});
+  const normalizeIncoming = (raw?: Record<string, YesNoValue | boolean>): Record<string, YesNoValue> => {
+    if (!raw) return {};
+    const result: Record<string, YesNoValue> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (value === true || value === 'yes') result[key] = 'yes';
+      else if (value === false || value === 'no') result[key] = 'no';
+      else if (value === 'not_sure') result[key] = 'not_sure';
+    }
+    return result;
+  };
+
+  const [localResponses, setLocalResponses] = useState<Record<string, YesNoValue>>(
+    () => normalizeIncoming(responses)
+  );
 
   // Normalize statements to ensure each has a stable, unique id
   const normalizedStatements = (() => {
@@ -38,17 +54,17 @@ export default function YesNoCheckBlock({
   })();
 
   useEffect(() => {
-    setLocalResponses(responses || {});
+    setLocalResponses(normalizeIncoming(responses));
   }, [responses]);
 
-  const handleToggle = (statementId: string, value: boolean) => {
+  const handleSetResponse = (statementId: string, value: YesNoValue) => {
     const newResponses = { ...localResponses, [statementId]: value };
     setLocalResponses(newResponses);
     onChange?.(newResponses);
   };
 
   const calculateYesCount = () => {
-    return Object.values(localResponses).filter(v => v === true).length;
+    return Object.values(localResponses).filter(v => v === 'yes').length;
   };
 
   const getScoreBand = () => {
@@ -81,9 +97,9 @@ export default function YesNoCheckBlock({
             
             <div className="flex gap-3">
               <button
-                onClick={() => handleToggle(statement.id, true)}
+                onClick={() => handleSetResponse(statement.id, 'yes')}
                 className={`flex-1 py-2 px-4 rounded-lg border-2 transition-all ${
-                  localResponses[statement.id] === true
+                  localResponses[statement.id] === 'yes'
                     ? 'bg-green-500 border-green-500 text-white'
                     : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-green-500'
                 }`}
@@ -91,9 +107,19 @@ export default function YesNoCheckBlock({
                 Yes
               </button>
               <button
-                onClick={() => handleToggle(statement.id, false)}
+                onClick={() => handleSetResponse(statement.id, 'not_sure')}
                 className={`flex-1 py-2 px-4 rounded-lg border-2 transition-all ${
-                  localResponses[statement.id] === false
+                  localResponses[statement.id] === 'not_sure'
+                    ? 'bg-yellow-400 border-yellow-400 text-black'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-yellow-400'
+                }`}
+              >
+                Not sure
+              </button>
+              <button
+                onClick={() => handleSetResponse(statement.id, 'no')}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 transition-all ${
+                  localResponses[statement.id] === 'no'
                     ? 'bg-red-500 border-red-500 text-white'
                     : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-red-500'
                 }`}

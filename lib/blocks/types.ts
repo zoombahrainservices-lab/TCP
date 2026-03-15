@@ -337,6 +337,34 @@ export interface ResolutionProofBlock {
 }
 
 // ============================================
+// Self-Check Config Blocks (intro + results copy)
+// ============================================
+
+export interface SelfCheckIntroBlock {
+  type: 'self_check_intro';
+  /** Main heading on the intro screen */
+  title?: string;
+  /** Subtitle/one-line explanation under the heading */
+  subtitle?: string;
+  /** First body paragraph */
+  body1?: string;
+  /** Second body paragraph */
+  body2?: string;
+  /** Highlight title inside the callout box */
+  highlightTitle?: string;
+  /** Highlight body text inside the callout box */
+  highlightBody?: string;
+}
+
+export interface SelfCheckResultBlock {
+  type: 'self_check_result';
+  /** Main heading on the results screen */
+  title?: string;
+  /** Subtitle under the heading */
+  subtitle?: string;
+}
+
+// ============================================
 // Union Type
 // ============================================
 
@@ -364,6 +392,8 @@ export type Block =
   | PageMetaBlock
   | IdentityResolutionGuidanceBlock
   | ResolutionProofBlock
+  | SelfCheckIntroBlock
+  | SelfCheckResultBlock
   | FrameworkCoverBlock
   | FrameworkIntroBlock
   | FrameworkLetterBlock

@@ -23,11 +23,11 @@ export default function FrameworkIntroBlock({
       
       {/* Letter Breakdown - Compact vertical list with custom colors */}
       <div className="space-y-2.5">
-        {letters.map(({ letter, meaning, color }) => {
+        {letters.map(({ letter, meaning, color }, index) => {
           const letterColor = color || accentColor;
           return (
             <div 
-              key={letter} 
+              key={`${letter}-${index}`}
               className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800/50 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700"
             >
               <div 

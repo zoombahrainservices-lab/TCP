@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Save, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Save, Eye, ChevronLeft, ChevronRight, Plus, Copy } from 'lucide-react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import BlockRenderer from '@/components/content/BlockRenderer'
 import ImageUploadField from '@/components/admin/ImageUploadField'
-import { updatePage } from '@/app/actions/admin'
+import { updatePage, createPage, duplicatePage } from '@/app/actions/admin'
 import { validateBlocks } from '@/lib/blocks/validator'
 import toast from 'react-hot-toast'
 import dynamic from 'next/dynamic'
@@ -45,6 +45,8 @@ export default function PageContentEditorPage() {
   const [saving, setSaving] = useState(false)
   const [migrating, setMigrating] = useState(false)
   const [previewMode, setPreviewMode] = useState(false)
+  const [addPageLoading, setAddPageLoading] = useState(false)
+  const [duplicatePageLoading, setDuplicatePageLoading] = useState(false)
 
   const from = searchParams.get('from')
   const returnUrlParam = searchParams.get('returnUrl')
@@ -104,6 +106,49 @@ export default function PageContentEditorPage() {
     
     const queryString = params.toString()
     router.push(`/admin/chapters/${chapterId}/pages/${targetPageId}/edit${queryString ? `?${queryString}` : ''}`)
+  }
+
+  const handleAddNewPage = async () => {
+    if (!step?.id || !page) return
+    setAddPageLoading(true)
+    try {
+      const result = await createPage(step.id, {
+        title: 'New Page',
+        slug: 'new-page',
+        order_index: (page.order_index ?? 0) + 1,
+        content: [],
+        estimated_minutes: 5,
+        xp_award: 10,
+      })
+      if (result.success && result.page) {
+        toast.success('Page created')
+        handleNavigateToPage(result.page.id)
+      } else {
+        toast.error('Failed to add page')
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to add page')
+    } finally {
+      setAddPageLoading(false)
+    }
+  }
+
+  const handleDuplicatePage = async () => {
+    if (!page?.id) return
+    setDuplicatePageLoading(true)
+    try {
+      const result = await duplicatePage(page.id)
+      if (result.success && result.page) {
+        toast.success('Page duplicated')
+        handleNavigateToPage(result.page.id)
+      } else {
+        toast.error('Failed to duplicate page')
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to duplicate page')
+    } finally {
+      setDuplicatePageLoading(false)
+    }
   }
 
   /**
@@ -356,6 +401,31 @@ export default function PageContentEditorPage() {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
+
+            {!nextPage && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleAddNewPage}
+                disabled={addPageLoading}
+                title="Add a new page after this one"
+                className="mr-1"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                {addPageLoading ? 'Adding...' : 'Add new page'}
+              </Button>
+            )}
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDuplicatePage}
+              disabled={duplicatePageLoading}
+              title="Duplicate this page with the same content"
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              {duplicatePageLoading ? 'Duplicating...' : 'Duplicate page'}
+            </Button>
             
             {hasExternalImages && (
               <Button

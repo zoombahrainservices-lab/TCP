@@ -198,6 +198,16 @@ export default function BlockRenderer({
           />
         );
 
+      case 'self_check_intro':
+        // Config block used to drive the Self-Check intro screen.
+        // It is rendered by the SelfCheckAssessment component, not here.
+        return null;
+
+      case 'self_check_result':
+        // Config block used to drive the Self-Check results screen.
+        // It is rendered by the SelfCheckAssessment component, not here.
+        return null;
+
       case 'title_slide':
         // Title slides are now handled by ChapterCoverPage component
         // Silently ignore these blocks in content

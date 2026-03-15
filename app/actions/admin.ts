@@ -1542,6 +1542,71 @@ export async function createPage(stepId: string, data: any) {
   }
 }
 
+export async function duplicatePage(pageId: string) {
+  await requireAuth('admin')
+  const admin = createAdminClient()
+
+  try {
+    const { data: sourcePage, error: fetchError } = await admin
+      .from('step_pages')
+      .select('*')
+      .eq('id', pageId)
+      .single()
+
+    if (fetchError || !sourcePage) throw fetchError || new Error('Page not found')
+
+    const stepId = sourcePage.step_id
+    const toBaseSlug = (value: string) =>
+      String(value)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'page'
+
+    const { data: existingPages, error: listErr } = await admin
+      .from('step_pages')
+      .select('slug')
+      .eq('step_id', stepId)
+
+    if (listErr) throw listErr
+
+    const used = new Set((existingPages || []).map((p: any) => String(p.slug || '').toLowerCase()))
+    const baseSlug = toBaseSlug(sourcePage.title || sourcePage.slug || 'page')
+    let slug = `${baseSlug}-copy`
+    let n = 2
+    while (used.has(slug)) {
+      slug = `${baseSlug}-copy-${n}`
+      n += 1
+    }
+
+    const newTitle = `Copy of ${sourcePage.title || 'Page'}`
+    const clonedContent = Array.isArray(sourcePage.content)
+      ? JSON.parse(JSON.stringify(sourcePage.content))
+      : []
+
+    const { data: newPage, error: insertErr } = await admin
+      .from('step_pages')
+      .insert({
+        step_id: stepId,
+        slug,
+        title: newTitle,
+        order_index: (sourcePage.order_index ?? 0) + 1,
+        estimated_minutes: sourcePage.estimated_minutes ?? 5,
+        xp_award: sourcePage.xp_award ?? 10,
+        content: clonedContent,
+      })
+      .select()
+      .single()
+
+    if (insertErr) throw insertErr
+
+    return { success: true, page: newPage }
+  } catch (error: any) {
+    console.error('Error duplicating page:', error)
+    throw error
+  }
+}
+
 export async function updatePage(pageId: string, data: any) {
   await requireAuth('admin')
   const admin = createAdminClient()
@@ -1755,6 +1820,58 @@ export async function adminEnsureRequiredSteps(chapterId: string) {
             xp_award: 10,
             content: resolutionBlocks,
           })
+      }
+    }
+
+    // Ensure Self-Check step has an intro page with editable copy, so the
+    // /read/.../assessment intro screen can be controlled from the admin.
+    const selfCheckStep = allSteps?.find(s => s.step_type === 'self_check')
+    if (selfCheckStep) {
+      const { data: selfPages, error: selfPagesErr } = await admin
+        .from('step_pages')
+        .select('id, slug, content, order_index')
+        .eq('step_id', selfCheckStep.id)
+
+      if (!selfPagesErr) {
+        const hasIntroPage = (selfPages || []).some(p => {
+          if (p.slug && typeof p.slug === 'string' && p.slug.startsWith('self-check-intro')) return true
+          const blocks = (p.content ?? []) as any[]
+          return Array.isArray(blocks) && blocks.some(b => b && typeof b === 'object' && b.type === 'self_check_intro')
+        })
+
+        if (!hasIntroPage) {
+          const introBlocks = [
+            {
+              type: 'self_check_intro',
+              title: 'Self-Check',
+              subtitle: 'Take a quick snapshot of where you are in this chapter.',
+              body1:
+                'This check is just for you. Answer based on how things feel right now, not how you wish they were.',
+              body2:
+                "It\'s not a test or a grade. It\'s a baseline for this chapter so you can see your progress as you move through the lessons.",
+              highlightTitle: "You\'ll rate 5 statements from 1 to 7.",
+              highlightBody:
+                "Takes about a minute. Your score shows which zone you\'re in and what to focus on next.",
+            },
+            {
+              type: 'self_check_result',
+              title: 'Self-Check Results',
+              subtitle: 'This is your starting point for this chapter—not your ending point.',
+            },
+          ]
+
+          await admin
+            .from('step_pages')
+            .insert({
+              step_id: selfCheckStep.id,
+              title: 'Self-Check Intro',
+              slug: 'self-check-intro',
+              order_index: 0,
+              estimated_minutes: 2,
+              xp_award: 0,
+              content: introBlocks,
+            })
+        }
       }
     }
 
@@ -2634,43 +2751,6 @@ export async function getAllPagesForChapter(chapterId: string) {
     return pages || []
   } catch (error) {
     console.error('Error in getAllPagesForChapter:', error)
-    throw error
-  }
-}
-
-export async function duplicatePage(pageId: string) {
-  await requireAuth('admin')
-  const admin = createAdminClient()
-  
-  try {
-    // Get original page
-    const { data: original, error: fetchError } = await admin
-      .from('step_pages')
-      .select('*')
-      .eq('id', pageId)
-      .single()
-    
-    if (fetchError) throw fetchError
-    
-    // Create duplicate
-    const { data: duplicate, error: createError } = await admin
-      .from('step_pages')
-      .insert({
-        ...original,
-        id: undefined,
-        title: `${original.title} (Copy)`,
-        slug: `${original.slug}-copy`,
-      })
-      .select()
-      .single()
-    
-    if (createError) throw createError
-    
-    revalidatePath('/admin/chapters')
-    
-    return { success: true, page: duplicate }
-  } catch (error) {
-    console.error('Error duplicating page:', error)
     throw error
   }
 }

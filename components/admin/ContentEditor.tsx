@@ -1,21 +1,22 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { 
-  Type, 
-  Image as ImageIcon, 
-  List, 
-  Quote, 
-  AlertCircle, 
-  Edit2, 
-  Trash2, 
-  ChevronUp, 
+import {
+  Type,
+  Image as ImageIcon,
+  List,
+  Quote,
+  AlertCircle,
+  Edit2,
+  Trash2,
+  ChevronUp,
   ChevronDown,
   Plus,
   X,
   Zap,
   Sprout,
-  Lightbulb
+  Lightbulb,
+  Check,
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import BlockRenderer from '@/components/content/BlockRenderer'
@@ -55,6 +56,8 @@ export default function ContentEditor({
     { type: 'framework_intro', icon: Zap, label: 'Framework Intro' },
     { type: 'identity_resolution_guidance', icon: Sprout, label: 'Resolution: Identity Guidance' },
     { type: 'resolution_proof', icon: Lightbulb, label: 'Resolution: Proof' },
+    { type: 'self_check_intro', icon: Lightbulb, label: 'Self-Check Intro' },
+    { type: 'self_check_result', icon: Check, label: 'Self-Check Result' },
   ]
 
   const handleAddBlock = (type: string) => {
@@ -165,6 +168,27 @@ export default function ContentEditor({
           subtitle: 'Use this space to write what your identity actually looks like in real life.',
           label: 'Proof',
           placeholder: 'Write your identity statement here'
+        }
+        break
+      case 'self_check_intro':
+        newBlock = {
+          type: 'self_check_intro',
+          title: 'Self-Check',
+          subtitle: 'Take a quick snapshot of where you are in this chapter.',
+          body1:
+            'This check is just for you. Answer based on how things feel right now, not how you wish they were.',
+          body2:
+            "It\'s not a test or a grade. It\'s a baseline for this chapter so you can see your progress as you move through the lessons.",
+          highlightTitle: "You'll rate 5 statements from 1 to 7.",
+          highlightBody:
+            "Takes about a minute. Your score shows which zone you\'re in and what to focus on next.",
+        }
+        break
+      case 'self_check_result':
+        newBlock = {
+          type: 'self_check_result',
+          title: 'Self-Check Results',
+          subtitle: 'This is your starting point for this chapter—not your ending point.',
         }
         break
     }
@@ -1806,6 +1830,140 @@ export default function ContentEditor({
                             onChange={(e) => setEditingData({ ...editingData, placeholder: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                             placeholder="Write your identity statement here"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {block.type === 'self_check_intro' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Intro Title
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.title || ''}
+                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Self-Check"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Intro Subtitle
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.subtitle || ''}
+                            onChange={(e) => setEditingData({ ...editingData, subtitle: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Take a quick snapshot of where you are in this chapter."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Body Paragraph 1
+                          </label>
+                          <textarea
+                            value={editingData?.body1 || ''}
+                            onChange={(e) => setEditingData({ ...editingData, body1: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 min-h-[80px] text-sm"
+                            placeholder="This check is just for you..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Body Paragraph 2
+                          </label>
+                          <textarea
+                            value={editingData?.body2 || ''}
+                            onChange={(e) => setEditingData({ ...editingData, body2: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 min-h-[80px] text-sm"
+                            placeholder="It's not a test or a grade..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Highlight Title
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.highlightTitle || ''}
+                            onChange={(e) => setEditingData({ ...editingData, highlightTitle: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                            placeholder="You'll rate 5 statements from 1 to 7."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Highlight Body
+                          </label>
+                          <textarea
+                            value={editingData?.highlightBody || ''}
+                            onChange={(e) => setEditingData({ ...editingData, highlightBody: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 min-h-[60px] text-sm"
+                            placeholder="Takes about a minute..."
+                          />
+                        </div>
+
+                        {/* Live preview of the intro layout so admin can see mapping */}
+                        <div className="mt-6 rounded-2xl border border-gray-200 dark:border-gray-700 bg-[#eef5ff] dark:bg-[#0b1930] p-6">
+                          <h1 className="text-2xl font-black text-[#111827] dark:text-white mb-1">
+                            {editingData?.title || 'Self-Check'}
+                          </h1>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                            {editingData?.subtitle || 'Take a quick snapshot of where you are in this chapter.'}
+                          </p>
+
+                          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
+                            <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                              {editingData?.body1 ||
+                                'This check is just for you. Answer based on how things feel right now, not how you wish they were.'}
+                            </p>
+                            <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+                              {editingData?.body2 ||
+                                "It\'s not a test or a grade. It\'s a baseline for this chapter so you can see your progress as you move through the lessons."}
+                            </p>
+
+                            <div className="bg-[#fef3c7] dark:bg-[#78350f]/30 p-4 rounded-xl border border-[#facc15]/40">
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                                {editingData?.highlightTitle || "You'll rate N statements from 1 to 7."}
+                              </p>
+                              <p className="text-xs text-gray-700 dark:text-gray-200">
+                                {editingData?.highlightBody ||
+                                  'Takes about a minute. Your score shows which zone you\'re in and what to focus on next.'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {block.type === 'self_check_result' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Results Title
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.title || ''}
+                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Self-Check Results"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Results Subtitle
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.subtitle || ''}
+                            onChange={(e) => setEditingData({ ...editingData, subtitle: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="This is your starting point for this chapter—not your ending point."
                           />
                         </div>
                       </>
