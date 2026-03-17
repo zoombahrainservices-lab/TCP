@@ -354,6 +354,10 @@ export interface SelfCheckIntroBlock {
   highlightTitle?: string;
   /** Highlight body text inside the callout box */
   highlightBody?: string;
+  /** Questions page title (e.g., "Chapter 7 Self-Check") */
+  questionsTitle?: string;
+  /** Questions page subtitle (e.g., "Rate each statement from 1 to 7...") */
+  questionsSubtitle?: string;
   /** Custom styles for this intro (overrides global defaults) */
   styles?: {
     titleColor?: string;

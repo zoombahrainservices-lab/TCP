@@ -62,6 +62,8 @@ export default function SelfCheckDefaultsEditor() {
         body2: "It's not a test or a grade. It's a baseline for this chapter so you can see your progress as you move through the lessons.",
         highlightTitle: "You'll rate 5 statements from 1 to 7.",
         highlightBody: "Takes about a minute. Your score shows which zone you're in and what to focus on next.",
+        questionsTitle: "Chapter X Self-Check",
+        questionsSubtitle: "Rate each statement from 1 to 7. Be honest—only you see this.",
         styles: {
           titleColor: '#111827',
           titleSize: '5xl',
@@ -220,6 +222,46 @@ export default function SelfCheckDefaultsEditor() {
                 rows={2}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
               />
+            </div>
+
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Questions Page</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Questions Page Title
+                  </label>
+                  <input
+                    type="text"
+                    value={defaults?.intro?.questionsTitle || ''}
+                    onChange={(e) => setDefaults({
+                      ...defaults,
+                      intro: { ...defaults.intro, questionsTitle: e.target.value }
+                    })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                    placeholder="Chapter X Self-Check"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Use "Chapter X" as placeholder - it will auto-populate per chapter
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Questions Page Subtitle
+                  </label>
+                  <input
+                    type="text"
+                    value={defaults?.intro?.questionsSubtitle || ''}
+                    onChange={(e) => setDefaults({
+                      ...defaults,
+                      intro: { ...defaults.intro, questionsSubtitle: e.target.value }
+                    })}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                    placeholder="Rate each statement from 1 to 7. Be honest—only you see this."
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">

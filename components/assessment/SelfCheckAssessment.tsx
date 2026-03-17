@@ -92,6 +92,8 @@ export default function SelfCheckAssessment({
       "It's not a test or a grade. It's a baseline for this chapter so you can see your progress as you move through the lessons.",
     highlightTitle: `You'll rate ${questions.length} statements from 1 to 7.`,
     highlightBody: "Takes about a minute. Your score shows which zone you're in and what to focus on next.",
+    questionsTitle: questionsStepTitle,
+    questionsSubtitle: questionsStepSubtitle,
     resultTitle: 'Self-Check Results',
     resultSubtitle: 'This is your starting point for this chapter—not your ending point.',
     introStyles: {
@@ -142,6 +144,8 @@ export default function SelfCheckAssessment({
           introBody2: intro?.body2 || prev.introBody2,
           highlightTitle: intro?.highlightTitle || prev.highlightTitle,
           highlightBody: intro?.highlightBody || prev.highlightBody,
+          questionsTitle: intro?.questionsTitle || prev.questionsTitle,
+          questionsSubtitle: intro?.questionsSubtitle || prev.questionsSubtitle,
           resultTitle: result?.title || prev.resultTitle,
           resultSubtitle: result?.subtitle || prev.resultSubtitle,
           introStyles: {
@@ -413,10 +417,10 @@ export default function SelfCheckAssessment({
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-[42px] leading-[1.05] font-extrabold text-[#111827] dark:text-white">
-                {questionsStepTitle}
+                {copy.questionsTitle}
               </h1>
               <p className="mt-1 text-[18px] text-gray-600 dark:text-gray-300">
-                {questionsStepSubtitle}
+                {copy.questionsSubtitle}
               </p>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                 Questions {currentPage * questionsPerPage + 1}-{Math.min((currentPage + 1) * questionsPerPage, questions.length)} of {questions.length}

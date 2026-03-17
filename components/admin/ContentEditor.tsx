@@ -1907,6 +1907,39 @@ export default function ContentEditor({
                           />
                         </div>
 
+                        {/* Questions Page Fields */}
+                        <div className="mt-6 pt-4 border-t-2 border-gray-200 dark:border-gray-700">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                            Questions Page (During Assessment)
+                          </h4>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Questions Page Title
+                              </label>
+                              <input
+                                type="text"
+                                value={editingData?.questionsTitle || ''}
+                                onChange={(e) => setEditingData({ ...editingData, questionsTitle: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                                placeholder="Chapter X Self-Check"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Questions Page Subtitle
+                              </label>
+                              <input
+                                type="text"
+                                value={editingData?.questionsSubtitle || ''}
+                                onChange={(e) => setEditingData({ ...editingData, questionsSubtitle: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
+                                placeholder="Rate each statement from 1 to 7. Be honest—only you see this."
+                              />
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Styling overrides */}
                         <details className="mt-4">
                           <summary className="cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">

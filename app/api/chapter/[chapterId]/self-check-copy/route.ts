@@ -50,6 +50,8 @@ export async function GET(
         body2: "It's not a test or a grade. It's a baseline for this chapter so you can see your progress as you move through the lessons.",
         highlightTitle: "You'll rate 5 statements from 1 to 7.",
         highlightBody: "Takes about a minute. Your score shows which zone you're in and what to focus on next.",
+        questionsTitle: `Chapter ${chapterNumber} Self-Check`,
+        questionsSubtitle: "Rate each statement from 1 to 7. Be honest—only you see this.",
         styles: {
           titleColor: '#111827',
           titleSize: '5xl',
@@ -112,6 +114,8 @@ export async function GET(
           body2?: string;
           highlightTitle?: string;
           highlightBody?: string;
+          questionsTitle?: string;
+          questionsSubtitle?: string;
           styles?: Record<string, any>;
         }
       | undefined;

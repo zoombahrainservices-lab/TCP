@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardNav } from '@/components/ui/DashboardNav';
 import { MainWithBackground } from '@/components/dashboard/MainWithBackground';
@@ -43,6 +43,42 @@ export default function SelfCheckMCQAssessment({
   const [currentPage, setCurrentPage] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  // Dynamic questions page copy
+  const [copy, setCopy] = useState(() => ({
+    questionsTitle: questionsStepTitle,
+    questionsSubtitle: questionsStepSubtitle,
+  }));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCopy() {
+      try {
+        const res = await fetch(`/api/chapter/${chapterId}/self-check-copy`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!json?.success) return;
+
+        if (cancelled) return;
+
+        const intro = json.intro as any;
+
+        setCopy((prev) => ({
+          questionsTitle: intro?.questionsTitle || prev.questionsTitle,
+          questionsSubtitle: intro?.questionsSubtitle || prev.questionsSubtitle,
+        }));
+      } catch (error) {
+        console.error('[SelfCheckMCQ] Failed to load copy:', error);
+      }
+    }
+
+    loadCopy();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chapterId]);
 
   const totalPages = questions.length;
   const currentQuestion = questions[currentPage];
@@ -171,9 +207,9 @@ export default function SelfCheckMCQAssessment({
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-[42px] leading-[1.05] font-extrabold text-[#111827] dark:text-white">
-                {questionsStepTitle}
+                {copy.questionsTitle}
               </h1>
-              <p className="mt-1 text-[18px] text-gray-600 dark:text-gray-300">{questionsStepSubtitle}</p>
+              <p className="mt-1 text-[18px] text-gray-600 dark:text-gray-300">{copy.questionsSubtitle}</p>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                 Question {currentPage + 1} of {totalPages}
               </p>
