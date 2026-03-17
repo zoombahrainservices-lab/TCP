@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Save, Eye, ChevronLeft, ChevronRight, Plus, Copy } from 'lucide-react'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
@@ -19,6 +19,7 @@ export default function PageContentEditorPage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const chapterId = params.id as string
   const pageId = params.pageId as string
 
@@ -236,8 +237,19 @@ export default function PageContentEditorPage() {
         hero_image_url: heroImageUrl || null,
       }
 
+      console.log('[SavePage] Saving content blocks:', prepared.length, 'blocks')
+      console.log('[SavePage] Content preview:', JSON.stringify(prepared.slice(0, 3), null, 2))
+
       await updatePage(pageId, payload)
+      
+      // Invalidate React Query cache to force refetch
+      await queryClient.invalidateQueries({ queryKey: ['admin-page-full', pageId] })
+      
+      // Also refresh the router to ensure all data is fresh
+      router.refresh()
+      
       toast.success('Content saved successfully')
+      console.log('[SavePage] Save complete, cache invalidated')
     } catch (error: any) {
       console.error('Error saving:', error)
       const message = error?.message ?? (typeof error === 'string' ? error : 'Failed to save content')

@@ -1619,14 +1619,25 @@ export async function updatePage(pageId: string, data: any) {
   if (data.title !== undefined) payload.title = data.title
   if (data.content !== undefined) payload.content = data.content
 
+  console.log('[updatePage] Saving to database:', {
+    pageId,
+    titleLength: payload.title ? String(payload.title).length : 0,
+    contentBlocks: Array.isArray(payload.content) ? payload.content.length : 0,
+    contentPreview: Array.isArray(payload.content) ? payload.content.slice(0, 2).map((b: any) => b?.type) : []
+  })
+
   try {
     const { error } = await admin
       .from('step_pages')
       .update(payload)
       .eq('id', pageId)
 
-    if (error) throw error
+    if (error) {
+      console.error('[updatePage] Database error:', error)
+      throw error
+    }
 
+    console.log('[updatePage] Successfully saved to database')
     return { success: true }
   } catch (err: any) {
     console.error('Error updating page:', err)
