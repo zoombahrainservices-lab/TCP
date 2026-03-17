@@ -19,7 +19,9 @@
     "db:delete-users": "tsx scripts/delete-all-auth-users.ts",
     "migrate-content": "tsx scripts/migrate-content.ts",
     "reset-user-progress": "tsx scripts/reset-user-progress.ts",
-    "reset-all-user-data": "tsx scripts/reset-all-user-data.ts"
+    "reset-all-user-data": "tsx scripts/reset-all-user-data.ts",
+    "setup:self-check": "node scripts/run-migration.js",
+    "verify:self-check": "tsx scripts/verify-self-check.ts"
   },
   "dependencies": {
     "@sparticuz/chromium": "^143.0.4",
