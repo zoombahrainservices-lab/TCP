@@ -354,6 +354,20 @@ export interface SelfCheckIntroBlock {
   highlightTitle?: string;
   /** Highlight body text inside the callout box */
   highlightBody?: string;
+  /** Custom styles for this intro (overrides global defaults) */
+  styles?: {
+    titleColor?: string;
+    titleSize?: string;
+    subtitleColor?: string;
+    bodyBgColor?: string;
+    bodyTextColor?: string;
+    highlightBgColor?: string;
+    highlightBorderColor?: string;
+    highlightTextColor?: string;
+    buttonBgColor?: string;
+    buttonHoverColor?: string;
+    buttonTextColor?: string;
+  };
 }
 
 export interface SelfCheckResultBlock {
@@ -362,6 +376,18 @@ export interface SelfCheckResultBlock {
   title?: string;
   /** Subtitle under the heading */
   subtitle?: string;
+  /** Custom styles for this result (overrides global defaults) */
+  styles?: {
+    titleColor?: string;
+    subtitleColor?: string;
+    scoreBgColor?: string;
+    scoreTextColor?: string;
+    explanationBgColor?: string;
+    explanationTextColor?: string;
+    buttonBgColor?: string;
+    buttonHoverColor?: string;
+    buttonTextColor?: string;
+  };
 }
 
 // ============================================

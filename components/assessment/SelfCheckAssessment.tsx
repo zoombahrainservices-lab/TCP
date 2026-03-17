@@ -89,11 +89,35 @@ export default function SelfCheckAssessment({
     introBody1:
       'This check is just for you. Answer based on how things feel right now, not how you wish they were.',
     introBody2:
-      "It\'s not a test or a grade. It\'s a baseline for this chapter so you can see your progress as you move through the lessons.",
+      "It's not a test or a grade. It's a baseline for this chapter so you can see your progress as you move through the lessons.",
     highlightTitle: `You'll rate ${questions.length} statements from 1 to 7.`,
-    highlightBody: "Takes about a minute. Your score shows which zone you\'re in and what to focus on next.",
+    highlightBody: "Takes about a minute. Your score shows which zone you're in and what to focus on next.",
     resultTitle: 'Self-Check Results',
     resultSubtitle: 'This is your starting point for this chapter—not your ending point.',
+    introStyles: {
+      titleColor: '#111827',
+      titleSize: '5xl',
+      subtitleColor: '#6b7280',
+      bodyBgColor: '#ffffff',
+      bodyTextColor: '#1f2937',
+      highlightBgColor: '#fef3c7',
+      highlightBorderColor: '#f59e0b',
+      highlightTextColor: '#111827',
+      buttonBgColor: '#f7b418',
+      buttonHoverColor: '#e5a309',
+      buttonTextColor: '#000000',
+    },
+    resultStyles: {
+      titleColor: '#111827',
+      subtitleColor: '#6b7280',
+      scoreBgColor: '#ffffff',
+      scoreTextColor: '#111827',
+      explanationBgColor: '#fef3c7',
+      explanationTextColor: '#111827',
+      buttonBgColor: '#ff6a38',
+      buttonHoverColor: '#e55a28',
+      buttonTextColor: '#ffffff',
+    },
   }));
 
   useEffect(() => {
@@ -108,23 +132,8 @@ export default function SelfCheckAssessment({
 
         if (cancelled) return;
 
-        const intro = json.intro as
-          | {
-              title?: string;
-              subtitle?: string;
-              body1?: string;
-              body2?: string;
-              highlightTitle?: string;
-              highlightBody?: string;
-            }
-          | null;
-
-        const result = json.result as
-          | {
-              title?: string;
-              subtitle?: string;
-            }
-          | null;
+        const intro = json.intro as any;
+        const result = json.result as any;
 
         setCopy((prev) => ({
           introTitle: intro?.title || prev.introTitle,
@@ -135,6 +144,14 @@ export default function SelfCheckAssessment({
           highlightBody: intro?.highlightBody || prev.highlightBody,
           resultTitle: result?.title || prev.resultTitle,
           resultSubtitle: result?.subtitle || prev.resultSubtitle,
+          introStyles: {
+            ...prev.introStyles,
+            ...(intro?.styles || {}),
+          },
+          resultStyles: {
+            ...prev.resultStyles,
+            ...(result?.styles || {}),
+          },
         }));
       } catch {
         // ignore, fall back to defaults
@@ -222,26 +239,52 @@ export default function SelfCheckAssessment({
         <DashboardNav />
         <MainWithBackground>
           <div className="mx-auto max-w-[980px] px-6 py-12 lg:py-16">
-            <h1 className="text-5xl font-black text-[#111827] dark:text-white mb-3">
+            <h1 
+              className="font-black mb-3"
+              style={{ 
+                color: copy.introStyles.titleColor,
+                fontSize: copy.introStyles.titleSize === '5xl' ? '3rem' : 
+                         copy.introStyles.titleSize === '4xl' ? '2.25rem' :
+                         copy.introStyles.titleSize === '3xl' ? '1.875rem' : '3rem'
+              }}
+            >
               {copy.introTitle}
             </h1>
-            <h2 className="text-2xl text-gray-500 dark:text-gray-400 mb-10">
+            <h2 
+              className="text-2xl mb-10"
+              style={{ color: copy.introStyles.subtitleColor }}
+            >
               {copy.introSubtitle}
             </h2>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm mb-8 space-y-6">
-              <p className="text-lg text-gray-800 dark:text-gray-200 leading-relaxed">
+            <div 
+              className="rounded-2xl p-8 shadow-sm mb-8 space-y-6"
+              style={{ 
+                backgroundColor: copy.introStyles.bodyBgColor,
+                color: copy.introStyles.bodyTextColor
+              }}
+            >
+              <p className="text-lg leading-relaxed">
                 {copy.introBody1}
               </p>
-              <p className="text-lg text-gray-800 dark:text-gray-200 leading-relaxed">
+              <p className="text-lg leading-relaxed">
                 {copy.introBody2}
               </p>
 
-              <div className="bg-[#f7b418]/10 dark:bg-[#f7b418]/20 p-6 rounded-xl border border-[#f7b418]/30">
-                <p className="text-gray-900 dark:text-white font-bold text-lg mb-2">
+              <div 
+                className="p-6 rounded-xl"
+                style={{
+                  backgroundColor: copy.introStyles.highlightBgColor,
+                  borderWidth: '1px',
+                  borderStyle: 'solid',
+                  borderColor: copy.introStyles.highlightBorderColor,
+                  color: copy.introStyles.highlightTextColor
+                }}
+              >
+                <p className="font-bold text-lg mb-2">
                   {copy.highlightTitle}
                 </p>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p>
                   {copy.highlightBody}
                 </p>
               </div>
@@ -249,7 +292,17 @@ export default function SelfCheckAssessment({
 
             <button
               onClick={() => setStep('questions')}
-              className="w-full rounded-xl bg-[#f7b418] hover:bg-[#e5a309] px-8 py-4 text-lg font-bold text-black shadow-lg transition-colors"
+              className="w-full rounded-xl px-8 py-4 text-lg font-bold shadow-lg transition-all"
+              style={{ 
+                backgroundColor: copy.introStyles.buttonBgColor,
+                color: copy.introStyles.buttonTextColor
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = copy.introStyles.buttonHoverColor;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = copy.introStyles.buttonBgColor;
+              }}
             >
               Start Self-Check →
             </button>
@@ -266,18 +319,30 @@ export default function SelfCheckAssessment({
         <DashboardNav />
         <MainWithBackground>
           <div className="mx-auto flex h-full max-w-[980px] flex-col px-6 py-8 lg:py-10">
-            <h1 className="text-4xl font-black text-[#111827] dark:text-white mb-1">
+            <h1 
+              className="text-4xl font-black mb-1"
+              style={{ color: copy.resultStyles.titleColor }}
+            >
               {copy.resultTitle}
             </h1>
-            <p className="text-lg text-gray-500 dark:text-gray-400 mb-6">
+            <p 
+              className="text-lg mb-6"
+              style={{ color: copy.resultStyles.subtitleColor }}
+            >
               {copy.resultSubtitle}
             </p>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm mb-4 text-center">
-              <div className="text-7xl font-black text-[#111827] dark:text-white mb-2">
+            <div 
+              className="rounded-2xl p-8 shadow-sm mb-4 text-center"
+              style={{ 
+                backgroundColor: copy.resultStyles.scoreBgColor,
+                color: copy.resultStyles.scoreTextColor
+              }}
+            >
+              <div className="text-7xl font-black mb-2">
                 {totalScore}
               </div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
+              <p className="text-sm mb-6" style={{ opacity: 0.7 }}>
                 out of {maxScore}
               </p>
 
@@ -288,22 +353,28 @@ export default function SelfCheckAssessment({
                 {scoreBand.band}
               </div>
 
-              <p className="mt-6 text-lg text-gray-700 dark:text-gray-300">
+              <p className="mt-6 text-lg">
                 {scoreBand.message}
               </p>
             </div>
 
-            <div className="bg-[#fef3c7] dark:bg-[#78350f]/20 rounded-2xl p-6 mb-4 flex-1 overflow-auto">
-              <h3 className="text-2xl font-black text-[#111827] dark:text-white mb-4">
+            <div 
+              className="rounded-2xl p-6 mb-4 flex-1 overflow-auto"
+              style={{ 
+                backgroundColor: copy.resultStyles.explanationBgColor,
+                color: copy.resultStyles.explanationTextColor
+              }}
+            >
+              <h3 className="text-2xl font-black mb-4">
                 Score Bands Explained
               </h3>
               <div className="space-y-3">
                 {scoreBandsExplained.map((band, idx) => (
                   <div key={idx} className="flex gap-4">
-                    <span className="font-bold text-gray-900 dark:text-white w-24">
+                    <span className="font-bold w-24">
                       {band.range}
                     </span>
-                    <span className="text-gray-700 dark:text-gray-300">
+                    <span>
                       {band.description}
                     </span>
                   </div>
@@ -313,7 +384,17 @@ export default function SelfCheckAssessment({
 
             <button
               onClick={() => router.push(nextStepUrl)}
-              className="mt-2 w-full rounded-xl bg-[#ff6a38] hover:bg-[#e55a28] px-6 py-3 text-lg font-bold text-white shadow-lg transition-colors"
+              className="mt-2 w-full rounded-xl px-6 py-3 text-lg font-bold shadow-lg transition-all"
+              style={{ 
+                backgroundColor: copy.resultStyles.buttonBgColor,
+                color: copy.resultStyles.buttonTextColor
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = copy.resultStyles.buttonHoverColor;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = copy.resultStyles.buttonBgColor;
+              }}
             >
               Continue to Framework →
             </button>

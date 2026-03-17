@@ -1907,6 +1907,72 @@ export default function ContentEditor({
                           />
                         </div>
 
+                        {/* Styling overrides */}
+                        <details className="mt-4">
+                          <summary className="cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Custom Styling (Optional - overrides global defaults)
+                          </summary>
+                          <div className="mt-3 space-y-3 pl-4 border-l-2 border-gray-300 dark:border-gray-600">
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              Leave fields empty to use global defaults. Set values to override for this chapter only.
+                            </p>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Title Color</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.titleColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), titleColor: e.target.value }
+                                  })}
+                                  placeholder="#111827"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Button BG</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.buttonBgColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), buttonBgColor: e.target.value }
+                                  })}
+                                  placeholder="#f7b418"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Highlight BG</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.highlightBgColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), highlightBgColor: e.target.value }
+                                  })}
+                                  placeholder="#fef3c7"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Body BG</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.bodyBgColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), bodyBgColor: e.target.value }
+                                  })}
+                                  placeholder="#ffffff"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </details>
+
                         {/* Live preview of the intro layout so admin can see mapping */}
                         <div className="mt-6 rounded-2xl border border-gray-200 dark:border-gray-700 bg-[#eef5ff] dark:bg-[#0b1930] p-6">
                           <h1 className="text-2xl font-black text-[#111827] dark:text-white mb-1">
@@ -1966,6 +2032,72 @@ export default function ContentEditor({
                             placeholder="This is your starting point for this chapter—not your ending point."
                           />
                         </div>
+
+                        {/* Styling overrides for result */}
+                        <details className="mt-4">
+                          <summary className="cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Custom Styling (Optional - overrides global defaults)
+                          </summary>
+                          <div className="mt-3 space-y-3 pl-4 border-l-2 border-gray-300 dark:border-gray-600">
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              Leave fields empty to use global defaults. Set values to override for this chapter only.
+                            </p>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Title Color</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.titleColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), titleColor: e.target.value }
+                                  })}
+                                  placeholder="#111827"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Button BG</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.buttonBgColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), buttonBgColor: e.target.value }
+                                  })}
+                                  placeholder="#ff6a38"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Score BG</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.scoreBgColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), scoreBgColor: e.target.value }
+                                  })}
+                                  placeholder="#ffffff"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Explanation BG</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.explanationBgColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), explanationBgColor: e.target.value }
+                                  })}
+                                  placeholder="#fef3c7"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </details>
                       </>
                     )}
                     
