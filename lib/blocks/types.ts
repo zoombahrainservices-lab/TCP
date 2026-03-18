@@ -184,6 +184,43 @@ export interface ButtonBlock {
 }
 
 // ============================================
+// Self-Check Configuration Blocks
+// ============================================
+
+export interface SelfCheckIntroBlock {
+  type: 'self_check_intro';
+  title?: string;
+  subtitle?: string;
+  body1?: string;
+  body2?: string;
+  highlightTitle?: string;
+  highlightBody?: string;
+  questionsTitle?: string;
+  questionsSubtitle?: string;
+  styles?: {
+    titleColor?: string;
+    subtitleColor?: string;
+    bodyTextColor?: string;
+    highlightBgColor?: string;
+    highlightTextColor?: string;
+    highlightTitleColor?: string;
+  };
+}
+
+export interface SelfCheckResultBlock {
+  type: 'self_check_result';
+  title?: string;
+  subtitle?: string;
+  message?: string;
+  styles?: {
+    titleColor?: string;
+    subtitleColor?: string;
+    messageTextColor?: string;
+    containerBgColor?: string;
+  };
+}
+
+// ============================================
 // Conditional & Dynamic Blocks
 // ============================================
 
@@ -225,7 +262,9 @@ export type Block =
   | CTABlock
   | ButtonBlock
   | ConditionalBlock
-  | VariableBlock;
+  | VariableBlock
+  | SelfCheckIntroBlock
+  | SelfCheckResultBlock;
 
 // ============================================
 // Helper Types

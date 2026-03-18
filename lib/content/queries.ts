@@ -14,7 +14,6 @@ export async function getAllParts() {
     .order('order_index');
 
   if (error) {
-    console.error('Error fetching parts:', error);
     throw error;
   }
 
@@ -32,7 +31,6 @@ export async function getChapterBySlug(slug: string): Promise<Chapter | null> {
     .single();
 
   if (error) {
-    console.error('Error fetching chapter by slug:', error);
     return null;
   }
 
@@ -49,7 +47,6 @@ export async function getChapterById(id: string): Promise<Chapter | null> {
     .single();
 
   if (error) {
-    console.error('Error fetching chapter by ID:', error);
     return null;
   }
 
@@ -67,7 +64,6 @@ export async function getChapterByNumber(chapterNumber: number): Promise<Chapter
     .single();
 
   if (error) {
-    console.error('Error fetching chapter by number:', error);
     return null;
   }
 
@@ -84,7 +80,6 @@ export async function getAllChapters() {
     .order('order_index');
 
   if (error) {
-    console.error('Error fetching chapters:', error);
     throw error;
   }
 
@@ -105,7 +100,6 @@ export async function getChapterSteps(chapterId: string): Promise<Step[]> {
     .order('order_index');
 
   if (error) {
-    console.error('Error fetching chapter steps:', error);
     throw error;
   }
 
@@ -123,7 +117,6 @@ export async function getStepBySlug(chapterId: string, stepSlug: string): Promis
     .single();
 
   if (error) {
-    console.error('Error fetching step by slug:', error);
     return null;
   }
 
@@ -140,7 +133,6 @@ export async function getStepById(stepId: string): Promise<Step | null> {
     .single();
 
   if (error) {
-    console.error('Error fetching step by ID:', error);
     return null;
   }
 
@@ -161,7 +153,6 @@ export async function getStepPages(stepId: string): Promise<Page[]> {
     .order('order_index');
 
   if (error) {
-    console.error('Error fetching step pages:', error);
     throw error;
   }
 
@@ -179,7 +170,6 @@ export async function getPageBySlug(stepId: string, pageSlug: string): Promise<P
     .single();
 
   if (error) {
-    console.error('Error fetching page by slug:', error);
     return null;
   }
 
@@ -196,7 +186,6 @@ export async function getPageById(pageId: string): Promise<Page | null> {
     .single();
 
   if (error) {
-    console.error('Error fetching page by ID:', error);
     return null;
   }
 

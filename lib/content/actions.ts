@@ -35,7 +35,6 @@ export async function savePageProgress(pageId: string, userId: string) {
     });
 
   if (error) {
-    console.error('Error saving page progress:', error);
     return { success: false, error: error.message };
   }
 
@@ -111,7 +110,6 @@ export async function markStepComplete(stepId: string, userId: string) {
     });
 
   if (error) {
-    console.error('Error marking step complete:', error);
     return { success: false, error: error.message };
   }
 
@@ -150,7 +148,6 @@ export async function savePromptResponse(
     });
 
   if (error) {
-    console.error('Error saving prompt response:', error);
     return { success: false, error: error.message };
   }
 
@@ -208,7 +205,6 @@ export async function saveScaleQuestionResponses(
     });
 
   if (error) {
-    console.error('Error saving scale question responses:', error);
     return { success: false, error: error.message };
   }
 
@@ -248,7 +244,6 @@ async function awardPageXP(userId: string, pageId: string, xpAmount: number) {
     });
 
   if (xpError) {
-    console.error('Error awarding page XP:', xpError);
     return { success: false, error: xpError.message };
   }
 
@@ -259,7 +254,6 @@ async function awardPageXP(userId: string, pageId: string, xpAmount: number) {
   });
 
   if (gamificationError) {
-    console.error('Error updating user gamification:', gamificationError);
   }
 
   return { success: true };

@@ -21,6 +21,8 @@ import CTABlock from './blocks/CTABlock';
 import ButtonBlock from './blocks/ButtonBlock';
 import ConditionalBlock from './blocks/ConditionalBlock';
 import VariableBlock from './blocks/VariableBlock';
+import SelfCheckIntroBlock from './blocks/SelfCheckIntroBlock';
+import SelfCheckResultBlock from './blocks/SelfCheckResultBlock';
 
 interface BlockRendererProps {
   block: Block;
@@ -35,7 +37,6 @@ export default function BlockRenderer({
 }: BlockRendererProps) {
   // Safety check
   if (!block || !block.type) {
-    console.warn('BlockRenderer: Invalid block received', block);
     return null;
   }
 
@@ -125,8 +126,13 @@ export default function BlockRenderer({
       case 'variable':
         return <VariableBlock {...block} userResponses={userResponses} />;
 
+      case 'self_check_intro':
+        return <SelfCheckIntroBlock {...block} />;
+
+      case 'self_check_result':
+        return <SelfCheckResultBlock {...block} />;
+
       default:
-        console.warn(`BlockRenderer: Unknown block type "${(block as any).type}"`);
         return (
           <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">
             <p className="text-red-700 dark:text-red-300 font-mono text-sm">
@@ -136,7 +142,6 @@ export default function BlockRenderer({
         );
     }
   } catch (error) {
-    console.error('BlockRenderer: Error rendering block', block, error);
     return (
       <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">
         <p className="text-red-700 dark:text-red-300 font-mono text-sm">

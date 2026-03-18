@@ -26,7 +26,6 @@ export default function ButtonBlock({ text, href, action, variant = 'primary' }:
         onClick={() => {
           if (action) {
             // Client-side action handling (to be implemented)
-            console.log('Action:', action);
           }
         }}
         className={className}
