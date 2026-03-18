@@ -31,6 +31,8 @@ import FrameworkIntroBlock from './blocks/FrameworkIntroBlock';
 import FrameworkLetterBlock from './blocks/FrameworkLetterBlock';
 import IdentityResolutionGuidanceBlock from './blocks/IdentityResolutionGuidanceBlock';
 import ResolutionProofBlock from './blocks/ResolutionProofBlock';
+import SelfCheckIntroBlock from './blocks/SelfCheckIntroBlock';
+import SelfCheckResultBlock from './blocks/SelfCheckResultBlock';
 
 interface BlockRendererProps {
   block: Block;
@@ -199,14 +201,10 @@ export default function BlockRenderer({
         );
 
       case 'self_check_intro':
-        // Config block used to drive the Self-Check intro screen.
-        // It is rendered by the SelfCheckAssessment component, not here.
-        return null;
+        return <SelfCheckIntroBlock {...block} />;
 
       case 'self_check_result':
-        // Config block used to drive the Self-Check results screen.
-        // It is rendered by the SelfCheckAssessment component, not here.
-        return null;
+        return <SelfCheckResultBlock {...block} />;
 
       case 'title_slide':
         // Title slides are now handled by ChapterCoverPage component

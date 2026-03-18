@@ -226,10 +226,14 @@ export default function PageContentEditorPage() {
       const prepared = prepareContentForSave(contentWithMeta)
       const validation = validateBlocks(prepared)
       if (!validation.valid) {
+        console.error('[SavePage] VALIDATION FAILED:', validation.errors)
+        console.error('[SavePage] Block types being saved:', prepared.map((b: any) => b?.type))
         toast.error(`Validation failed: ${validation.errors.join('; ')}`)
         setSaving(false)
         return
       }
+
+      console.log('[SavePage] Validation passed! Block types:', prepared.map((b: any) => b?.type))
 
       const payload: { title: string; content: any[]; hero_image_url?: string | null } = {
         title: pageTitle,
@@ -260,6 +264,20 @@ export default function PageContentEditorPage() {
   }
 
   const handleSave = async () => {
+    console.log('[PageEditor] ===== SAVE CHANGES CLICKED =====')
+    console.log('[PageEditor] Current content state:', {
+      length: content.length,
+      blockTypes: content.map(b => b?.type)
+    })
+    
+    // CRITICAL FIX: Force ContentEditor to save any open edits first
+    // by triggering a custom event that ContentEditor can listen to
+    const saveEvent = new CustomEvent('force-save-content-editor')
+    window.dispatchEvent(saveEvent)
+    
+    // Give ContentEditor time to process the save
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
     await savePage(content)
   }
 
@@ -576,7 +594,13 @@ export default function PageContentEditorPage() {
             <div className="flex-1 overflow-hidden">
               <ContentEditor 
                 content={content} 
-                onChange={setContent}
+                onChange={(newContent) => {
+                  console.log('[PageEditor] ===== CONTENT CHANGED VIA onChange =====');
+                  console.log('[PageEditor] New content length:', newContent?.length);
+                  console.log('[PageEditor] New content block types:', newContent?.map(b => b?.type));
+                  console.log('[PageEditor] First real block:', JSON.stringify(newContent?.[1], null, 2));
+                  setContent(newContent);
+                }}
                 chapterSlug={chapter?.slug || 'general'}
                 stepSlug={step?.slug || 'content'}
                 pageOrder={page?.order_index || 0}

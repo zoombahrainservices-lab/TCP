@@ -1,7 +1,9 @@
 -- Migration: Add site_settings table for global defaults
 -- This table stores global configuration like default self-check intro/result copy
 
-CREATE TABLE IF NOT EXISTS site_settings (
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS public.site_settings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key text UNIQUE NOT NULL,
   value jsonb NOT NULL,
@@ -11,10 +13,10 @@ CREATE TABLE IF NOT EXISTS site_settings (
 );
 
 -- Create index on key for fast lookups
-CREATE INDEX IF NOT EXISTS idx_site_settings_key ON site_settings(key);
+CREATE INDEX IF NOT EXISTS idx_site_settings_key ON public.site_settings(key);
 
 -- Insert default self-check intro configuration
-INSERT INTO site_settings (key, value, description)
+INSERT INTO public.site_settings (key, value, description)
 VALUES (
   'self_check_defaults',
   '{
@@ -57,25 +59,31 @@ VALUES (
   }'::jsonb,
   'Default self-check intro and result page configuration (text and styles)'
 )
-ON CONFLICT (key) DO NOTHING;
+ON CONFLICT (key) DO UPDATE
+SET
+  value = EXCLUDED.value,
+  description = EXCLUDED.description,
+  updated_at = now();
 
 -- Enable RLS
-ALTER TABLE site_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Anyone can read site settings
+DROP POLICY IF EXISTS "Public read access to site_settings" ON public.site_settings;
 CREATE POLICY "Public read access to site_settings"
-  ON site_settings
+  ON public.site_settings
   FOR SELECT
   USING (true);
 
 -- Policy: Only admins can modify site settings
+DROP POLICY IF EXISTS "Admin write access to site_settings" ON public.site_settings;
 CREATE POLICY "Admin write access to site_settings"
-  ON site_settings
+  ON public.site_settings
   FOR ALL
   USING (
     EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.user_id = auth.uid()
-      AND user_profiles.role = 'admin'
+      SELECT 1 FROM public.profiles
+      WHERE public.profiles.id = auth.uid()
+      AND public.profiles.role = 'admin'
     )
   );

@@ -1619,12 +1619,35 @@ export async function updatePage(pageId: string, data: any) {
   if (data.title !== undefined) payload.title = data.title
   if (data.content !== undefined) payload.content = data.content
 
+  console.log('[updatePage] ===== SAVE INITIATED =====')
+  console.log('[updatePage] Received data:', {
+    pageId,
+    hasTitle: data.title !== undefined,
+    hasContent: data.content !== undefined,
+    contentType: typeof data.content,
+    isArray: Array.isArray(data.content)
+  })
+
   console.log('[updatePage] Saving to database:', {
     pageId,
     titleLength: payload.title ? String(payload.title).length : 0,
     contentBlocks: Array.isArray(payload.content) ? payload.content.length : 0,
+    ALL_BLOCK_TYPES: Array.isArray(payload.content) ? payload.content.map((b: any) => b?.type) : [],
     contentPreview: Array.isArray(payload.content) ? payload.content.slice(0, 2).map((b: any) => b?.type) : []
   })
+  
+  // Log each block in detail INCLUDING the actual data
+  if (Array.isArray(payload.content)) {
+    payload.content.forEach((block: any, index: number) => {
+      console.log(`[updatePage] Block ${index} FULL DATA:`, JSON.stringify(block, null, 2));
+    });
+  }
+  
+  console.log('[updatePage] EXACT PAYLOAD BEING SENT TO DATABASE:', {
+    title: payload.title,
+    contentLength: Array.isArray(payload.content) ? payload.content.length : 0,
+    contentJSON: JSON.stringify(payload.content).substring(0, 500) + '...'
+  });
 
   try {
     const { error } = await admin
@@ -1633,8 +1656,41 @@ export async function updatePage(pageId: string, data: any) {
       .eq('id', pageId)
 
     if (error) {
-      console.error('[updatePage] Database error:', error)
+      console.error('[updatePage] ❌ DATABASE UPDATE FAILED!')
+      console.error('[updatePage] Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      })
       throw error
+    }
+
+    console.log('[updatePage] ✅ Database UPDATE command executed successfully')
+
+    console.log('[updatePage] ✅ Database UPDATE command executed successfully')
+
+    // VERIFY: Read back what was saved
+    const { data: verifyData, error: verifyError } = await admin
+      .from('step_pages')
+      .select('content, title')
+      .eq('id', pageId)
+      .single()
+    
+    if (verifyError) {
+      console.error('[updatePage] ⚠️ VERIFICATION READ FAILED:', verifyError)
+    } else if (verifyData) {
+      console.log('[updatePage] 🔍 VERIFICATION - Data in DB after save:', {
+        titleInDB: verifyData.title,
+        contentLength: Array.isArray(verifyData.content) ? verifyData.content.length : 0,
+        blockTypes: Array.isArray(verifyData.content) ? verifyData.content.map((b: any) => b?.type) : []
+      })
+      
+      // Log first block in detail to verify actual data
+      if (Array.isArray(verifyData.content) && verifyData.content.length > 1) {
+        const firstContentBlock = verifyData.content[1]; // Skip page_meta, show first real block
+        console.log('[updatePage] 🔍 First content block in DB:', JSON.stringify(firstContentBlock, null, 2));
+      }
     }
 
     console.log('[updatePage] Successfully saved to database')

@@ -278,6 +278,64 @@ const ResolutionProofBlockSchema = z.object({
   placeholder: z.string().optional(),
 })
 
+const SelfCheckIntroBlockSchema = z.object({
+  type: z.literal('self_check_intro'),
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  body1: z.string().optional(),
+  body2: z.string().optional(),
+  highlightTitle: z.string().optional(),
+  highlightBody: z.string().optional(),
+  questionsTitle: z.string().optional(),
+  questionsSubtitle: z.string().optional(),
+  styles: z.object({
+    titleColor: z.string().optional(),
+    subtitleColor: z.string().optional(),
+    bodyTextColor: z.string().optional(),
+    highlightBgColor: z.string().optional(),
+    highlightTextColor: z.string().optional(),
+    highlightTitleColor: z.string().optional(),
+  }).optional(),
+})
+
+const SelfCheckResultBlockSchema = z.object({
+  type: z.literal('self_check_result'),
+  assessmentType: z.enum(['scale', 'yes_no', 'mcq']).optional(),
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  scoreDisplayFormat: z.object({
+    scoreSubtext: z.string().optional(),
+    scoreLabelText: z.string().optional(),
+    scoreMessageText: z.string().optional(),
+  }).optional(),
+  scoreBandsTitle: z.string().optional(),
+  scoreBands: z.array(z.object({
+    range: z.string(),
+    label: z.string().optional(),
+    explanation: z.string(),
+  })).optional(),
+  scoreMessage: z.string().optional(),
+  buttonText: z.string().optional(),
+  styles: z.object({
+    titleColor: z.string().optional(),
+    subtitleColor: z.string().optional(),
+    scoreBgColor: z.string().optional(),
+    scoreTextColor: z.string().optional(),
+    scoreSubtextColor: z.string().optional(),
+    scoreLabelColor: z.string().optional(),
+    scoreLabelBgColor: z.string().optional(),
+    scoreMessageColor: z.string().optional(),
+    scoreBandsBgColor: z.string().optional(),
+    scoreBandsTextColor: z.string().optional(),
+    scoreBandsTitleColor: z.string().optional(),
+    explanationBgColor: z.string().optional(),
+    explanationTextColor: z.string().optional(),
+    buttonBgColor: z.string().optional(),
+    buttonHoverColor: z.string().optional(),
+    buttonTextColor: z.string().optional(),
+  }).optional(),
+})
+
 const BlockSchema: z.ZodType<any> = z.union([
   HeadingBlockSchema,
   ParagraphBlockSchema,
@@ -304,6 +362,8 @@ const BlockSchema: z.ZodType<any> = z.union([
   PageMetaBlockSchema,
   IdentityResolutionGuidanceBlockSchema,
   ResolutionProofBlockSchema,
+  SelfCheckIntroBlockSchema,
+  SelfCheckResultBlockSchema,
 ])
 
 export function validateBlocks(content: unknown): { valid: boolean; errors: string[] } {

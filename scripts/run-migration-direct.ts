@@ -38,16 +38,18 @@ async function runMigration() {
     `ALTER TABLE site_settings ENABLE ROW LEVEL SECURITY;`,
     
     // Create policies
-    `CREATE POLICY IF NOT EXISTS "Public read access to site_settings"
-      ON site_settings FOR SELECT USING (true);`,
+    `DROP POLICY IF EXISTS "Public read access to site_settings" ON public.site_settings;
+     CREATE POLICY "Public read access to site_settings"
+      ON public.site_settings FOR SELECT USING (true);`,
     
-    `CREATE POLICY IF NOT EXISTS "Admin write access to site_settings"
-      ON site_settings FOR ALL
+    `DROP POLICY IF EXISTS "Admin write access to site_settings" ON public.site_settings;
+     CREATE POLICY "Admin write access to site_settings"
+      ON public.site_settings FOR ALL
       USING (
         EXISTS (
-          SELECT 1 FROM user_profiles
-          WHERE user_profiles.user_id = auth.uid()
-          AND user_profiles.role = 'admin'
+          SELECT 1 FROM public.profiles
+          WHERE public.profiles.id = auth.uid()
+          AND public.profiles.role = 'admin'
         )
       );`
   ];

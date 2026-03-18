@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Type,
   Image as ImageIcon,
@@ -40,6 +40,16 @@ export default function ContentEditor({
 }: ContentEditorProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editingData, setEditingData] = useState<any>(null)
+  
+  // Create a ref to hold the save function so we can call it from event listener
+  const saveBlockEditRef = useRef<(() => void) | null>(null);
+
+  const DEFAULT_SCALE_SCORE_BANDS = [
+    { range: '27-35', label: 'High confidence', explanation: "You're managing it. Keep building experience." },
+    { range: '18-26', label: 'Moderate anxiety', explanation: 'Moderate anxiety. Focus on Techniques #1 and #3.' },
+    { range: '9-17', label: 'Starting point', explanation: "You're where Tony started. VOICE framework will help the most." },
+    { range: '1-8', label: 'Low anxiety', explanation: 'Low anxiety. Keep practicing to stay confident.' },
+  ]
   const [showBlockPalette, setShowBlockPalette] = useState(false)
 
   const blockTypes = [
@@ -187,8 +197,12 @@ export default function ContentEditor({
       case 'self_check_result':
         newBlock = {
           type: 'self_check_result',
+          assessmentType: 'scale',
           title: 'Self-Check Results',
           subtitle: 'This is your starting point for this chapter—not your ending point.',
+          scoreBandsTitle: 'Score Bands Explained',
+          scoreBands: DEFAULT_SCALE_SCORE_BANDS,
+          buttonText: 'Continue to Framework →',
         }
         break
     }
@@ -199,7 +213,21 @@ export default function ContentEditor({
 
   const handleEditBlock = (index: number) => {
     setEditingIndex(index)
-    setEditingData({ ...content[index] })
+    const base = { ...content[index] }
+
+    // If this is a self-check result block and it has no saved bands yet,
+    // initialize with the 4 default bands so the admin can edit them directly.
+    if (base?.type === 'self_check_result') {
+      const existingBands = Array.isArray(base.scoreBands) ? base.scoreBands : []
+      if (existingBands.length === 0) {
+        base.assessmentType = base.assessmentType || 'scale'
+        base.scoreBandsTitle = base.scoreBandsTitle || 'Score Bands Explained'
+        base.scoreBands = DEFAULT_SCALE_SCORE_BANDS
+        base.buttonText = base.buttonText || 'Continue to Framework →'
+      }
+    }
+
+    setEditingData(base)
   }
 
   const normalizeBlock = (block: any) => {
@@ -302,13 +330,38 @@ export default function ContentEditor({
     return dataToSave
   }
 
-  // Block edits are applied immediately; only top-level save should persist to server.
-  useEffect(() => {
-    if (editingIndex === null || !editingData) return
+  // Save edited block data back to content array
+  const handleSaveBlockEdit = useCallback(() => {
+    if (editingIndex === null || !editingData) {
+      return;
+    }
+    
     const newContent = [...content]
-    newContent[editingIndex] = normalizeBlock(editingData)
+    const normalizedBlock = normalizeBlock(editingData);
+    newContent[editingIndex] = normalizedBlock;
+    
     onChange(newContent)
-  }, [editingData, editingIndex, onChange])
+    
+    setEditingIndex(null)
+    setEditingData(null)
+  }, [content, editingIndex, editingData, onChange, normalizeBlock])
+  
+  // Store the save function in ref so event listener can access it
+  useEffect(() => {
+    saveBlockEditRef.current = handleSaveBlockEdit;
+  }, [handleSaveBlockEdit]);
+  
+  // Listen for force-save events from parent
+  useEffect(() => {
+    const handleForceSave = () => {
+      if (editingIndex !== null && editingData && saveBlockEditRef.current) {
+        saveBlockEditRef.current();
+      }
+    };
+    
+    window.addEventListener('force-save-content-editor', handleForceSave);
+    return () => window.removeEventListener('force-save-content-editor', handleForceSave);
+  }, [editingIndex, editingData]);
 
   const handleDeleteBlock = (index: number) => {
     if (confirm('Delete this block?')) {
@@ -1844,7 +1897,9 @@ export default function ContentEditor({
                           <input
                             type="text"
                             value={editingData?.title || ''}
-                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
+                            onChange={(e) => {
+                              setEditingData({ ...editingData, title: e.target.value });
+                            }}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                             placeholder="Self-Check"
                           />
@@ -2066,6 +2121,214 @@ export default function ContentEditor({
                           />
                         </div>
 
+                        {/* Assessment Type Selector */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Assessment Type
+                          </label>
+                          <select
+                            value={editingData?.assessmentType || 'scale'}
+                            onChange={(e) => setEditingData({ ...editingData, assessmentType: e.target.value as 'scale' | 'yes_no' | 'mcq' })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                          >
+                            <option value="scale">Scale Assessment (1-7 Rating)</option>
+                            <option value="yes_no">Yes/No Assessment</option>
+                            <option value="mcq">MCQ Assessment</option>
+                          </select>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Different assessment types can have different score bands and explanations
+                          </p>
+                        </div>
+
+                        {/* Score Display Format Section */}
+                        <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20">
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                            Score Display Customization
+                          </label>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
+                            Customize how the score appears to users. Examples:
+                            <br />• Scale: "5 <strong>out of 35</strong>" + "<strong>Low anxiety</strong>"
+                            <br />• Yes/No: "2 <strong>Yes</strong>, 3 <strong>No</strong>" + "<strong>Mixed results</strong>"
+                            <br />• MCQ: "7 <strong>correct</strong>" + "<strong>Good job!</strong>"
+                          </p>
+                          
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Score Subtext (appears below the score number)
+                              </label>
+                              <input
+                                type="text"
+                                value={editingData?.scoreDisplayFormat?.scoreSubtext || ''}
+                                onChange={(e) => setEditingData({
+                                  ...editingData,
+                                  scoreDisplayFormat: {
+                                    ...(editingData?.scoreDisplayFormat || {}),
+                                    scoreSubtext: e.target.value
+                                  }
+                                })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                                placeholder="out of 35"
+                              />
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Scale: "out of 35" | Yes/No: "Yes, 3 No" (dynamic) | MCQ: "correct"
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Score Bands Section */}
+                        <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                          <div className="flex items-center justify-between mb-3">
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                              Score Bands (Ranges & Explanations)
+                            </label>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const bands = editingData?.scoreBands || [];
+                                setEditingData({
+                                  ...editingData,
+                                  scoreBands: [...bands, { range: '', label: '', explanation: '' }]
+                                });
+                              }}
+                            >
+                              + Add Band
+                            </Button>
+                          </div>
+
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                            {(editingData?.scoreBands || []).length === 0 
+                              ? 'No score bands yet. Click "+ Add Band" to create your first one.'
+                              : `${(editingData?.scoreBands || []).length} band(s) configured. Edit below or add more.`
+                            }
+                          </p>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Score Bands Title
+                            </label>
+                            <input
+                              type="text"
+                              value={editingData?.scoreBandsTitle || ''}
+                              onChange={(e) => setEditingData({ ...editingData, scoreBandsTitle: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 mb-3"
+                              placeholder="Score Bands Explained"
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            {(editingData?.scoreBands || []).map((band: any, idx: number) => (
+                              <div key={idx} className="flex gap-2 items-start p-3 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-700 shadow-sm">
+                                <div className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                  {idx + 1}
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Range (e.g., "27-35" or "1-8")
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={band.range || ''}
+                                        onChange={(e) => {
+                                          const newBands = [...(editingData?.scoreBands || [])];
+                                          newBands[idx] = { ...newBands[idx], range: e.target.value };
+                                          setEditingData({ ...editingData, scoreBands: newBands });
+                                        }}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"
+                                        placeholder="27-35"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Label (e.g., "Low anxiety")
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={band.label || ''}
+                                        onChange={(e) => {
+                                          const newBands = [...(editingData?.scoreBands || [])];
+                                          newBands[idx] = { ...newBands[idx], label: e.target.value };
+                                          setEditingData({ ...editingData, scoreBands: newBands });
+                                        }}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Low anxiety"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                      Explanation
+                                    </label>
+                                    <textarea
+                                      value={band.explanation || ''}
+                                      onChange={(e) => {
+                                        const newBands = [...(editingData?.scoreBands || [])];
+                                        newBands[idx] = { ...newBands[idx], explanation: e.target.value };
+                                        setEditingData({ ...editingData, scoreBands: newBands });
+                                      }}
+                                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 min-h-[60px] focus:ring-2 focus:ring-blue-500"
+                                      placeholder="You're managing it. Keep building experience."
+                                    />
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    if (confirm(`Remove band ${idx + 1} (${band.range || 'untitled'})?`)) {
+                                      const newBands = (editingData?.scoreBands || []).filter((_: any, i: number) => i !== idx);
+                                      setEditingData({ ...editingData, scoreBands: newBands });
+                                    }
+                                  }}
+                                  className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                  title="Remove band"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                            {(!editingData?.scoreBands || editingData.scoreBands.length === 0) && (
+                              <div className="text-center py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                  No score bands configured yet
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-500">
+                                  Click "+ Add Band" above to create your first score band
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Score Message */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Score Message (appears below the score)
+                          </label>
+                          <textarea
+                            value={editingData?.scoreMessage || ''}
+                            onChange={(e) => setEditingData({ ...editingData, scoreMessage: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 min-h-[60px]"
+                            placeholder="You're doing well. Keep practicing to stay confident."
+                          />
+                        </div>
+
+                        {/* Button Text */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Continue Button Text
+                          </label>
+                          <input
+                            type="text"
+                            value={editingData?.buttonText || ''}
+                            onChange={(e) => setEditingData({ ...editingData, buttonText: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            placeholder="Continue to Framework →"
+                          />
+                        </div>
+
                         {/* Styling overrides for result */}
                         <details className="mt-4">
                           <summary className="cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -2090,15 +2353,15 @@ export default function ContentEditor({
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Button BG</label>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Subtitle Color</label>
                                 <input
                                   type="text"
-                                  value={editingData?.styles?.buttonBgColor || ''}
+                                  value={editingData?.styles?.subtitleColor || ''}
                                   onChange={(e) => setEditingData({
                                     ...editingData,
-                                    styles: { ...(editingData?.styles || {}), buttonBgColor: e.target.value }
+                                    styles: { ...(editingData?.styles || {}), subtitleColor: e.target.value }
                                   })}
-                                  placeholder="#ff6a38"
+                                  placeholder="#6b7280"
                                   className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                                 />
                               </div>
@@ -2116,6 +2379,110 @@ export default function ContentEditor({
                                 />
                               </div>
                               <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Score Text Color</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.scoreTextColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), scoreTextColor: e.target.value }
+                                  })}
+                                  placeholder="#111827"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Score Subtext Color</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.scoreSubtextColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), scoreSubtextColor: e.target.value }
+                                  })}
+                                  placeholder="#6b7280"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Score Label Color</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.scoreLabelColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), scoreLabelColor: e.target.value }
+                                  })}
+                                  placeholder="#ffffff"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Score Label BG</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.scoreLabelBgColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), scoreLabelBgColor: e.target.value }
+                                  })}
+                                  placeholder="#3b82f6"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Score Message Color</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.scoreMessageColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), scoreMessageColor: e.target.value }
+                                  })}
+                                  placeholder="#374151"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Score Bands BG</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.scoreBandsBgColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), scoreBandsBgColor: e.target.value }
+                                  })}
+                                  placeholder="#fef3c7"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Score Bands Text</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.scoreBandsTextColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), scoreBandsTextColor: e.target.value }
+                                  })}
+                                  placeholder="#78350f"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Score Bands Title</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.scoreBandsTitleColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), scoreBandsTitleColor: e.target.value }
+                                  })}
+                                  placeholder="#92400e"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
                                 <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Explanation BG</label>
                                 <input
                                   type="text"
@@ -2128,6 +2495,58 @@ export default function ContentEditor({
                                   className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                                 />
                               </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Explanation Text</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.explanationTextColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), explanationTextColor: e.target.value }
+                                  })}
+                                  placeholder="#92400e"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Button BG</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.buttonBgColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), buttonBgColor: e.target.value }
+                                  })}
+                                  placeholder="#f97316"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Button Hover</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.buttonHoverColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), buttonHoverColor: e.target.value }
+                                  })}
+                                  placeholder="#ea580c"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Button Text</label>
+                                <input
+                                  type="text"
+                                  value={editingData?.styles?.buttonTextColor || ''}
+                                  onChange={(e) => setEditingData({
+                                    ...editingData,
+                                    styles: { ...(editingData?.styles || {}), buttonTextColor: e.target.value }
+                                  })}
+                                  placeholder="#ffffff"
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                />
+                              </div>
                             </div>
                           </div>
                         </details>
@@ -2135,7 +2554,7 @@ export default function ContentEditor({
                     )}
                     
                     <div className="flex gap-2 pt-2">
-                      <Button variant="secondary" size="sm" onClick={() => { setEditingIndex(null); setEditingData(null); }}>
+                      <Button variant="secondary" size="sm" onClick={handleSaveBlockEdit}>
                         Done
                       </Button>
                     </div>

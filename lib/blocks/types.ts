@@ -288,6 +288,43 @@ export interface ButtonBlock {
 }
 
 // ============================================
+// Self-Check Configuration Blocks
+// ============================================
+
+export interface SelfCheckIntroBlock {
+  type: 'self_check_intro';
+  title?: string;
+  subtitle?: string;
+  body1?: string;
+  body2?: string;
+  highlightTitle?: string;
+  highlightBody?: string;
+  questionsTitle?: string;
+  questionsSubtitle?: string;
+  styles?: {
+    titleColor?: string;
+    subtitleColor?: string;
+    bodyTextColor?: string;
+    highlightBgColor?: string;
+    highlightTextColor?: string;
+    highlightTitleColor?: string;
+  };
+}
+
+export interface SelfCheckResultBlock {
+  type: 'self_check_result';
+  title?: string;
+  subtitle?: string;
+  message?: string;
+  styles?: {
+    titleColor?: string;
+    subtitleColor?: string;
+    messageTextColor?: string;
+    containerBgColor?: string;
+  };
+}
+
+// ============================================
 // Conditional & Dynamic Blocks
 // ============================================
 
@@ -374,18 +411,57 @@ export interface SelfCheckIntroBlock {
   };
 }
 
+/** Score band configuration for different ranges */
+export interface ScoreBand {
+  /** Range label (e.g., "27-35", "18-26") */
+  range: string;
+  /** Label/category for this range (e.g., "Low anxiety", "High confidence") */
+  label?: string;
+  /** Explanation text for this score range */
+  explanation: string;
+}
+
 export interface SelfCheckResultBlock {
   type: 'self_check_result';
+  /** Assessment type: scale (1-7), yes_no, or mcq */
+  assessmentType?: 'scale' | 'yes_no' | 'mcq';
   /** Main heading on the results screen */
   title?: string;
   /** Subtitle under the heading */
   subtitle?: string;
+  
+  // Score Display Customization
+  /** Custom format for score display (e.g., "out of 35", "Yes", "correct") */
+  scoreDisplayFormat?: {
+    /** Text to show after the score number (e.g., "out of 35") */
+    scoreSubtext?: string;
+    /** Label text shown below the score (e.g., "Low anxiety", "Good job") - dynamically matched from score bands */
+    scoreLabelText?: string;
+    /** Message shown below the label (e.g., "You're doing well. Keep practicing...") */
+    scoreMessageText?: string;
+  };
+  
+  /** Score bands explanation section title */
+  scoreBandsTitle?: string;
+  /** Array of score bands with ranges and explanations */
+  scoreBands?: ScoreBand[];
+  /** Custom message that appears below the score */
+  scoreMessage?: string;
+  /** Button text for continuing */
+  buttonText?: string;
   /** Custom styles for this result (overrides global defaults) */
   styles?: {
     titleColor?: string;
     subtitleColor?: string;
     scoreBgColor?: string;
     scoreTextColor?: string;
+    scoreSubtextColor?: string;
+    scoreLabelColor?: string;
+    scoreLabelBgColor?: string;
+    scoreMessageColor?: string;
+    scoreBandsBgColor?: string;
+    scoreBandsTextColor?: string;
+    scoreBandsTitleColor?: string;
     explanationBgColor?: string;
     explanationTextColor?: string;
     buttonBgColor?: string;
