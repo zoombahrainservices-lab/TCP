@@ -40,23 +40,25 @@ VALUES (
 ON CONFLICT (key) DO NOTHING;
 
 -- Enable RLS
-ALTER TABLE site_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
 
 -- Allow public read
-CREATE POLICY IF NOT EXISTS "Public read access to site_settings"
-  ON site_settings
+DROP POLICY IF EXISTS "Public read access to site_settings" ON public.site_settings;
+CREATE POLICY "Public read access to site_settings"
+  ON public.site_settings
   FOR SELECT
   USING (true);
 
 -- Admin write only
-CREATE POLICY IF NOT EXISTS "Admin write access to site_settings"
-  ON site_settings
+DROP POLICY IF EXISTS "Admin write access to site_settings" ON public.site_settings;
+CREATE POLICY "Admin write access to site_settings"
+  ON public.site_settings
   FOR ALL
   USING (
     EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.user_id = auth.uid()
-      AND user_profiles.role = 'admin'
+      SELECT 1 FROM public.profiles
+      WHERE public.profiles.id = auth.uid()
+      AND public.profiles.role = 'admin'
     )
   );
 ```
