@@ -436,38 +436,66 @@ export async function getResolutionReportData(
       return { success: false, error: 'Not authenticated' }
     }
 
-    // Fetch chapter steps to get prompts from page content
-    const { data: steps } = await supabase
+    console.log(`[getResolutionReportData] ===== STARTING CHAPTER ${chapterId} =====`)
+    console.log(`[getResolutionReportData] User ID: ${user.id}`)
+
+    // PERSPECTIVE 1: Fetch chapter steps to get prompts from page content
+    console.log(`[getResolutionReportData] PERSPECTIVE 1: Fetching steps...`)
+    const { data: steps, error: stepsError } = await supabase
       .from('steps')
-      .select('id, step_type')
+      .select('id, step_type, title, slug')
       .eq('chapter_id', chapterId)
       .in('step_type', ['framework', 'techniques', 'follow_through'])
 
-    // Fetch all pages for these steps to extract prompt questions
+    console.log(`[getResolutionReportData] Steps query result:`)
+    console.log(`  - Found ${steps?.length || 0} steps`)
+    console.log(`  - Error: ${stepsError ? JSON.stringify(stepsError) : 'none'}`)
+    if (steps) {
+      steps.forEach(s => {
+        console.log(`  - Step: ${s.step_type} (${s.title}) [${s.id}]`)
+      })
+    }
+
+    // PERSPECTIVE 2: Fetch all pages for these steps to extract prompt questions
     const promptQuestionsMap = new Map<string, string>() // prompt_key -> question text
     
     if (steps && steps.length > 0) {
       const stepIds = steps.map(s => s.id)
-      const { data: pages } = await supabase
+      console.log(`[getResolutionReportData] PERSPECTIVE 2: Fetching pages for ${stepIds.length} steps...`)
+      
+      const { data: pages, error: pagesError } = await supabase
         .from('step_pages')
-        .select('content')
+        .select('id, title, content, step_id')
         .in('step_id', stepIds)
 
-      // Extract prompt blocks from page content
+      console.log(`[getResolutionReportData] Pages query result:`)
+      console.log(`  - Found ${pages?.length || 0} pages`)
+      console.log(`  - Error: ${pagesError ? JSON.stringify(pagesError) : 'none'}`)
+
+      // PERSPECTIVE 3: Extract prompt blocks from page content
+      console.log(`[getResolutionReportData] PERSPECTIVE 3: Extracting prompts from pages...`)
       for (const page of pages ?? []) {
         const content = page.content as any[]
-        if (!Array.isArray(content)) continue
+        if (!Array.isArray(content)) {
+          console.log(`  - Page ${page.id} (${page.title}): content is not an array`)
+          continue
+        }
         
+        console.log(`  - Page ${page.id} (${page.title}): ${content.length} blocks`)
+        let promptCount = 0
         for (const block of content) {
           if (block.type === 'prompt' && block.id && block.label) {
-            // Store the question by its ID (will be used as part of prompt_key)
             promptQuestionsMap.set(block.id, block.label)
+            promptCount++
+            console.log(`    ✓ Prompt: ${block.id} -> "${block.label.substring(0, 50)}..."`)
           }
         }
+        console.log(`  - Page ${page.id}: Found ${promptCount} prompts`)
       }
     }
 
-    console.log(`[getResolutionReportData] Found ${promptQuestionsMap.size} prompt questions from pages`)
+    console.log(`[getResolutionReportData] Total prompts found: ${promptQuestionsMap.size}`)
+    console.log(`[getResolutionReportData] Prompt IDs:`, Array.from(promptQuestionsMap.keys()))
 
     // Fetch identity resolution (two places: dedicated artifact OR embedded in proof artifact)
     const { data: identityArtifact, error: identityError } = await supabase
@@ -515,10 +543,8 @@ export async function getResolutionReportData(
         createdAt: artifact.created_at,
       })) ?? []
 
-    // Fetch Your Turn responses from BOTH artifacts AND user_prompt_answers
-    // Artifacts: type='your_turn_response'
-    // user_prompt_answers: keys like ch1_spark_s_pattern, ch1_technique_1_substitution, ch1_followthrough_1_pick_one
-    
+    // PERSPECTIVE 4: Fetch Your Turn responses from artifacts
+    console.log(`[getResolutionReportData] PERSPECTIVE 4: Fetching Your Turn from artifacts...`)
     const { data: yourTurnArtifacts, error: yourTurnError } = await supabase
       .from('artifacts')
       .select('id, data, created_at')
@@ -526,6 +552,10 @@ export async function getResolutionReportData(
       .eq('chapter_id', chapterId)
       .eq('type', 'your_turn_response')
       .order('created_at', { ascending: true })
+
+    console.log(`[getResolutionReportData] Artifacts query result:`)
+    console.log(`  - Found ${yourTurnArtifacts?.length || 0} artifacts`)
+    console.log(`  - Error: ${yourTurnError ? JSON.stringify(yourTurnError) : 'none'}`)
 
     if (yourTurnError) {
       console.error('[getResolutionReportData] Error fetching Your Turn artifacts (non-fatal):', yourTurnError)
@@ -537,45 +567,73 @@ export async function getResolutionReportData(
 
     // Process artifacts (if any)
     const prefix = `ch${chapterId}_`
+    console.log(`[getResolutionReportData] Processing artifacts with prefix: ${prefix}`)
     for (const row of yourTurnArtifacts ?? []) {
       const d = row.data as Record<string, unknown>
       const promptKey = String(d.promptKey ?? '')
+      console.log(`  - Artifact: ${promptKey}`)
       const item: YourTurnQandA = {
         promptText: d.promptText != null ? String(d.promptText) : null,
         responseText: String(d.responseText ?? ''),
         createdAt: row.created_at ?? '',
       }
-      if (promptKey.startsWith(`${prefix}framework_`)) framework.push(item)
-      else if (promptKey.startsWith(`${prefix}technique_`)) techniques.push(item)
-      else if (promptKey.startsWith(`${prefix}followthrough_`)) followThrough.push(item)
+      if (promptKey.startsWith(`${prefix}framework_`)) {
+        framework.push(item)
+        console.log(`    → Added to framework`)
+      }
+      else if (promptKey.startsWith(`${prefix}technique_`)) {
+        techniques.push(item)
+        console.log(`    → Added to techniques`)
+      }
+      else if (promptKey.startsWith(`${prefix}followthrough_`)) {
+        followThrough.push(item)
+        console.log(`    → Added to followThrough`)
+      } else {
+        console.log(`    → SKIPPED (doesn't match any category)`)
+      }
     }
 
-    // Fallback: Check user_prompt_answers for Your Turn data (keys like ch1_spark_s_pattern, ch1_technique_1_substitution)
+    // PERSPECTIVE 5: Fallback - Check user_prompt_answers for Your Turn data
+    console.log(`[getResolutionReportData] PERSPECTIVE 5: Fetching from user_prompt_answers...`)
     const { data: promptAnswers, error: promptAnswersError } = await supabase
       .from('user_prompt_answers')
       .select('prompt_key, answer, created_at')
       .eq('user_id', user.id)
       .eq('chapter_id', chapterId)
 
+    console.log(`[getResolutionReportData] user_prompt_answers query result:`)
+    console.log(`  - Found ${promptAnswers?.length || 0} answers`)
+    console.log(`  - Error: ${promptAnswersError ? JSON.stringify(promptAnswersError) : 'none'}`)
+
     if (promptAnswersError) {
       console.error('[getResolutionReportData] Error fetching prompt answers (non-fatal):', promptAnswersError)
     }
 
+    // PERSPECTIVE 6: Match prompt keys to questions
+    console.log(`[getResolutionReportData] PERSPECTIVE 6: Matching answers to questions...`)
     for (const row of promptAnswers ?? []) {
       const promptKey = row.prompt_key
       const answer = row.answer
       const answerText = typeof answer === 'string' ? answer : JSON.stringify(answer)
       
       // Skip self-check (that's handled separately)
-      if (promptKey.includes('self_check')) continue
+      if (promptKey.includes('self_check')) {
+        console.log(`  - SKIP (self_check): ${promptKey}`)
+        continue
+      }
+      
+      console.log(`  - Processing: ${promptKey}`)
       
       // Extract the prompt ID from the key (e.g., "ch1_framework_spark_s_pattern" -> "spark_s_pattern")
       const promptIdMatch = promptKey.match(/(?:framework|technique|followthrough)_(.+)$/)
       const promptId = promptIdMatch ? promptIdMatch[1] : null
+      console.log(`    Extracted ID: ${promptId}`)
+      
       const questionText = promptId ? promptQuestionsMap.get(promptId) : null
+      console.log(`    Question text: ${questionText ? questionText.substring(0, 50) + '...' : 'NOT FOUND'}`)
       
       const item: YourTurnQandA = {
-        promptText: questionText || null, // Use extracted question text if found
+        promptText: questionText || null,
         responseText: answerText,
         createdAt: row.created_at ?? '',
       }
@@ -583,22 +641,37 @@ export async function getResolutionReportData(
       // Categorize by key pattern
       if (promptKey.includes('spark_') || promptKey.includes('framework_') || promptKey.includes('voice_')) {
         framework.push(item)
+        console.log(`    → Added to framework`)
       } else if (promptKey.includes('technique_')) {
         techniques.push(item)
+        console.log(`    → Added to techniques`)
       } else if (promptKey.includes('followthrough_')) {
         followThrough.push(item)
+        console.log(`    → Added to followThrough`)
+      } else {
+        console.log(`    → SKIPPED (doesn't match any category)`)
       }
     }
 
     const chapterTitle = ASSESSMENT_CONFIG[chapterId]?.chapterTitle ?? `Chapter ${chapterId}`
 
-    // Log what we found for debugging
-    console.log(`[getResolutionReportData] Chapter ${chapterId} summary:`)
+    // PERSPECTIVE 7: Final Summary
+    console.log(`[getResolutionReportData] ===== FINAL SUMMARY =====`)
     console.log(`  - Identity: ${identityStatement ? 'FOUND' : 'NOT FOUND'}`)
     console.log(`  - Proofs: ${proofs.length}`)
     console.log(`  - Your Turn Framework: ${framework.length}`)
     console.log(`  - Your Turn Techniques: ${techniques.length}`)
     console.log(`  - Your Turn Follow-Through: ${followThrough.length}`)
+    console.log(`  - Total Your Turn: ${framework.length + techniques.length + followThrough.length}`)
+    
+    if (framework.length + techniques.length + followThrough.length === 0) {
+      console.warn(`[getResolutionReportData] ⚠️ NO YOUR TURN DATA FOUND!`)
+      console.warn(`  Possible reasons:`)
+      console.warn(`  1. User hasn't completed Framework/Techniques/Follow-Through sections`)
+      console.warn(`  2. Data is stored with different chapter_id`)
+      console.warn(`  3. Prompt keys don't match expected patterns`)
+      console.warn(`  4. Database query errors (check logs above)`)
+    }
 
     const reportData: ResolutionReportData = {
       chapterId,
