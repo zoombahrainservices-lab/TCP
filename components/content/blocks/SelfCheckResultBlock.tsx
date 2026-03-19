@@ -20,6 +20,15 @@ export default function SelfCheckResultBlock({
   score,
   maxScore,
 }: SelfCheckResultBlockProps) {
+  const stylesExt = styles as typeof styles & {
+    explanationBgColor?: string;
+    explanationTextColor?: string;
+    scoreBandsBgColor?: string;
+    scoreBandsTitleColor?: string;
+    scoreBandsTextColor?: string;
+    buttonBgColor?: string;
+    buttonTextColor?: string;
+  };
   
   // Default score bands for scale assessments (can be customized)
   const defaultScaleBands = [
@@ -65,8 +74,8 @@ export default function SelfCheckResultBlock({
           <div 
             className="rounded-lg p-4 mb-4"
             style={{ 
-              backgroundColor: styles.explanationBgColor || '#fef3c7',
-              color: styles.explanationTextColor || '#92400e'
+              backgroundColor: stylesExt.explanationBgColor || '#fef3c7',
+              color: stylesExt.explanationTextColor || '#92400e'
             }}
           >
             <p className="text-sm">{scoreMessage}</p>
@@ -78,12 +87,12 @@ export default function SelfCheckResultBlock({
           <div 
             className="rounded-lg p-4 mb-4"
             style={{ 
-              backgroundColor: styles.scoreBandsBgColor || '#fef3c7',
+              backgroundColor: stylesExt.scoreBandsBgColor || '#fef3c7',
             }}
           >
             <h4 
               className="font-semibold mb-3"
-              style={{ color: styles.scoreBandsTitleColor || '#92400e' }}
+              style={{ color: stylesExt.scoreBandsTitleColor || '#92400e' }}
             >
               {scoreBandsTitle}
             </h4>
@@ -92,7 +101,7 @@ export default function SelfCheckResultBlock({
                 <div 
                   key={idx}
                   className="flex items-start gap-3"
-                  style={{ color: styles.scoreBandsTextColor || '#78350f' }}
+                  style={{ color: stylesExt.scoreBandsTextColor || '#78350f' }}
                 >
                   <div className="flex items-center gap-2 min-w-[140px]">
                     <span className="font-mono font-semibold text-sm">
@@ -117,8 +126,8 @@ export default function SelfCheckResultBlock({
         <button 
           className="w-full py-3 px-6 rounded-lg font-semibold transition-colors"
           style={{ 
-            backgroundColor: styles.buttonBgColor || '#f97316',
-            color: styles.buttonTextColor || '#ffffff'
+            backgroundColor: stylesExt.buttonBgColor || '#f97316',
+            color: stylesExt.buttonTextColor || '#ffffff'
           }}
         >
           {buttonText}
