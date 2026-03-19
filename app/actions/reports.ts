@@ -51,6 +51,12 @@ export type ResolutionReportData = {
     techniques: YourTurnQandA[]
     followThrough: YourTurnQandA[]
   }
+  /** Available questions even if no answers */
+  availableQuestions?: {
+    framework: Array<{ id: string; label: string }>
+    techniques: Array<{ id: string; label: string }>
+    followThrough: Array<{ id: string; label: string }>
+  }
 }
 
 export type ChapterReportMeta = {
@@ -439,11 +445,52 @@ export async function getResolutionReportData(
     console.log(`[getResolutionReportData] ===== STARTING CHAPTER ${chapterId} =====`)
     console.log(`[getResolutionReportData] User ID: ${user.id}`)
 
-    // NOTE: Skipping steps/pages query since 'steps' table doesn't exist in schema
-    // We'll rely on artifacts which already have promptText stored
-    console.log(`[getResolutionReportData] Skipping steps/pages query (table doesn't exist)`)
-    
+    // Fetch all pages for this chapter to extract questions
+    console.log(`[getResolutionReportData] Fetching pages for chapter ${chapterId}...`)
+    const { data: allPages, error: pagesError } = await supabase
+      .from('step_pages')
+      .select('id, title, slug, content')
+      .eq('chapter_id', chapterId)
+
+    console.log(`[getResolutionReportData] Pages query result:`)
+    console.log(`  - Found ${allPages?.length || 0} pages`)
+    console.log(`  - Error: ${pagesError ? JSON.stringify(pagesError) : 'none'}`)
+
+    // Extract ALL prompts from pages and categorize by page slug/title
+    const frameworkQuestions: Array<{ id: string; label: string }> = []
+    const techniquesQuestions: Array<{ id: string; label: string }> = []
+    const followThroughQuestions: Array<{ id: string; label: string }> = []
     const promptQuestionsMap = new Map<string, string>()
+
+    for (const page of allPages ?? []) {
+      const content = page.content as any[]
+      if (!Array.isArray(content)) continue
+      
+      const slug = page.slug || ''
+      const title = page.title || ''
+      
+      for (const block of content) {
+        if (block.type === 'prompt' && block.id && block.label) {
+          promptQuestionsMap.set(block.id, block.label)
+          
+          const questionItem = { id: block.id, label: block.label }
+          
+          // Categorize based on page slug or title
+          if (slug.includes('framework') || title.toLowerCase().includes('framework')) {
+            frameworkQuestions.push(questionItem)
+          } else if (slug.includes('technique') || title.toLowerCase().includes('technique')) {
+            techniquesQuestions.push(questionItem)
+          } else if (slug.includes('follow') || title.toLowerCase().includes('follow')) {
+            followThroughQuestions.push(questionItem)
+          }
+        }
+      }
+    }
+
+    console.log(`[getResolutionReportData] Found questions:`)
+    console.log(`  - Framework: ${frameworkQuestions.length}`)
+    console.log(`  - Techniques: ${techniquesQuestions.length}`)
+    console.log(`  - Follow-Through: ${followThroughQuestions.length}`)
 
     // Fetch identity resolution (two places: dedicated artifact OR embedded in proof artifact)
     const { data: identityArtifact, error: identityError } = await supabase
@@ -616,24 +663,8 @@ export async function getResolutionReportData(
 
     const chapterTitle = ASSESSMENT_CONFIG[chapterId]?.chapterTitle ?? `Chapter ${chapterId}`
 
-    // PERSPECTIVE 7: Final Summary
-    console.log(`[getResolutionReportData] ===== FINAL SUMMARY =====`)
-    console.log(`  - Identity: ${identityStatement ? 'FOUND' : 'NOT FOUND'}`)
-    console.log(`  - Proofs: ${proofs.length}`)
-    console.log(`  - Your Turn Framework: ${framework.length}`)
-    console.log(`  - Your Turn Techniques: ${techniques.length}`)
-    console.log(`  - Your Turn Follow-Through: ${followThrough.length}`)
-    console.log(`  - Total Your Turn: ${framework.length + techniques.length + followThrough.length}`)
-    
-    if (framework.length + techniques.length + followThrough.length === 0) {
-      console.warn(`[getResolutionReportData] ⚠️ NO YOUR TURN DATA FOUND!`)
-      console.warn(`  Possible reasons:`)
-      console.warn(`  1. User hasn't completed Framework/Techniques/Follow-Through sections`)
-      console.warn(`  2. Data is stored with different chapter_id`)
-      console.warn(`  3. Prompt keys don't match expected patterns`)
-      console.warn(`  4. Database query errors (check logs above)`)
-    }
-
+    // Create the final data structure with questions available
+    // This allows the report to show questions even if there are no answers
     const reportData: ResolutionReportData = {
       chapterId,
       chapterTitle,
@@ -641,6 +672,26 @@ export async function getResolutionReportData(
       identityResolution: identityStatement,
       proofs,
       yourTurnByCategory: { framework, techniques, followThrough },
+      // Add available questions for sections without answers
+      availableQuestions: {
+        framework: frameworkQuestions,
+        techniques: techniquesQuestions,
+        followThrough: followThroughQuestions,
+      }
+    }
+
+    // PERSPECTIVE 7: Final Summary
+    console.log(`[getResolutionReportData] ===== FINAL SUMMARY =====`)
+    console.log(`  - Identity: ${identityStatement ? 'FOUND' : 'NOT FOUND'}`)
+    console.log(`  - Proofs: ${proofs.length}`)
+    console.log(`  - Your Turn Framework: ${framework.length} answers, ${frameworkQuestions.length} questions available`)
+    console.log(`  - Your Turn Techniques: ${techniques.length} answers, ${techniquesQuestions.length} questions available`)
+    console.log(`  - Your Turn Follow-Through: ${followThrough.length} answers, ${followThroughQuestions.length} questions available`)
+    console.log(`  - Total Your Turn: ${framework.length + techniques.length + followThrough.length}`)
+    
+    if (framework.length + techniques.length + followThrough.length === 0 && 
+        frameworkQuestions.length + techniquesQuestions.length + followThroughQuestions.length === 0) {
+      console.warn(`[getResolutionReportData] ⚠️ NO YOUR TURN DATA OR QUESTIONS FOUND!`)
     }
 
     return { success: true, data: reportData }

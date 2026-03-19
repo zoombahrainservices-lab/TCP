@@ -121,8 +121,13 @@ function buildCombinedReportHtml(
     : '<p class="text-muted">No proof submissions yet.</p>'
 
   // Your Turn HTML (Framework, Techniques, Follow-Through)
-  // ALWAYS show sections, even if empty
-  function buildYourTurnHtml(category: string, items: any[], categoryKey: string): string {
+  // ALWAYS show sections - if no answers, show questions or empty state
+  function buildYourTurnHtml(
+    category: string, 
+    items: any[], 
+    categoryKey: string,
+    availableQuestions?: Array<{ id: string; label: string }>
+  ): string {
     const categoryEmojis: Record<string, string> = {
       framework: '🎯',
       techniques: '⚡',
@@ -131,22 +136,9 @@ function buildCombinedReportHtml(
     
     const emoji = categoryEmojis[categoryKey] || '📝'
     
-    // If no items, show section with message
-    if (!items?.length) {
+    // If has answers, show them
+    if (items?.length > 0) {
       return `
-    <div class="your-turn-section">
-      <h3>${emoji} ${escapeHtml(category)}</h3>
-      <div class="your-turn-item" style="background: #f8fafc; border-left-color: #cbd5e1;">
-        <p style="color: #64748b; font-style: italic; margin: 0;">
-          No responses recorded for this section yet.
-        </p>
-      </div>
-    </div>
-    `
-    }
-    
-    // If has items, show them
-    return `
     <div class="your-turn-section">
       <h3>${emoji} ${escapeHtml(category)}</h3>
       ${items
@@ -171,12 +163,67 @@ function buildCombinedReportHtml(
         .join('')}
     </div>
     `
+    }
+    
+    // If no answers BUT has questions, show questions without answers
+    if (availableQuestions && availableQuestions.length > 0) {
+      return `
+    <div class="your-turn-section">
+      <h3>${emoji} ${escapeHtml(category)}</h3>
+      <p style="color: #64748b; font-style: italic; margin: 8px 0 16px 0; font-size: 11px;">
+        Questions available but not yet answered. Complete this section to see your responses here.
+      </p>
+      ${availableQuestions
+        .map(
+          (q, idx) => `
+        <div class="your-turn-item" style="background: #fafafa; border-left-color: #cbd5e1;">
+          <div class="your-turn-prompt" style="color: #475569;">
+            <span style="font-weight: 700; color: #94a3b8; margin-right: 8px;">${idx + 1}.</span>
+            ${escapeHtml(q.label)}
+          </div>
+          <div class="your-turn-response" style="background: #f8f8f8; color: #94a3b8; font-style: italic; min-height: 40px; display: flex; align-items: center;">
+            Not answered yet
+          </div>
+        </div>
+      `
+        )
+        .join('')}
+    </div>
+    `
+    }
+    
+    // If no answers AND no questions, show empty state
+    return `
+    <div class="your-turn-section">
+      <h3>${emoji} ${escapeHtml(category)}</h3>
+      <div class="your-turn-item" style="background: #f8fafc; border-left-color: #cbd5e1;">
+        <p style="color: #64748b; font-style: italic; margin: 0;">
+          No questions or responses recorded for this section yet.
+        </p>
+      </div>
+    </div>
+    `
   }
 
   // Always generate all three sections
-  const frameworkHtml = buildYourTurnHtml('Framework Reflections', resolutionData?.yourTurnByCategory?.framework ?? [], 'framework')
-  const techniquesHtml = buildYourTurnHtml('Technique Applications', resolutionData?.yourTurnByCategory?.techniques ?? [], 'techniques')
-  const followThroughHtml = buildYourTurnHtml('Follow-Through Commitments', resolutionData?.yourTurnByCategory?.followThrough ?? [], 'followthrough')
+  const frameworkHtml = buildYourTurnHtml(
+    'Framework Reflections', 
+    resolutionData?.yourTurnByCategory?.framework ?? [], 
+    'framework',
+    resolutionData?.availableQuestions?.framework
+  )
+  const techniquesHtml = buildYourTurnHtml(
+    'Technique Applications', 
+    resolutionData?.yourTurnByCategory?.techniques ?? [], 
+    'techniques',
+    resolutionData?.availableQuestions?.techniques
+  )
+  const followThroughHtml = buildYourTurnHtml(
+    'Follow-Through Commitments', 
+    resolutionData?.yourTurnByCategory?.followThrough ?? [], 
+    'followthrough',
+    resolutionData?.availableQuestions?.followThrough
+  )
   
   // Always include all three sections (no longer check if empty)
   const yourTurnHtml = `${frameworkHtml}${techniquesHtml}${followThroughHtml}`
