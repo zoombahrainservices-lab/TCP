@@ -192,7 +192,12 @@ function buildCombinedReportHtml(
     `
     }
     
-    // If no answers AND no questions, show empty state
+    // For Techniques/Follow-Through, hide the section entirely when empty.
+    if (categoryKey === 'techniques' || categoryKey === 'followthrough') {
+      return ''
+    }
+
+    // If no answers AND no questions, show empty state (Framework only)
     return `
     <div class="your-turn-section">
       <h3>${emoji} ${escapeHtml(category)}</h3>
@@ -384,18 +389,6 @@ function buildCombinedReportHtml(
   ${
     resolutionData
       ? `
-  <h2>🎯 Identity Statement & Resolution</h2>
-  
-  ${
-    resolutionData.identityResolution
-      ? `
-  <div class="identity-statement">
-    "${escapeHtml(resolutionData.identityResolution)}"
-  </div>
-  `
-      : '<p class="text-muted" style="margin: 16px 0;">No identity statement recorded yet.</p>'
-  }
-
   <h3>Proof Submissions</h3>
   ${proofsHtml}
   `
