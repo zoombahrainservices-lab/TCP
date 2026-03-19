@@ -121,12 +121,34 @@ function buildCombinedReportHtml(
     : '<p class="text-muted">No proof submissions yet.</p>'
 
   // Your Turn HTML (Framework, Techniques, Follow-Through)
-  function buildYourTurnHtml(category: string, items: any[]): string {
-    if (!items?.length) return ''
+  // ALWAYS show sections, even if empty
+  function buildYourTurnHtml(category: string, items: any[], categoryKey: string): string {
+    const categoryEmojis: Record<string, string> = {
+      framework: '🎯',
+      techniques: '⚡',
+      followthrough: '🚀'
+    }
     
+    const emoji = categoryEmojis[categoryKey] || '📝'
+    
+    // If no items, show section with message
+    if (!items?.length) {
+      return `
+    <div class="your-turn-section">
+      <h3>${emoji} ${escapeHtml(category)}</h3>
+      <div class="your-turn-item" style="background: #f8fafc; border-left-color: #cbd5e1;">
+        <p style="color: #64748b; font-style: italic; margin: 0;">
+          No responses recorded for this section yet.
+        </p>
+      </div>
+    </div>
+    `
+    }
+    
+    // If has items, show them
     return `
     <div class="your-turn-section">
-      <h3>${escapeHtml(category)}</h3>
+      <h3>${emoji} ${escapeHtml(category)}</h3>
       ${items
         .map(
           (item: any, idx: number) => `
@@ -151,16 +173,13 @@ function buildCombinedReportHtml(
     `
   }
 
-  // Always generate Your Turn HTML sections, even if empty
-  const frameworkHtml = buildYourTurnHtml('Framework Reflections', resolutionData?.yourTurnByCategory?.framework ?? [])
-  const techniquesHtml = buildYourTurnHtml('Technique Applications', resolutionData?.yourTurnByCategory?.techniques ?? [])
-  const followThroughHtml = buildYourTurnHtml('Follow-Through Commitments', resolutionData?.yourTurnByCategory?.followThrough ?? [])
+  // Always generate all three sections
+  const frameworkHtml = buildYourTurnHtml('Framework Reflections', resolutionData?.yourTurnByCategory?.framework ?? [], 'framework')
+  const techniquesHtml = buildYourTurnHtml('Technique Applications', resolutionData?.yourTurnByCategory?.techniques ?? [], 'techniques')
+  const followThroughHtml = buildYourTurnHtml('Follow-Through Commitments', resolutionData?.yourTurnByCategory?.followThrough ?? [], 'followthrough')
   
-  const hasAnyYourTurn = frameworkHtml || techniquesHtml || followThroughHtml
-  
-  const yourTurnHtml = hasAnyYourTurn
-    ? `${frameworkHtml}${techniquesHtml}${followThroughHtml}`
-    : ''
+  // Always include all three sections (no longer check if empty)
+  const yourTurnHtml = `${frameworkHtml}${techniquesHtml}${followThroughHtml}`
 
   return `<!doctype html>
 <html>
@@ -307,27 +326,12 @@ function buildCombinedReportHtml(
 
   <div class="section-divider"></div>
 
-  <!-- YOUR TURN RESPONSES -->
-  ${
-    yourTurnHtml
-      ? `
+  <!-- YOUR TURN RESPONSES - ALWAYS SHOW -->
   <h2>📝 Your Turn Responses</h2>
   <p class="text-muted" style="margin: -8px 0 16px 0;">Reflections and applications from Framework, Techniques, and Follow-Through sections.</p>
   ${yourTurnHtml}
   
   <div class="section-divider"></div>
-  `
-      : resolutionData
-      ? `
-  <div class="card" style="background: #fffbeb; border-color: #fde047;">
-    <p style="margin: 0; color: #92400e;">
-      💡 <strong>Your Turn responses not found.</strong> Complete the Framework, Techniques, and Follow-Through prompts to see your reflections here.
-    </p>
-  </div>
-  <div class="section-divider"></div>
-  `
-      : ''
-  }
 
   <!-- RESOLUTION SECTION -->
   ${
