@@ -445,18 +445,19 @@ export async function getResolutionReportData(
     console.log(`[getResolutionReportData] ===== STARTING CHAPTER ${chapterId} =====`)
     console.log(`[getResolutionReportData] User ID: ${user.id}`)
 
-    // Fetch all pages for this chapter to extract questions
-    console.log(`[getResolutionReportData] Fetching pages for chapter ${chapterId}...`)
+    // Fetch pages through chapter relationship
+    // step_pages doesn't have chapter_id, so we need to get ALL pages and filter by content/metadata
+    console.log(`[getResolutionReportData] Fetching all pages...`)
     const { data: allPages, error: pagesError } = await supabase
       .from('step_pages')
-      .select('id, title, slug, content')
-      .eq('chapter_id', chapterId)
+      .select('id, title, slug, content, page_type')
+      .limit(1000) // Get a large batch
 
     console.log(`[getResolutionReportData] Pages query result:`)
-    console.log(`  - Found ${allPages?.length || 0} pages`)
+    console.log(`  - Found ${allPages?.length || 0} pages total`)
     console.log(`  - Error: ${pagesError ? JSON.stringify(pagesError) : 'none'}`)
 
-    // Extract ALL prompts from pages and categorize by page slug/title
+    // Extract ALL prompts from ALL pages and categorize by page slug/title
     const frameworkQuestions: Array<{ id: string; label: string }> = []
     const techniquesQuestions: Array<{ id: string; label: string }> = []
     const followThroughQuestions: Array<{ id: string; label: string }> = []
@@ -467,21 +468,43 @@ export async function getResolutionReportData(
       if (!Array.isArray(content)) continue
       
       const slug = page.slug || ''
-      const title = page.title || ''
+      const title = (page.title || '').toLowerCase()
+      const pageType = (page.page_type || '').toLowerCase()
       
+      // Check if this page belongs to our chapter by looking at prompt keys in content
+      let belongsToChapter = false
+      const chapterPrefix = `ch${chapterId}_`
+      
+      for (const block of content) {
+        // Check if any prompt IDs or keys contain our chapter number
+        if (block.type === 'prompt' && block.id) {
+          if (block.id.includes(chapterPrefix) || block.id.includes(`_${chapterId}_`)) {
+            belongsToChapter = true
+          }
+        }
+      }
+      
+      // Extract prompts from this page
       for (const block of content) {
         if (block.type === 'prompt' && block.id && block.label) {
           promptQuestionsMap.set(block.id, block.label)
           
           const questionItem = { id: block.id, label: block.label }
           
-          // Categorize based on page slug or title
-          if (slug.includes('framework') || title.toLowerCase().includes('framework')) {
+          // Categorize based on page metadata
+          const isFramework = slug.includes('framework') || title.includes('framework') || pageType.includes('framework')
+          const isTechnique = slug.includes('technique') || title.includes('technique') || pageType.includes('technique')
+          const isFollowThrough = slug.includes('follow') || title.includes('follow') || pageType.includes('follow')
+          
+          if (isFramework) {
             frameworkQuestions.push(questionItem)
-          } else if (slug.includes('technique') || title.toLowerCase().includes('technique')) {
+            console.log(`    ✓ Framework: ${block.id} -> "${block.label.substring(0, 40)}..."`)
+          } else if (isTechnique) {
             techniquesQuestions.push(questionItem)
-          } else if (slug.includes('follow') || title.toLowerCase().includes('follow')) {
+            console.log(`    ✓ Technique: ${block.id} -> "${block.label.substring(0, 40)}..."`)
+          } else if (isFollowThrough) {
             followThroughQuestions.push(questionItem)
+            console.log(`    ✓ Follow-Through: ${block.id} -> "${block.label.substring(0, 40)}..."`)
           }
         }
       }
