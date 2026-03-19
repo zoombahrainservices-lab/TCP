@@ -445,75 +445,119 @@ export async function getResolutionReportData(
     console.log(`[getResolutionReportData] ===== STARTING CHAPTER ${chapterId} =====`)
     console.log(`[getResolutionReportData] User ID: ${user.id}`)
 
-    // Fetch pages through chapter relationship
-    // step_pages doesn't have chapter_id, so we need to get ALL pages and filter by content/metadata
-    console.log(`[getResolutionReportData] Fetching all pages...`)
+    // APPROACH 1: Get chapter info first
+    console.log(`[getResolutionReportData] APPROACH 1: Fetching chapter info...`)
+    const { data: chapterInfo } = await supabase
+      .from('chapters')
+      .select('id, title, slug, chapter_number')
+      .eq('chapter_number', chapterId)
+      .single()
+    
+    console.log(`  Chapter found:`, chapterInfo ? `${chapterInfo.title} [${chapterInfo.id}]` : 'NOT FOUND')
+
+    // APPROACH 2: Fetch ALL pages and find by multiple methods
+    console.log(`[getResolutionReportData] APPROACH 2: Fetching all pages...`)
     const { data: allPages, error: pagesError } = await supabase
       .from('step_pages')
-      .select('id, title, slug, content, page_type')
-      .limit(1000) // Get a large batch
+      .select('id, title, slug, content, page_type, step_id')
+      .limit(2000)
 
     console.log(`[getResolutionReportData] Pages query result:`)
     console.log(`  - Found ${allPages?.length || 0} pages total`)
     console.log(`  - Error: ${pagesError ? JSON.stringify(pagesError) : 'none'}`)
 
-    // Extract ALL prompts from ALL pages and categorize by page slug/title
+    // APPROACH 3: Extract prompts using multiple detection methods
     const frameworkQuestions: Array<{ id: string; label: string }> = []
     const techniquesQuestions: Array<{ id: string; label: string }> = []
     const followThroughQuestions: Array<{ id: string; label: string }> = []
     const promptQuestionsMap = new Map<string, string>()
 
+    let totalPromptsFound = 0
+    let pagesWithPromptsForChapter = 0
+
     for (const page of allPages ?? []) {
       const content = page.content as any[]
       if (!Array.isArray(content)) continue
       
-      const slug = page.slug || ''
+      const slug = (page.slug || '').toLowerCase()
       const title = (page.title || '').toLowerCase()
       const pageType = (page.page_type || '').toLowerCase()
       
-      // Check if this page belongs to our chapter by looking at prompt keys in content
-      let belongsToChapter = false
-      const chapterPrefix = `ch${chapterId}_`
+      // APPROACH 4: Multiple detection methods
+      // Method 1: Check page metadata
+      const hasChapterInMetadata = 
+        slug.includes(`chapter-${chapterId}`) || 
+        slug.includes(`ch${chapterId}`) ||
+        title.includes(`chapter ${chapterId}`)
+      
+      // Method 2: Check prompts inside for chapter reference
+      let hasChapterInPrompts = false
+      let promptsInThisPage = 0
       
       for (const block of content) {
-        // Check if any prompt IDs or keys contain our chapter number
-        if (block.type === 'prompt' && block.id) {
-          if (block.id.includes(chapterPrefix) || block.id.includes(`_${chapterId}_`)) {
-            belongsToChapter = true
+        if (block.type === 'prompt' && block.id && block.label) {
+          promptsInThisPage++
+          totalPromptsFound++
+          
+          // Check if prompt references this chapter
+          if (block.id.includes(`ch${chapterId}_`) || 
+              block.id.includes(`_${chapterId}_`) ||
+              block.id.includes(`chapter${chapterId}`)) {
+            hasChapterInPrompts = true
           }
+          
+          // Store all prompts for potential use
+          promptQuestionsMap.set(block.id, block.label)
         }
       }
       
-      // Extract prompts from this page
-      for (const block of content) {
-        if (block.type === 'prompt' && block.id && block.label) {
-          promptQuestionsMap.set(block.id, block.label)
-          
-          const questionItem = { id: block.id, label: block.label }
-          
-          // Categorize based on page metadata
-          const isFramework = slug.includes('framework') || title.includes('framework') || pageType.includes('framework')
-          const isTechnique = slug.includes('technique') || title.includes('technique') || pageType.includes('technique')
-          const isFollowThrough = slug.includes('follow') || title.includes('follow') || pageType.includes('follow')
-          
-          if (isFramework) {
-            frameworkQuestions.push(questionItem)
-            console.log(`    ✓ Framework: ${block.id} -> "${block.label.substring(0, 40)}..."`)
-          } else if (isTechnique) {
-            techniquesQuestions.push(questionItem)
-            console.log(`    ✓ Technique: ${block.id} -> "${block.label.substring(0, 40)}..."`)
-          } else if (isFollowThrough) {
-            followThroughQuestions.push(questionItem)
-            console.log(`    ✓ Follow-Through: ${block.id} -> "${block.label.substring(0, 40)}..."`)
+      // APPROACH 5: If page seems relevant, extract ALL its prompts
+      const pageIsRelevant = hasChapterInMetadata || hasChapterInPrompts || 
+                             (promptsInThisPage > 0 && (
+                               slug.includes('framework') || 
+                               slug.includes('technique') || 
+                               slug.includes('follow')
+                             ))
+      
+      if (pageIsRelevant && promptsInThisPage > 0) {
+        pagesWithPromptsForChapter++
+        console.log(`  ✓ Page: "${page.title}" (${promptsInThisPage} prompts)`)
+        
+        for (const block of content) {
+          if (block.type === 'prompt' && block.id && block.label) {
+            const questionItem = { id: block.id, label: block.label }
+            
+            // APPROACH 6: Categorize by page metadata
+            const isFramework = slug.includes('framework') || title.includes('framework') || pageType.includes('framework')
+            const isTechnique = slug.includes('technique') || title.includes('technique') || pageType.includes('technique')
+            const isFollowThrough = slug.includes('follow') || title.includes('follow') || pageType.includes('follow')
+            
+            if (isFramework) {
+              frameworkQuestions.push(questionItem)
+              console.log(`    → Framework: "${block.label.substring(0, 50)}..."`)
+            } else if (isTechnique) {
+              techniquesQuestions.push(questionItem)
+              console.log(`    → Technique: "${block.label.substring(0, 50)}..."`)
+            } else if (isFollowThrough) {
+              followThroughQuestions.push(questionItem)
+              console.log(`    → Follow-Through: "${block.label.substring(0, 50)}..."`)
+            } else {
+              // APPROACH 7: If we can't categorize, add to framework as fallback
+              frameworkQuestions.push(questionItem)
+              console.log(`    → Framework (fallback): "${block.label.substring(0, 50)}..."`)
+            }
           }
         }
       }
     }
 
-    console.log(`[getResolutionReportData] Found questions:`)
-    console.log(`  - Framework: ${frameworkQuestions.length}`)
-    console.log(`  - Techniques: ${techniquesQuestions.length}`)
-    console.log(`  - Follow-Through: ${followThroughQuestions.length}`)
+    console.log(`[getResolutionReportData] APPROACH 8: Summary of question extraction:`)
+    console.log(`  - Total pages scanned: ${allPages?.length || 0}`)
+    console.log(`  - Total prompts found: ${totalPromptsFound}`)
+    console.log(`  - Pages relevant to chapter: ${pagesWithPromptsForChapter}`)
+    console.log(`  - Framework questions: ${frameworkQuestions.length}`)
+    console.log(`  - Techniques questions: ${techniquesQuestions.length}`)
+    console.log(`  - Follow-Through questions: ${followThroughQuestions.length}`)
 
     // Fetch identity resolution (two places: dedicated artifact OR embedded in proof artifact)
     const { data: identityArtifact, error: identityError } = await supabase
