@@ -439,63 +439,11 @@ export async function getResolutionReportData(
     console.log(`[getResolutionReportData] ===== STARTING CHAPTER ${chapterId} =====`)
     console.log(`[getResolutionReportData] User ID: ${user.id}`)
 
-    // PERSPECTIVE 1: Fetch chapter steps to get prompts from page content
-    console.log(`[getResolutionReportData] PERSPECTIVE 1: Fetching steps...`)
-    const { data: steps, error: stepsError } = await supabase
-      .from('steps')
-      .select('id, step_type, title, slug')
-      .eq('chapter_id', chapterId)
-      .in('step_type', ['framework', 'techniques', 'follow_through'])
-
-    console.log(`[getResolutionReportData] Steps query result:`)
-    console.log(`  - Found ${steps?.length || 0} steps`)
-    console.log(`  - Error: ${stepsError ? JSON.stringify(stepsError) : 'none'}`)
-    if (steps) {
-      steps.forEach(s => {
-        console.log(`  - Step: ${s.step_type} (${s.title}) [${s.id}]`)
-      })
-    }
-
-    // PERSPECTIVE 2: Fetch all pages for these steps to extract prompt questions
-    const promptQuestionsMap = new Map<string, string>() // prompt_key -> question text
+    // NOTE: Skipping steps/pages query since 'steps' table doesn't exist in schema
+    // We'll rely on artifacts which already have promptText stored
+    console.log(`[getResolutionReportData] Skipping steps/pages query (table doesn't exist)`)
     
-    if (steps && steps.length > 0) {
-      const stepIds = steps.map(s => s.id)
-      console.log(`[getResolutionReportData] PERSPECTIVE 2: Fetching pages for ${stepIds.length} steps...`)
-      
-      const { data: pages, error: pagesError } = await supabase
-        .from('step_pages')
-        .select('id, title, content, step_id')
-        .in('step_id', stepIds)
-
-      console.log(`[getResolutionReportData] Pages query result:`)
-      console.log(`  - Found ${pages?.length || 0} pages`)
-      console.log(`  - Error: ${pagesError ? JSON.stringify(pagesError) : 'none'}`)
-
-      // PERSPECTIVE 3: Extract prompt blocks from page content
-      console.log(`[getResolutionReportData] PERSPECTIVE 3: Extracting prompts from pages...`)
-      for (const page of pages ?? []) {
-        const content = page.content as any[]
-        if (!Array.isArray(content)) {
-          console.log(`  - Page ${page.id} (${page.title}): content is not an array`)
-          continue
-        }
-        
-        console.log(`  - Page ${page.id} (${page.title}): ${content.length} blocks`)
-        let promptCount = 0
-        for (const block of content) {
-          if (block.type === 'prompt' && block.id && block.label) {
-            promptQuestionsMap.set(block.id, block.label)
-            promptCount++
-            console.log(`    ✓ Prompt: ${block.id} -> "${block.label.substring(0, 50)}..."`)
-          }
-        }
-        console.log(`  - Page ${page.id}: Found ${promptCount} prompts`)
-      }
-    }
-
-    console.log(`[getResolutionReportData] Total prompts found: ${promptQuestionsMap.size}`)
-    console.log(`[getResolutionReportData] Prompt IDs:`, Array.from(promptQuestionsMap.keys()))
+    const promptQuestionsMap = new Map<string, string>()
 
     // Fetch identity resolution (two places: dedicated artifact OR embedded in proof artifact)
     const { data: identityArtifact, error: identityError } = await supabase
@@ -624,13 +572,20 @@ export async function getResolutionReportData(
       
       console.log(`  - Processing: ${promptKey}`)
       
-      // Extract the prompt ID from the key (e.g., "ch1_framework_spark_s_pattern" -> "spark_s_pattern")
-      const promptIdMatch = promptKey.match(/(?:framework|technique|followthrough)_(.+)$/)
-      const promptId = promptIdMatch ? promptIdMatch[1] : null
-      console.log(`    Extracted ID: ${promptId}`)
+      // Try to extract question text from artifacts (which store promptText)
+      // or from promptQuestionsMap (extracted from pages)
+      let questionText: string | null = null
       
-      const questionText = promptId ? promptQuestionsMap.get(promptId) : null
-      console.log(`    Question text: ${questionText ? questionText.substring(0, 50) + '...' : 'NOT FOUND'}`)
+      // Method 1: Extract from prompt_key format like "ch1_framework_spark_s_pattern"
+      const traditionalMatch = promptKey.match(/(?:framework|technique|followthrough)_(.+)$/)
+      if (traditionalMatch) {
+        const promptId = traditionalMatch[1]
+        console.log(`    Traditional format - Extracted ID: ${promptId}`)
+        questionText = promptQuestionsMap.get(promptId) || null
+      }
+      
+      // If not traditional format, it might be user_prompt_answers with timestamp format
+      // We don't have the question text for these, so we'll show generic message
       
       const item: YourTurnQandA = {
         promptText: questionText || null,
@@ -638,8 +593,10 @@ export async function getResolutionReportData(
         createdAt: row.created_at ?? '',
       }
 
-      // Categorize by key pattern
-      if (promptKey.includes('spark_') || promptKey.includes('framework_') || promptKey.includes('voice_')) {
+      // Categorize by key pattern - support BOTH formats
+      // Traditional: ch1_framework_..., ch1_technique_..., ch1_followthrough_...
+      // New: prompt_123... (no category info, so we group all as "framework" for now)
+      if (promptKey.includes('framework_') || promptKey.includes('spark_') || promptKey.includes('voice_')) {
         framework.push(item)
         console.log(`    → Added to framework`)
       } else if (promptKey.includes('technique_')) {
@@ -648,6 +605,10 @@ export async function getResolutionReportData(
       } else if (promptKey.includes('followthrough_')) {
         followThrough.push(item)
         console.log(`    → Added to followThrough`)
+      } else if (promptKey.startsWith('prompt_')) {
+        // Generic prompt format - add to framework by default
+        framework.push(item)
+        console.log(`    → Added to framework (generic prompt format)`)
       } else {
         console.log(`    → SKIPPED (doesn't match any category)`)
       }
