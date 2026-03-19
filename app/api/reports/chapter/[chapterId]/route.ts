@@ -238,8 +238,9 @@ function buildCombinedReportHtml(
     hasAssessment
       ? `
   <!-- SELF-CHECK ASSESSMENT SECTION -->
+  <h2>✅ Self-Check Assessment</h2>
+  <p class="text-muted" style="margin: -8px 0 16px 0;">Your baseline assessment at the start of this chapter.</p>
   <div class="card">
-    <h2>Self-Check Assessment Summary</h2>
     <div class="grid">
       <div class="kv">
         <div class="k">Assessment Type</div>
@@ -268,42 +269,58 @@ function buildCombinedReportHtml(
     }
   </div>
 
-  <h2>${includeAnswers ? 'Your Self-Check Responses' : 'Self-Check Questions'}</h2>
+  <h3>${includeAnswers ? 'Your Self-Check Responses' : 'Self-Check Questions'}</h3>
   ${questionsHtml}
   `
       : questionsSource.length
       ? `
   <!-- SELF-CHECK QUESTIONS ONLY (NO RESPONSES YET) -->
-  <div class="card">
-    <h2>Self-Check Questions</h2>
-    <p class="text-muted" style="margin: 8px 0 16px 0;">
-      Self-check assessment not completed yet. Use these questions to reflect or print the blank form.
+  <h2>✅ Self-Check Assessment</h2>
+  <div class="card" style="background: #fffbeb; border-color: #fde047;">
+    <p style="margin: 0 0 16px 0; color: #92400e;">
+      💡 <strong>Self-check assessment not completed yet.</strong> Use these questions to reflect or print the blank form.
     </p>
     ${questionsHtml}
   </div>
   `
-      : '<p class="text-muted" style="margin: 20px 0;">Self-check assessment not completed yet.</p>'
+      : `
+  <div class="card" style="background: #fffbeb; border-color: #fde047;">
+    <p style="margin: 0; color: #92400e;">
+      💡 <strong>Self-check assessment not completed yet.</strong> Complete the self-check to see your baseline assessment here.
+    </p>
+  </div>
+  `
   }
 
   <div class="section-divider"></div>
 
-  ${
-    resolutionData
-      ? `
   <!-- YOUR TURN RESPONSES -->
   ${
     yourTurnHtml
       ? `
-  <h2>Your Turn Responses</h2>
+  <h2>📝 Your Turn Responses</h2>
+  <p class="text-muted" style="margin: -8px 0 16px 0;">Reflections and applications from Framework, Techniques, and Follow-Through sections.</p>
   ${yourTurnHtml}
   
+  <div class="section-divider"></div>
+  `
+      : resolutionData
+      ? `
+  <div class="card" style="background: #fffbeb; border-color: #fde047;">
+    <p style="margin: 0; color: #92400e;">
+      💡 <strong>Your Turn responses not found.</strong> Complete the Framework, Techniques, and Follow-Through prompts to see your reflections here.
+    </p>
+  </div>
   <div class="section-divider"></div>
   `
       : ''
   }
 
   <!-- RESOLUTION SECTION -->
-  <h2>Identity Statement & Resolution</h2>
+  ${
+    resolutionData
+      ? `
+  <h2>🎯 Identity Statement & Resolution</h2>
   
   ${
     resolutionData.identityResolution
@@ -312,13 +329,19 @@ function buildCombinedReportHtml(
     "${escapeHtml(resolutionData.identityResolution)}"
   </div>
   `
-      : '<p class="text-muted" style="margin: 16px 0;">No identity statement recorded.</p>'
+      : '<p class="text-muted" style="margin: 16px 0;">No identity statement recorded yet.</p>'
   }
 
   <h3>Proof Submissions</h3>
   ${proofsHtml}
   `
-      : '<p class="text-muted" style="margin: 20px 0;">Resolution not completed yet.</p>'
+      : `
+  <div class="card" style="background: #fffbeb; border-color: #fde047;">
+    <p style="margin: 0; color: #92400e;">
+      💡 <strong>Resolution not completed yet.</strong> Complete the Resolution section to see your identity statement and proof submissions here.
+    </p>
+  </div>
+  `
   }
 
   ${

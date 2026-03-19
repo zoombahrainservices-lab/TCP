@@ -436,7 +436,7 @@ export async function getResolutionReportData(
       return { success: false, error: 'Not authenticated' }
     }
 
-    // Fetch identity resolution
+    // Fetch identity resolution (two places: dedicated artifact OR embedded in proof artifact)
     const { data: identityArtifact, error: identityError } = await supabase
       .from('artifacts')
       .select('*')
@@ -465,11 +465,20 @@ export async function getResolutionReportData(
       return { success: false, error: 'Failed to fetch proof data' }
     }
 
+    // Extract identity from the first proof artifact if no dedicated identity_resolution exists
+    let identityStatement = identityArtifact?.data?.identity
+    if (!identityStatement && proofArtifacts && proofArtifacts.length > 0) {
+      const firstProof = proofArtifacts[0]
+      if (firstProof.data?.identity) {
+        identityStatement = firstProof.data.identity
+      }
+    }
+
     const proofs =
       proofArtifacts?.map((artifact) => ({
-        type: artifact.data.type || 'text',
-        title: artifact.data.title || '',
-        notes: artifact.data.notes || '',
+        type: artifact.data.type || artifact.data.resolutionType || 'text',
+        title: artifact.data.title || 'Identity Statement',
+        notes: artifact.data.notes || artifact.data.identity || '',
         storagePath: artifact.data.storage_path,
         createdAt: artifact.created_at,
       })) ?? []
@@ -542,7 +551,7 @@ export async function getResolutionReportData(
       chapterId,
       chapterTitle,
       completedAt: proofArtifacts?.[0]?.created_at ?? new Date().toISOString(),
-      identityResolution: identityArtifact?.data?.identity,
+      identityResolution: identityStatement,
       proofs,
       yourTurnByCategory: { framework, techniques, followThrough },
     }
