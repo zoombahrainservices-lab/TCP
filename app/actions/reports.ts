@@ -436,6 +436,39 @@ export async function getResolutionReportData(
       return { success: false, error: 'Not authenticated' }
     }
 
+    // Fetch chapter steps to get prompts from page content
+    const { data: steps } = await supabase
+      .from('steps')
+      .select('id, step_type')
+      .eq('chapter_id', chapterId)
+      .in('step_type', ['framework', 'techniques', 'follow_through'])
+
+    // Fetch all pages for these steps to extract prompt questions
+    const promptQuestionsMap = new Map<string, string>() // prompt_key -> question text
+    
+    if (steps && steps.length > 0) {
+      const stepIds = steps.map(s => s.id)
+      const { data: pages } = await supabase
+        .from('step_pages')
+        .select('content')
+        .in('step_id', stepIds)
+
+      // Extract prompt blocks from page content
+      for (const page of pages ?? []) {
+        const content = page.content as any[]
+        if (!Array.isArray(content)) continue
+        
+        for (const block of content) {
+          if (block.type === 'prompt' && block.id && block.label) {
+            // Store the question by its ID (will be used as part of prompt_key)
+            promptQuestionsMap.set(block.id, block.label)
+          }
+        }
+      }
+    }
+
+    console.log(`[getResolutionReportData] Found ${promptQuestionsMap.size} prompt questions from pages`)
+
     // Fetch identity resolution (two places: dedicated artifact OR embedded in proof artifact)
     const { data: identityArtifact, error: identityError } = await supabase
       .from('artifacts')
@@ -536,8 +569,13 @@ export async function getResolutionReportData(
       // Skip self-check (that's handled separately)
       if (promptKey.includes('self_check')) continue
       
+      // Extract the prompt ID from the key (e.g., "ch1_framework_spark_s_pattern" -> "spark_s_pattern")
+      const promptIdMatch = promptKey.match(/(?:framework|technique|followthrough)_(.+)$/)
+      const promptId = promptIdMatch ? promptIdMatch[1] : null
+      const questionText = promptId ? promptQuestionsMap.get(promptId) : null
+      
       const item: YourTurnQandA = {
-        promptText: null, // Prompt text not stored in user_prompt_answers
+        promptText: questionText || null, // Use extracted question text if found
         responseText: answerText,
         createdAt: row.created_at ?? '',
       }

@@ -129,9 +129,19 @@ function buildCombinedReportHtml(
       <h3>${escapeHtml(category)}</h3>
       ${items
         .map(
-          (item: any) => `
+          (item: any, idx: number) => `
         <div class="your-turn-item">
-          ${item.promptText ? `<div class="your-turn-prompt">${escapeHtml(item.promptText)}</div>` : ''}
+          ${item.promptText ? `
+          <div class="your-turn-prompt">
+            <span style="font-weight: 700; color: #10b981; margin-right: 8px;">${idx + 1}.</span>
+            ${escapeHtml(item.promptText)}
+          </div>
+          ` : `
+          <div class="your-turn-prompt" style="color: #64748b; font-style: italic;">
+            <span style="font-weight: 700; color: #10b981; margin-right: 8px;">${idx + 1}.</span>
+            Your Response:
+          </div>
+          `}
           <div class="your-turn-response">${escapeHtml(item.responseText)}</div>
         </div>
       `
