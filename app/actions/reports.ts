@@ -465,8 +465,16 @@ export async function getResolutionReportData(
     console.log(`[getResolutionReportData] Pages query result:`)
     console.log(`  - Found ${allPages?.length || 0} pages total`)
     console.log(`  - Error: ${pagesError ? JSON.stringify(pagesError) : 'none'}`)
+    
+    // APPROACH 3: Log some sample pages to see what we're working with
+    if (allPages && allPages.length > 0) {
+      console.log(`[getResolutionReportData] APPROACH 3: Sample pages found:`)
+      allPages.slice(0, 5).forEach((p, idx) => {
+        console.log(`  [${idx + 1}] "${p.title}" (slug: ${p.slug}, type: ${p.page_type})`)
+      })
+    }
 
-    // APPROACH 3: Extract prompts using multiple detection methods
+    // APPROACH 4: Extract prompts using multiple detection methods
     const frameworkQuestions: Array<{ id: string; label: string }> = []
     const techniquesQuestions: Array<{ id: string; label: string }> = []
     const followThroughQuestions: Array<{ id: string; label: string }> = []
@@ -474,6 +482,9 @@ export async function getResolutionReportData(
 
     let totalPromptsFound = 0
     let pagesWithPromptsForChapter = 0
+    let allPromptsAnyChapter = 0
+
+    console.log(`[getResolutionReportData] APPROACH 5: Scanning pages for prompts...`)
 
     for (const page of allPages ?? []) {
       const content = page.content as any[]
@@ -483,81 +494,92 @@ export async function getResolutionReportData(
       const title = (page.title || '').toLowerCase()
       const pageType = (page.page_type || '').toLowerCase()
       
-      // APPROACH 4: Multiple detection methods
-      // Method 1: Check page metadata
-      const hasChapterInMetadata = 
-        slug.includes(`chapter-${chapterId}`) || 
-        slug.includes(`ch${chapterId}`) ||
-        title.includes(`chapter ${chapterId}`)
-      
-      // Method 2: Check prompts inside for chapter reference
-      let hasChapterInPrompts = false
       let promptsInThisPage = 0
+      let chapterSpecificPrompts = 0
       
+      // APPROACH 6: Scan all prompts in this page
       for (const block of content) {
         if (block.type === 'prompt' && block.id && block.label) {
+          allPromptsAnyChapter++
           promptsInThisPage++
-          totalPromptsFound++
           
-          // Check if prompt references this chapter
-          if (block.id.includes(`ch${chapterId}_`) || 
-              block.id.includes(`_${chapterId}_`) ||
-              block.id.includes(`chapter${chapterId}`)) {
-            hasChapterInPrompts = true
-          }
+          // Check if this prompt is for our chapter
+          const promptId = (block.id || '').toLowerCase()
+          const isForThisChapter = 
+            promptId.includes(`ch${chapterId}_`) || 
+            promptId.includes(`chapter${chapterId}`) ||
+            promptId.includes(`_${chapterId}_`)
           
-          // Store all prompts for potential use
-          promptQuestionsMap.set(block.id, block.label)
-        }
-      }
-      
-      // APPROACH 5: If page seems relevant, extract ALL its prompts
-      const pageIsRelevant = hasChapterInMetadata || hasChapterInPrompts || 
-                             (promptsInThisPage > 0 && (
-                               slug.includes('framework') || 
-                               slug.includes('technique') || 
-                               slug.includes('follow')
-                             ))
-      
-      if (pageIsRelevant && promptsInThisPage > 0) {
-        pagesWithPromptsForChapter++
-        console.log(`  ✓ Page: "${page.title}" (${promptsInThisPage} prompts)`)
-        
-        for (const block of content) {
-          if (block.type === 'prompt' && block.id && block.label) {
+          if (isForThisChapter) {
+            chapterSpecificPrompts++
+            totalPromptsFound++
+            promptQuestionsMap.set(block.id, block.label)
+            
             const questionItem = { id: block.id, label: block.label }
             
-            // APPROACH 6: Categorize by page metadata
-            const isFramework = slug.includes('framework') || title.includes('framework') || pageType.includes('framework')
-            const isTechnique = slug.includes('technique') || title.includes('technique') || pageType.includes('technique')
-            const isFollowThrough = slug.includes('follow') || title.includes('follow') || pageType.includes('follow')
+            // APPROACH 7: Categorize by page metadata AND prompt ID
+            let categorized = false
             
-            if (isFramework) {
+            // Method 1: By page metadata
+            if (slug.includes('framework') || title.includes('framework') || pageType.includes('framework')) {
               frameworkQuestions.push(questionItem)
-              console.log(`    → Framework: "${block.label.substring(0, 50)}..."`)
-            } else if (isTechnique) {
+              console.log(`    ✓ Framework (page): "${block.label.substring(0, 40)}..."`)
+              categorized = true
+            } else if (slug.includes('technique') || title.includes('technique') || pageType.includes('technique')) {
               techniquesQuestions.push(questionItem)
-              console.log(`    → Technique: "${block.label.substring(0, 50)}..."`)
-            } else if (isFollowThrough) {
+              console.log(`    ✓ Technique (page): "${block.label.substring(0, 40)}..."`)
+              categorized = true
+            } else if (slug.includes('follow') || title.includes('follow') || pageType.includes('follow')) {
               followThroughQuestions.push(questionItem)
-              console.log(`    → Follow-Through: "${block.label.substring(0, 50)}..."`)
-            } else {
-              // APPROACH 7: If we can't categorize, add to framework as fallback
+              console.log(`    ✓ Follow-Through (page): "${block.label.substring(0, 40)}..."`)
+              categorized = true
+            }
+            
+            // Method 2: By prompt ID pattern if not categorized yet
+            if (!categorized) {
+              if (promptId.includes('framework') || promptId.includes('spark')) {
+                frameworkQuestions.push(questionItem)
+                console.log(`    ✓ Framework (ID): "${block.label.substring(0, 40)}..."`)
+                categorized = true
+              } else if (promptId.includes('technique')) {
+                techniquesQuestions.push(questionItem)
+                console.log(`    ✓ Technique (ID): "${block.label.substring(0, 40)}..."`)
+                categorized = true
+              } else if (promptId.includes('followthrough') || promptId.includes('follow')) {
+                followThroughQuestions.push(questionItem)
+                console.log(`    ✓ Follow-Through (ID): "${block.label.substring(0, 40)}..."`)
+                categorized = true
+              }
+            }
+            
+            // APPROACH 8: Fallback - add to framework if still not categorized
+            if (!categorized) {
               frameworkQuestions.push(questionItem)
-              console.log(`    → Framework (fallback): "${block.label.substring(0, 50)}..."`)
+              console.log(`    ✓ Framework (fallback): "${block.label.substring(0, 40)}..."`)
             }
           }
         }
       }
+      
+      if (chapterSpecificPrompts > 0) {
+        pagesWithPromptsForChapter++
+        console.log(`  📄 Page "${page.title}": ${chapterSpecificPrompts} prompts for Chapter ${chapterId}`)
+      }
     }
 
-    console.log(`[getResolutionReportData] APPROACH 8: Summary of question extraction:`)
+    console.log(`[getResolutionReportData] APPROACH 9: Comprehensive Summary:`)
     console.log(`  - Total pages scanned: ${allPages?.length || 0}`)
-    console.log(`  - Total prompts found: ${totalPromptsFound}`)
-    console.log(`  - Pages relevant to chapter: ${pagesWithPromptsForChapter}`)
-    console.log(`  - Framework questions: ${frameworkQuestions.length}`)
-    console.log(`  - Techniques questions: ${techniquesQuestions.length}`)
-    console.log(`  - Follow-Through questions: ${followThroughQuestions.length}`)
+    console.log(`  - Total prompts across ALL chapters: ${allPromptsAnyChapter}`)
+    console.log(`  - Prompts for Chapter ${chapterId}: ${totalPromptsFound}`)
+    console.log(`  - Pages with Chapter ${chapterId} prompts: ${pagesWithPromptsForChapter}`)
+    console.log(`  - Framework questions extracted: ${frameworkQuestions.length}`)
+    console.log(`  - Techniques questions extracted: ${techniquesQuestions.length}`)
+    console.log(`  - Follow-Through questions extracted: ${followThroughQuestions.length}`)
+    
+    if (totalPromptsFound === 0 && allPromptsAnyChapter > 0) {
+      console.warn(`[getResolutionReportData] ⚠️ WARNING: Found ${allPromptsAnyChapter} total prompts but NONE for Chapter ${chapterId}`)
+      console.warn(`  This means Chapter ${chapterId} pages might not exist or prompts don't have ch${chapterId}_ prefix`)
+    }
 
     // Fetch identity resolution (two places: dedicated artifact OR embedded in proof artifact)
     const { data: identityArtifact, error: identityError } = await supabase
