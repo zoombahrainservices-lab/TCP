@@ -425,6 +425,7 @@ export async function GET(
     const chapterId = parseInt(chapterIdParam, 10)
     const searchParams = req.nextUrl.searchParams
     const includeAnswers = searchParams.get('answers') !== 'false'
+    const requestedUserId = searchParams.get('userId') || undefined
 
     if (isNaN(chapterId)) {
       return NextResponse.json({ error: 'Invalid chapter ID' }, { status: 400 })
@@ -432,9 +433,9 @@ export async function GET(
 
     // Fetch all data in parallel
     const [assessmentResult, resolutionResult, userResult] = await Promise.all([
-      getAssessmentReportData(chapterId),
-      getResolutionReportData(chapterId),
-      getUserInfo(),
+      getAssessmentReportData(chapterId, requestedUserId),
+      getResolutionReportData(chapterId, requestedUserId),
+      getUserInfo(requestedUserId),
     ])
 
     if (!userResult.success) {

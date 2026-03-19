@@ -25,6 +25,7 @@ import {
   TrendingUp,
   Trash2,
   RefreshCw,
+  Download,
 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -109,6 +110,31 @@ export default function UserDetailPage() {
       router.push('/admin/users')
     } catch (error) {
       toast.error('Failed to delete user')
+    }
+  }
+
+  const handleDownloadChapterReport = async (chapterNumber: number, includeAnswers: boolean) => {
+    try {
+      const mode = includeAnswers ? 'complete-report' : 'blank-form'
+      const response = await fetch(
+        `/api/reports/chapter/${chapterNumber}?answers=${includeAnswers ? 'true' : 'false'}&userId=${encodeURIComponent(userId)}`,
+        { credentials: 'include' }
+      )
+      if (!response.ok) {
+        throw new Error('Failed to download report')
+      }
+
+      const blob = await response.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = `user-${userId}-chapter-${chapterNumber}-${mode}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(downloadUrl)
+    } catch (error) {
+      toast.error('Failed to download chapter report')
     }
   }
 
@@ -270,6 +296,54 @@ export default function UserDetailPage() {
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Reset All Progress
               </Button>
+            </div>
+          </div>
+
+          {/* Chapter Reports (Admin Download) */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Chapter Reports
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Download this user&apos;s report per chapter.
+            </p>
+            <div className="space-y-3">
+              {(progress?.progress || []).map((item: any, idx: number) => {
+                const chapterNum = item?.chapters?.chapter_number || item?.chapter_id
+                if (!chapterNum) return null
+                const chapterTitle = item?.chapters?.title || `Chapter ${chapterNum}`
+                return (
+                  <div
+                    key={`${chapterNum}-${idx}`}
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border border-gray-200 dark:border-gray-700 rounded-lg p-3"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">
+                        Chapter {chapterNum}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{chapterTitle}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handleDownloadChapterReport(Number(chapterNum), true)}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Report
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleDownloadChapterReport(Number(chapterNum), false)}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Blank Form
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>

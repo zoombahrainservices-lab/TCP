@@ -67,6 +67,38 @@ export type ChapterReportMeta = {
   resolutionAvailable: boolean
 }
 
+async function resolveEffectiveReportUser(
+  requestedUserId?: string
+): Promise<{ success: true; userId: string } | { success: false; error: string }> {
+  const userSupabase = await createClient()
+  const admin = createAdminClient()
+
+  const {
+    data: { user },
+    error: authError,
+  } = await userSupabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: 'Not authenticated' }
+  }
+
+  if (!requestedUserId || requestedUserId === user.id) {
+    return { success: true, userId: user.id }
+  }
+
+  const { data: requesterProfile } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (requesterProfile?.role !== 'admin') {
+    return { success: false, error: 'Admin access required' }
+  }
+
+  return { success: true, userId: requestedUserId }
+}
+
 // ============================================================================
 // CHAPTER ASSESSMENT CONFIG (questions + title per chapter for reports)
 // ============================================================================
@@ -321,26 +353,22 @@ async function buildDynamicAssessmentQuestions(
 }
 
 export async function getAssessmentReportData(
-  chapterId: number
+  chapterId: number,
+  requestedUserId?: string
 ): Promise<{ success: true; data: AssessmentReportData } | { success: false; error: string }> {
   try {
     const supabase = createAdminClient()
-    const userSupabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await userSupabase.auth.getUser()
-
-    if (authError || !user) {
-      return { success: false, error: 'Not authenticated' }
+    const userResult = await resolveEffectiveReportUser(requestedUserId)
+    if (!userResult.success) {
+      return { success: false, error: userResult.error }
     }
+    const effectiveUserId = userResult.userId
 
     // Try to fetch from assessments table first (new format)
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .eq('chapter_id', chapterId)
       .eq('kind', 'baseline')
       .order('created_at', { ascending: false })
@@ -357,7 +385,7 @@ export async function getAssessmentReportData(
       const { data: promptData } = await supabase
         .from('user_prompt_answers')
         .select('answer')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .eq('prompt_key', `ch${chapterId}_self_check_baseline`)
         .maybeSingle()
 
@@ -427,23 +455,19 @@ export async function getAssessmentReportData(
 // ============================================================================
 
 export async function getResolutionReportData(
-  chapterId: number
+  chapterId: number,
+  requestedUserId?: string
 ): Promise<{ success: true; data: ResolutionReportData } | { success: false; error: string }> {
   try {
     const supabase = createAdminClient()
-    const userSupabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await userSupabase.auth.getUser()
-
-    if (authError || !user) {
-      return { success: false, error: 'Not authenticated' }
+    const userResult = await resolveEffectiveReportUser(requestedUserId)
+    if (!userResult.success) {
+      return { success: false, error: userResult.error }
     }
+    const effectiveUserId = userResult.userId
 
     console.log(`[getResolutionReportData] ===== STARTING CHAPTER ${chapterId} =====`)
-    console.log(`[getResolutionReportData] User ID: ${user.id}`)
+    console.log(`[getResolutionReportData] User ID: ${effectiveUserId}`)
 
     // Load chapter-scoped questions from canonical relationship:
     // chapters -> chapter_steps -> step_pages -> prompt blocks.
@@ -533,7 +557,7 @@ export async function getResolutionReportData(
     const { data: identityArtifact, error: identityError } = await supabase
       .from('artifacts')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .eq('chapter_id', chapterId)
       .eq('type', 'identity_resolution')
       .order('created_at', { ascending: false })
@@ -548,7 +572,7 @@ export async function getResolutionReportData(
     const { data: proofArtifacts, error: proofsError } = await supabase
       .from('artifacts')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .eq('chapter_id', chapterId)
       .eq('type', 'proof')
       .order('created_at', { ascending: true })
@@ -580,7 +604,7 @@ export async function getResolutionReportData(
     const { data: yourTurnArtifacts, error: yourTurnError } = await supabase
       .from('artifacts')
       .select('id, data, created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .eq('chapter_id', chapterId)
       .eq('type', 'your_turn_response')
       .order('created_at', { ascending: true })
@@ -630,7 +654,7 @@ export async function getResolutionReportData(
     const { data: promptAnswers, error: promptAnswersError } = await supabase
       .from('user_prompt_answers')
       .select('prompt_key, answer, created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .eq('chapter_id', chapterId)
 
     console.log(`[getResolutionReportData] user_prompt_answers query result:`)
@@ -742,27 +766,29 @@ export async function getResolutionReportData(
 // GET USER INFO
 // ============================================================================
 
-export async function getUserInfo(): Promise<
+export async function getUserInfo(requestedUserId?: string): Promise<
   { success: true; data: { name: string; email: string; id: string } } | { success: false; error: string }
 > {
   try {
-    const userSupabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await userSupabase.auth.getUser()
-
-    if (authError || !user) {
-      return { success: false, error: 'Not authenticated' }
+    const admin = createAdminClient()
+    const userResult = await resolveEffectiveReportUser(requestedUserId)
+    if (!userResult.success) {
+      return { success: false, error: userResult.error }
     }
+    const effectiveUserId = userResult.userId
+
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('id, email, full_name')
+      .eq('id', effectiveUserId)
+      .maybeSingle()
 
     return {
       success: true,
       data: {
-        id: user.id,
-        name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        email: user.email || '',
+        id: effectiveUserId,
+        name: profile?.full_name || profile?.email?.split('@')[0] || 'User',
+        email: profile?.email || '',
       },
     }
   } catch (error) {

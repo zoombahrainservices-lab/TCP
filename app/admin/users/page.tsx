@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Button from '@/components/ui/Button'
-import { Shield, ShieldOff, Search } from 'lucide-react'
+import { Shield, ShieldOff, Search, Eye } from 'lucide-react'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 interface User {
@@ -158,26 +159,34 @@ export default function UsersPage() {
                     {new Date(user.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <Button
-                      variant={user.role === 'admin' ? 'secondary' : 'primary'}
-                      size="sm"
-                      onClick={() => handleToggleAdmin(user.id, user.role)}
-                      disabled={updating === user.id}
-                    >
-                      {updating === user.id ? (
-                        'Updating...'
-                      ) : user.role === 'admin' ? (
-                        <>
-                          <ShieldOff className="w-4 h-4 mr-2" />
-                          Remove Admin
-                        </>
-                      ) : (
-                        <>
-                          <Shield className="w-4 h-4 mr-2" />
-                          Make Admin
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Link href={`/admin/users/${user.id}`}>
+                        <Button variant="secondary" size="sm">
+                          <Eye className="w-4 h-4 mr-2" />
+                          View
+                        </Button>
+                      </Link>
+                      <Button
+                        variant={user.role === 'admin' ? 'secondary' : 'primary'}
+                        size="sm"
+                        onClick={() => handleToggleAdmin(user.id, user.role)}
+                        disabled={updating === user.id}
+                      >
+                        {updating === user.id ? (
+                          'Updating...'
+                        ) : user.role === 'admin' ? (
+                          <>
+                            <ShieldOff className="w-4 h-4 mr-2" />
+                            Remove Admin
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="w-4 h-4 mr-2" />
+                            Make Admin
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))
