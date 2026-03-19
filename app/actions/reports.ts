@@ -451,7 +451,7 @@ export async function getResolutionReportData(
       console.error('Error fetching identity resolution:', identityError)
     }
 
-    // Fetch all proofs
+    // Fetch all proofs (don't fail entire function if this fails)
     const { data: proofArtifacts, error: proofsError } = await supabase
       .from('artifacts')
       .select('*')
@@ -461,8 +461,7 @@ export async function getResolutionReportData(
       .order('created_at', { ascending: true })
 
     if (proofsError) {
-      console.error('Error fetching proofs:', proofsError)
-      return { success: false, error: 'Failed to fetch proof data' }
+      console.error('[getResolutionReportData] Error fetching proofs (non-fatal):', proofsError)
     }
 
     // Extract identity from the first proof artifact if no dedicated identity_resolution exists
@@ -487,13 +486,17 @@ export async function getResolutionReportData(
     // Artifacts: type='your_turn_response'
     // user_prompt_answers: keys like ch1_spark_s_pattern, ch1_technique_1_substitution, ch1_followthrough_1_pick_one
     
-    const { data: yourTurnArtifacts } = await supabase
+    const { data: yourTurnArtifacts, error: yourTurnError } = await supabase
       .from('artifacts')
       .select('id, data, created_at')
       .eq('user_id', user.id)
       .eq('chapter_id', chapterId)
       .eq('type', 'your_turn_response')
       .order('created_at', { ascending: true })
+
+    if (yourTurnError) {
+      console.error('[getResolutionReportData] Error fetching Your Turn artifacts (non-fatal):', yourTurnError)
+    }
 
     const framework: YourTurnQandA[] = []
     const techniques: YourTurnQandA[] = []
@@ -515,11 +518,15 @@ export async function getResolutionReportData(
     }
 
     // Fallback: Check user_prompt_answers for Your Turn data (keys like ch1_spark_s_pattern, ch1_technique_1_substitution)
-    const { data: promptAnswers } = await supabase
+    const { data: promptAnswers, error: promptAnswersError } = await supabase
       .from('user_prompt_answers')
       .select('prompt_key, answer, created_at')
       .eq('user_id', user.id)
       .eq('chapter_id', chapterId)
+
+    if (promptAnswersError) {
+      console.error('[getResolutionReportData] Error fetching prompt answers (non-fatal):', promptAnswersError)
+    }
 
     for (const row of promptAnswers ?? []) {
       const promptKey = row.prompt_key
@@ -546,6 +553,14 @@ export async function getResolutionReportData(
     }
 
     const chapterTitle = ASSESSMENT_CONFIG[chapterId]?.chapterTitle ?? `Chapter ${chapterId}`
+
+    // Log what we found for debugging
+    console.log(`[getResolutionReportData] Chapter ${chapterId} summary:`)
+    console.log(`  - Identity: ${identityStatement ? 'FOUND' : 'NOT FOUND'}`)
+    console.log(`  - Proofs: ${proofs.length}`)
+    console.log(`  - Your Turn Framework: ${framework.length}`)
+    console.log(`  - Your Turn Techniques: ${techniques.length}`)
+    console.log(`  - Your Turn Follow-Through: ${followThrough.length}`)
 
     const reportData: ResolutionReportData = {
       chapterId,

@@ -141,12 +141,15 @@ function buildCombinedReportHtml(
     `
   }
 
-  const yourTurnHtml = resolutionData?.yourTurnByCategory
-    ? `
-    ${buildYourTurnHtml('Framework Reflections', resolutionData.yourTurnByCategory.framework)}
-    ${buildYourTurnHtml('Technique Applications', resolutionData.yourTurnByCategory.techniques)}
-    ${buildYourTurnHtml('Follow-Through Commitments', resolutionData.yourTurnByCategory.followThrough)}
-    `
+  // Always generate Your Turn HTML sections, even if empty
+  const frameworkHtml = buildYourTurnHtml('Framework Reflections', resolutionData?.yourTurnByCategory?.framework ?? [])
+  const techniquesHtml = buildYourTurnHtml('Technique Applications', resolutionData?.yourTurnByCategory?.techniques ?? [])
+  const followThroughHtml = buildYourTurnHtml('Follow-Through Commitments', resolutionData?.yourTurnByCategory?.followThrough ?? [])
+  
+  const hasAnyYourTurn = frameworkHtml || techniquesHtml || followThroughHtml
+  
+  const yourTurnHtml = hasAnyYourTurn
+    ? `${frameworkHtml}${techniquesHtml}${followThroughHtml}`
     : ''
 
   return `<!doctype html>
@@ -387,6 +390,15 @@ export async function GET(
     const user = userResult.data
     const assessmentData = assessmentResult.success ? assessmentResult.data : null
     const resolutionData = resolutionResult.success ? resolutionResult.data : null
+
+    console.log(`[Report API] Chapter ${chapterId} - Building report:`)
+    console.log(`  - Assessment: ${assessmentData ? 'YES' : 'NO'}`)
+    console.log(`  - Resolution: ${resolutionData ? 'YES' : 'NO'}`)
+    if (resolutionData) {
+      console.log(`  - Your Turn total: ${(resolutionData.yourTurnByCategory?.framework?.length ?? 0) + (resolutionData.yourTurnByCategory?.techniques?.length ?? 0) + (resolutionData.yourTurnByCategory?.followThrough?.length ?? 0)}`)
+      console.log(`  - Identity: ${resolutionData.identityResolution ? 'YES' : 'NO'}`)
+      console.log(`  - Proofs: ${resolutionData.proofs?.length ?? 0}`)
+    }
 
     // Always load assessment config so we can render questions even if no assessment has been completed yet
     const assessmentConfig = getAssessmentConfig(
