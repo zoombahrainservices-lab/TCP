@@ -37,6 +37,66 @@ const ASSESSMENT_CONFIG: Record<number, AssessmentConfig> = {
       { id: 4, question: 'I catastrophize what could go wrong', low: 'Rarely', high: 'Constantly' },
     ],
   },
+  3: {
+    chapterTitle: 'Chapter 3',
+    maxScore: 28,
+    questions: [
+      { id: 1, question: 'Self-check question 1', low: 'Not at all', high: 'Completely' },
+      { id: 2, question: 'Self-check question 2', low: 'Never', high: 'Always' },
+      { id: 3, question: 'Self-check question 3', low: 'Rarely', high: 'Often' },
+      { id: 4, question: 'Self-check question 4', low: 'Not at all', high: 'Completely' },
+    ],
+  },
+  4: {
+    chapterTitle: 'Chapter 4',
+    maxScore: 28,
+    questions: [
+      { id: 1, question: 'Self-check question 1', low: 'Not at all', high: 'Completely' },
+      { id: 2, question: 'Self-check question 2', low: 'Never', high: 'Always' },
+      { id: 3, question: 'Self-check question 3', low: 'Rarely', high: 'Often' },
+      { id: 4, question: 'Self-check question 4', low: 'Not at all', high: 'Completely' },
+    ],
+  },
+  5: {
+    chapterTitle: 'Chapter 5',
+    maxScore: 28,
+    questions: [
+      { id: 1, question: 'Self-check question 1', low: 'Not at all', high: 'Completely' },
+      { id: 2, question: 'Self-check question 2', low: 'Never', high: 'Always' },
+      { id: 3, question: 'Self-check question 3', low: 'Rarely', high: 'Often' },
+      { id: 4, question: 'Self-check question 4', low: 'Not at all', high: 'Completely' },
+    ],
+  },
+  6: {
+    chapterTitle: 'Chapter 6',
+    maxScore: 28,
+    questions: [
+      { id: 1, question: 'Self-check question 1', low: 'Not at all', high: 'Completely' },
+      { id: 2, question: 'Self-check question 2', low: 'Never', high: 'Always' },
+      { id: 3, question: 'Self-check question 3', low: 'Rarely', high: 'Often' },
+      { id: 4, question: 'Self-check question 4', low: 'Not at all', high: 'Completely' },
+    ],
+  },
+  7: {
+    chapterTitle: 'Chapter 7',
+    maxScore: 28,
+    questions: [
+      { id: 1, question: 'Self-check question 1', low: 'Not at all', high: 'Completely' },
+      { id: 2, question: 'Self-check question 2', low: 'Never', high: 'Always' },
+      { id: 3, question: 'Self-check question 3', low: 'Rarely', high: 'Often' },
+      { id: 4, question: 'Self-check question 4', low: 'Not at all', high: 'Completely' },
+    ],
+  },
+  8: {
+    chapterTitle: 'Chapter 8',
+    maxScore: 28,
+    questions: [
+      { id: 1, question: 'Self-check question 1', low: 'Not at all', high: 'Completely' },
+      { id: 2, question: 'Self-check question 2', low: 'Never', high: 'Always' },
+      { id: 3, question: 'Self-check question 3', low: 'Rarely', high: 'Often' },
+      { id: 4, question: 'Self-check question 4', low: 'Not at all', high: 'Completely' },
+    ],
+  },
 }
 
 export function getAssessmentConfig(chapterId: number, fallbackTitle: string): AssessmentConfig {

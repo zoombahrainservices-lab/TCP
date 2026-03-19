@@ -124,18 +124,39 @@ export async function getChaptersForReports(): Promise<
 
     const chapterNumbers = chapters.map((c) => c.chapter_number as number)
 
+    // Get user's current chapter progress to determine which reports to show
+    const { data: progressRows } = await supabase
+      .from('chapter_progress')
+      .select('chapter_id')
+      .eq('user_id', user.id)
+      .order('chapter_id', { ascending: false })
+      .limit(1)
+
+    // Determine current chapter: highest chapter user has started, or 1 if none
+    let currentChapter = 1
+    if (progressRows && progressRows.length > 0) {
+      currentChapter = progressRows[0].chapter_id
+    }
+
+    // Only show reports for chapters < currentChapter (all previous completed chapters)
+    const eligibleChapterNumbers = chapterNumbers.filter(n => n < currentChapter)
+
+    if (eligibleChapterNumbers.length === 0) {
+      return { success: true, data: [] }
+    }
+
     const [assessmentsRows, artifactsRows] = await Promise.all([
       supabase
         .from('assessments')
         .select('chapter_id')
         .eq('user_id', user.id)
         .eq('kind', 'baseline')
-        .in('chapter_id', chapterNumbers),
+        .in('chapter_id', eligibleChapterNumbers),
       supabase
         .from('artifacts')
         .select('chapter_id, type')
         .eq('user_id', user.id)
-        .in('chapter_id', chapterNumbers),
+        .in('chapter_id', eligibleChapterNumbers),
     ])
 
     const hasAssessment = new Set((assessmentsRows.data ?? []).map((r) => r.chapter_id))
@@ -143,7 +164,13 @@ export async function getChaptersForReports(): Promise<
       (artifactsRows.data ?? []).filter((r) => r.type === 'identity_resolution' || r.type === 'proof').map((r) => r.chapter_id)
     )
 
-    const data: ChapterReportMeta[] = chapters.map((ch) => {
+    // Filter chapters to only include those < currentChapter
+    const eligibleChapters = chapters.filter(ch => {
+      const chNum = ch.chapter_number as number
+      return chNum < currentChapter
+    })
+
+    const data: ChapterReportMeta[] = eligibleChapters.map((ch) => {
       const chapterId = ch.chapter_number as number
       const assessmentAvailable = hasAssessment.has(chapterId)
       const resolutionAvailable = hasResolution.has(chapterId)
@@ -160,7 +187,6 @@ export async function getChaptersForReports(): Promise<
 
     return { success: true, data }
   } catch (error) {
-    console.error('Error in getChaptersForReports:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
