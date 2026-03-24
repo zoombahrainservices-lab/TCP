@@ -72,6 +72,32 @@ function buildCombinedReportHtml(
             <span class="q-num">${q.id}.</span>
             <span class="q-text">${escapeHtml(q.question)}</span>
           </div>
+          ${
+            q.questionType === 'mcq'
+              ? `
+          <div class="q-range">
+            <span class="range-low">MCQ</span>
+          </div>
+          ${
+            showAnswerBars
+              ? `<div class="your-turn-response" style="background: transparent; padding: 0; margin-top: 6px;"><span style="font-weight: 700;">Answer:</span> ${escapeHtml(String(q.responseLabel || 'No response'))}</div>`
+              : ''
+          }
+          `
+              : q.questionType === 'yes_no'
+              ? `
+          <div class="q-range">
+            <span class="range-low">No</span>
+            <span class="range-sep">/</span>
+            <span class="range-high">Yes</span>
+          </div>
+          ${
+            showAnswerBars
+              ? `<div class="your-turn-response" style="background: transparent; padding: 0; margin-top: 6px;"><span style="font-weight: 700;">Answer:</span> ${escapeHtml(String(q.responseLabel || 'No response'))}</div>`
+              : ''
+          }
+          `
+              : `
           <div class="q-range">
             <span class="range-low">${escapeHtml(q.low)}</span>
             <span class="range-sep">←</span>
@@ -94,6 +120,23 @@ function buildCombinedReportHtml(
           </div>
           `
           }
+          `
+          }
+        </div>
+      `
+        )
+        .join('')
+    : '<p class="text-muted">No self-check questions configured for this chapter.</p>'
+
+  const selfCheckPromptOnlyHtml = questionsSource.length
+    ? questionsSource
+        .map(
+          (q: any, idx: number) => `
+        <div class="your-turn-item" style="background: #fafafa; border-left-color: #cbd5e1;">
+          <div class="your-turn-prompt" style="color: #475569;">
+            <span style="font-weight: 700; color: #94a3b8; margin-right: 8px;">${idx + 1}.</span>
+            ${escapeHtml(String(q.question || `Question ${idx + 1}`))}
+          </div>
         </div>
       `
         )
@@ -113,7 +156,19 @@ function buildCombinedReportHtml(
               <div class="proof-meta">${escapeHtml(proof.type)} • ${new Date(proof.createdAt).toLocaleDateString()}</div>
             </div>
           </div>
-          ${proof.notes ? `<div class="proof-notes">${escapeHtml(proof.notes)}</div>` : ''}
+          <div class="your-turn-item" style="margin-top: 10px;">
+            <div class="your-turn-prompt">
+              <span style="font-weight: 700; color: #10b981; margin-right: 8px;">${idx + 1}.</span>
+              <span style="font-weight: 700;">Question:</span> ${escapeHtml(
+                resolutionData?.resolutionQuestion || proof.title || 'Write your proof response.'
+              )}
+            </div>
+            ${
+              proof.notes
+                ? `<div class="your-turn-response" style="background: transparent; padding: 0; margin-top: 6px;"><span style="font-weight: 700;">Answer:</span> ${escapeHtml(proof.notes)}</div>`
+                : `<div class="your-turn-response" style="background: transparent; padding: 0; margin-top: 6px;"><span style="font-weight: 700;">Answer:</span> </div>`
+            }
+          </div>
         </div>
       `
         )
@@ -136,27 +191,123 @@ function buildCombinedReportHtml(
     
     const emoji = categoryEmojis[categoryKey] || '📝'
     
-    // If has answers, show them
-    if (items?.length > 0) {
+    const normalize = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim()
+
+    const answers = Array.isArray(items) ? items : []
+    const questions = Array.isArray(availableQuestions) ? availableQuestions : []
+
+    // Build rows so we always prefer showing question text.
+    // If question + answer exist -> show both.
+    // If no answer -> show only question.
+    const usedAnswerIndexes = new Set<number>()
+    const rows: Array<{ question: string; answer?: string; hasAnswer: boolean }> = []
+
+    if (questions.length > 0) {
+      for (const q of questions) {
+        const qLabel = String(q.label || '').trim()
+        const normalizedQuestion = normalize(qLabel)
+
+        let matchedAnswerIndex = -1
+        for (let i = 0; i < answers.length; i += 1) {
+          if (usedAnswerIndexes.has(i)) continue
+          const answerPromptId = String(answers[i]?.promptId || '').trim()
+          if (answerPromptId && String(q.id || '').trim() && answerPromptId === String(q.id).trim()) {
+            matchedAnswerIndex = i
+            break
+          }
+          const answerPrompt = String(answers[i]?.promptText || '').trim()
+          if (!answerPrompt) continue
+          if (normalize(answerPrompt) === normalizedQuestion) {
+            matchedAnswerIndex = i
+            break
+          }
+        }
+
+        if (matchedAnswerIndex >= 0) {
+          usedAnswerIndexes.add(matchedAnswerIndex)
+          const answerText = String(answers[matchedAnswerIndex]?.responseText || '').trim()
+          rows.push({
+            question: qLabel,
+            answer: answerText || undefined,
+            hasAnswer: answerText.length > 0,
+          })
+        } else {
+          rows.push({
+            question: qLabel,
+            hasAnswer: false,
+          })
+        }
+      }
+
+      // Second-pass index fallback:
+      // if there are still unanswered questions and unmatched answers,
+      // pair them by order to avoid split "question-only" and "answer-only" rows.
+      const unansweredRowIndexes: number[] = []
+      for (let r = 0; r < rows.length; r += 1) {
+        if (!rows[r].hasAnswer) unansweredRowIndexes.push(r)
+      }
+      const remainingAnswerIndexes: number[] = []
+      for (let i = 0; i < answers.length; i += 1) {
+        if (!usedAnswerIndexes.has(i)) remainingAnswerIndexes.push(i)
+      }
+      const pairCount = Math.min(unansweredRowIndexes.length, remainingAnswerIndexes.length)
+      for (let k = 0; k < pairCount; k += 1) {
+        const rowIdx = unansweredRowIndexes[k]
+        const answerIdx = remainingAnswerIndexes[k]
+        const answerText = String(answers[answerIdx]?.responseText || '').trim()
+        if (answerText) {
+          rows[rowIdx].answer = answerText
+          rows[rowIdx].hasAnswer = true
+          usedAnswerIndexes.add(answerIdx)
+        }
+      }
+    }
+
+    // Add remaining answers that did not match a known question
+    // so we don't lose user data in the report.
+    for (let i = 0; i < answers.length; i += 1) {
+      if (usedAnswerIndexes.has(i)) continue
+      const question = String(answers[i]?.promptText || 'Your Response:').trim()
+      const answerText = String(answers[i]?.responseText || '').trim()
+      rows.push({
+        question: question || 'Your Response:',
+        answer: answerText || undefined,
+        hasAnswer: answerText.length > 0,
+      })
+    }
+
+    if (rows.length > 0) {
       return `
     <div class="your-turn-section">
       <h3>${emoji} ${escapeHtml(category)}</h3>
-      ${items
+      ${rows
         .map(
-          (item: any, idx: number) => `
-        <div class="your-turn-item">
-          ${item.promptText ? `
+          (row: any, idx: number) => `
+        <div class="your-turn-item" ${
+          categoryKey === 'followthrough' && row.hasAnswer
+            ? 'style="background: #ecfdf5; border-left-color: #10b981; border-left-width: 4px;"'
+            : ''
+        }>
           <div class="your-turn-prompt">
             <span style="font-weight: 700; color: #10b981; margin-right: 8px;">${idx + 1}.</span>
-            ${escapeHtml(item.promptText)}
+            ${escapeHtml(row.question)}
+            ${
+              categoryKey === 'followthrough' && row.hasAnswer
+                ? `<span style="margin-left: 8px; font-size: 10px; font-weight: 700; color: #047857; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 999px; padding: 2px 8px;">SELECTED</span>`
+                : ''
+            }
           </div>
-          ` : `
-          <div class="your-turn-prompt" style="color: #64748b; font-style: italic;">
-            <span style="font-weight: 700; color: #10b981; margin-right: 8px;">${idx + 1}.</span>
-            Your Response:
-          </div>
-          `}
-          <div class="your-turn-response">${escapeHtml(item.responseText)}</div>
+          ${
+            row.hasAnswer && categoryKey !== 'followthrough'
+              ? `<div class="your-turn-response" style="background: transparent; padding: 0; margin-top: 6px;"><span style="font-weight: 700;">Answer:</span> ${escapeHtml(row.answer || '')}</div>`
+              : row.hasAnswer && categoryKey === 'followthrough'
+              ? `<div class="your-turn-response" style="background: transparent; padding: 0; margin-top: 6px; color: #047857;"><span style="font-weight: 700;">Answer:</span> ${escapeHtml(row.answer || 'Selected')}</div>`
+              : ''
+          }
         </div>
       `
         )
@@ -165,47 +316,38 @@ function buildCombinedReportHtml(
     `
     }
     
-    // If no answers BUT has questions, show questions without answers
-    if (availableQuestions && availableQuestions.length > 0) {
+    // Hide section when no questions/responses.
+    return ''
+  }
+
+  function buildPromptOnlySection(
+    title: string,
+    prompts: Array<{ id?: string; label: string }>
+  ): string {
+    if (!prompts || prompts.length === 0) {
       return `
+      <div class="your-turn-section">
+        <h3>${escapeHtml(title)}</h3>
+        <p class="text-muted">No prompts configured.</p>
+      </div>
+      `
+    }
+
+    return `
     <div class="your-turn-section">
-      <h3>${emoji} ${escapeHtml(category)}</h3>
-      <p style="color: #64748b; font-style: italic; margin: 8px 0 16px 0; font-size: 11px;">
-        Questions available but not yet answered. Complete this section to see your responses here.
-      </p>
-      ${availableQuestions
+      <h3>${escapeHtml(title)}</h3>
+      ${prompts
         .map(
-          (q, idx) => `
+          (p, idx) => `
         <div class="your-turn-item" style="background: #fafafa; border-left-color: #cbd5e1;">
           <div class="your-turn-prompt" style="color: #475569;">
             <span style="font-weight: 700; color: #94a3b8; margin-right: 8px;">${idx + 1}.</span>
-            ${escapeHtml(q.label)}
-          </div>
-          <div class="your-turn-response" style="background: #f8f8f8; color: #94a3b8; font-style: italic; min-height: 40px; display: flex; align-items: center;">
-            Not answered yet
+            ${escapeHtml(String(p.label || `Prompt ${idx + 1}`))}
           </div>
         </div>
       `
         )
         .join('')}
-    </div>
-    `
-    }
-    
-    // For Techniques/Follow-Through, hide the section entirely when empty.
-    if (categoryKey === 'techniques' || categoryKey === 'followthrough') {
-      return ''
-    }
-
-    // If no answers AND no questions, show empty state (Framework only)
-    return `
-    <div class="your-turn-section">
-      <h3>${emoji} ${escapeHtml(category)}</h3>
-      <div class="your-turn-item" style="background: #f8fafc; border-left-color: #cbd5e1;">
-        <p style="color: #64748b; font-style: italic; margin: 0;">
-          No questions or responses recorded for this section yet.
-        </p>
-      </div>
     </div>
     `
   }
@@ -232,6 +374,25 @@ function buildCombinedReportHtml(
   
   // Always include all three sections (no longer check if empty)
   const yourTurnHtml = `${frameworkHtml}${techniquesHtml}${followThroughHtml}`
+
+  const blankFrameworkPrompts = (resolutionData?.availableQuestions?.framework ?? []).map((q: any) => ({
+    id: String(q.id || ''),
+    label: String(q.label || ''),
+  }))
+  const blankFollowThroughPrompts = (resolutionData?.availableQuestions?.followThrough ?? []).map((q: any) => ({
+    id: String(q.id || ''),
+    label: String(q.label || ''),
+  }))
+  const blankResolutionPrompts = [
+    { label: String(resolutionData?.resolutionQuestion || 'Write your proof response.') },
+  ]
+
+  const blankFormSectionsHtml = `
+  ${buildPromptOnlySection('Self Check', (questionsSource || []).map((q: any) => ({ label: String(q.question || '') })))}
+  ${buildPromptOnlySection('Framework', blankFrameworkPrompts)}
+  ${buildPromptOnlySection('Follow-Through', blankFollowThroughPrompts)}
+  ${buildPromptOnlySection('Resolution', blankResolutionPrompts)}
+  `
 
   return `<!doctype html>
 <html>
@@ -319,7 +480,11 @@ function buildCombinedReportHtml(
   </div>
 
   ${
-    hasAssessment
+    !includeAnswers
+      ? `
+  ${blankFormSectionsHtml}
+  `
+      : hasAssessment
       ? `
   <!-- SELF-CHECK ASSESSMENT SECTION -->
   <h2>✅ Self-Check Assessment</h2>
@@ -401,17 +566,6 @@ function buildCombinedReportHtml(
   `
   }
 
-  ${
-    !includeAnswers
-      ? `
-  <div style="margin-top: 32px; padding: 16px; background: #f1f5f9; border-radius: 8px; text-align: center;">
-    <p style="margin: 0; color: #475569; font-size: 11px;">
-      This is a blank form. Complete it at your convenience and compare with your digital report.
-    </p>
-  </div>
-  `
-      : ''
-  }
 </body>
 </html>`
 }

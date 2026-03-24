@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
@@ -13,6 +13,7 @@ import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapt
 import { celebrateSectionCompletion } from '@/lib/celebration/celebrate';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
+import { usePrefetchImage } from '@/lib/hooks/usePrefetchImage';
 
 interface Props {
   chapter: Chapter;
@@ -20,9 +21,10 @@ interface Props {
   pages: Page[];
   nextStepSlug: string | null;
   initialAnswers?: Record<string, any>;
+  isAdmin?: boolean;
 }
 
-export default function DynamicChapterReadingClient({ chapter, readingStep, pages, nextStepSlug, initialAnswers = {} }: Props) {
+export default function DynamicChapterReadingClient({ chapter, readingStep, pages, nextStepSlug, initialAnswers = {}, isAdmin = false }: Props) {
   const router = useRouter();
   // Start at -1 to show cover page first
   const [currentPage, setCurrentPage] = useState(-1);
@@ -159,6 +161,32 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
   // Calculate progress (include cover page in calculation)
   const progress = currentPage === -1 ? 0 : Math.round(((currentPage + 1) / pages.length) * 100);
 
+  // Helper function to get hero image for any page
+  const getHeroImageForPage = useCallback((pageIndex: number): string | null => {
+    if (pageIndex < 0 || pageIndex >= pages.length) return null;
+    
+    const pageData = pages[pageIndex];
+    const content = (pageData?.content ?? []) as any[];
+    const imageBlock = content.find(
+      (b: any) => b && b.type === 'image' && b.src && typeof b.src === 'string'
+    );
+    
+    // Prefer chapter preview image when available.
+    if (chapter.hero_image_url) return chapter.hero_image_url;
+    if (chapter.thumbnail_url) return chapter.thumbnail_url;
+    // Fallback to first reading image only if preview is missing.
+    if (imageBlock?.src) return imageBlock.src as string;
+    
+    // Legacy fallbacks
+    if (chapter.chapter_number === 1) {
+      return '/slider-work-on-quizz/chapter1/chaper1-1.jpeg';
+    } else if (chapter.chapter_number === 2) {
+      return '/chapter/chapter 2/Nightmare.png';
+    }
+    
+    return null;
+  }, [pages, chapter]);
+
   // Hero image (only for content pages, not cover)
   const rawContent = (currentPageData?.content ?? []) as any[];
   const firstImageBlock = rawContent.find(
@@ -175,18 +203,23 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     }
   }
 
-  // Per-page images override chapter-level hero for that specific page
+  // Use chapter preview first, then fallback to first reading image.
   const heroImageSrc =
-    (firstImageBlock?.src as string | undefined) ||
     chapter.hero_image_url ||
     chapter.thumbnail_url ||
+    (firstImageBlock?.src as string | undefined) ||
     legacyFallback ||
-    '/placeholder.png';
+    null; // Use null instead of '/placeholder.png' to show gradient fallback
 
   const heroImageAlt =
     (firstImageBlock?.alt as string | undefined) ||
     currentPageData?.title ||
     chapter.title;
+
+  // Aggressively prefetch next page's hero image
+  const nextPageIndex = currentPage + 1;
+  const nextImageSrc = getHeroImageForPage(nextPageIndex);
+  usePrefetchImage(nextImageSrc);
 
   const handleDownloadChapterPdf = () => {
     const pdfUrl = `/api/reports/chapter/${chapter.chapter_number}?answers=true`;
@@ -200,6 +233,7 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
       onClose={() => router.push('/dashboard')}
       serverCurrentChapter={chapter.chapter_number}
       collapseSidebarByDefault={true}
+      isAdmin={isAdmin}
     >
       {currentPage === -1 ? (
         // CHAPTER COVER PAGE
@@ -215,22 +249,20 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
         // CONTENT SLIDES - Image left, Text right (mobile: stacked)
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden order-1">
-            <motion.div
-              key={currentPage}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.2 }}
-              className="absolute inset-0 w-full h-full"
-            >
+            {heroImageSrc ? (
               <Image
                 src={heroImageSrc}
                 alt={heroImageAlt}
                 fill
+                priority
+                fetchPriority="high"
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 quality={85}
                 className="object-cover"
               />
-            </motion.div>
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#F2E9D8] to-[#E8DBC0] dark:from-[#0f1b2d] dark:to-[#13233a]" />
+            )}
           </div>
           <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col flex-1 min-h-0 overflow-hidden order-2">
             <div ref={readingContentRef} className="flex-1 p-6 sm:p-8 lg:p-12 min-h-0 reading-scroll">
@@ -290,6 +322,22 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
                 )}
                 <button
                   onClick={handleNext}
+                  onMouseEnter={() => {
+                    // Preload next image on hover for instant feel
+                    const nextImg = getHeroImageForPage(currentPage + 1);
+                    if (nextImg) {
+                      const img = new window.Image();
+                      img.src = nextImg;
+                    }
+                  }}
+                  onFocus={() => {
+                    // Also preload on focus for keyboard navigation
+                    const nextImg = getHeroImageForPage(currentPage + 1);
+                    if (nextImg) {
+                      const img = new window.Image();
+                      img.src = nextImg;
+                    }
+                  }}
                   disabled={isProcessing}
                   className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-[#FF6B35] hover:bg-[#FF5722] text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
                 >

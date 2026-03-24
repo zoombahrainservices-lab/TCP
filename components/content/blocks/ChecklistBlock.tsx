@@ -27,6 +27,7 @@ export default function ChecklistBlock({
   onChange,
 }: ChecklistBlockProps) {
   const [localChecked, setLocalChecked] = useState<string[]>(Array.isArray(checkedItems) ? checkedItems : []);
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
   useEffect(() => {
     const nextChecked = Array.isArray(checkedItems) ? checkedItems : [];
@@ -91,10 +92,14 @@ export default function ChecklistBlock({
             </div>
             <span className={`flex-1 text-base ${
               localChecked.includes(item.id)
-                ? 'line-through text-gray-500 dark:text-gray-500'
-                : 'text-[#2a2416] dark:text-white'
+                ? 'line-through text-gray-500 dark:!text-black'
+                : 'text-[#2a2416] dark:!text-black'
             }`}
-            style={!localChecked.includes(item.id) && appearance?.textColor ? { color: appearance.textColor } : undefined}>
+            style={
+              !isDarkMode && !localChecked.includes(item.id) && appearance?.textColor
+                ? { color: appearance.textColor }
+                : undefined
+            }>
               {item.text}
             </span>
           </label>

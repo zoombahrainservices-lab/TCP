@@ -23,11 +23,13 @@ export type AssessmentReportData = {
     high: string
     userResponse: number
     maxValue: number
+    questionType?: 'scale' | 'mcq' | 'yes_no'
     responseLabel?: string
   }>
 }
 
 export type YourTurnQandA = {
+  promptId?: string | null
   promptText: string | null
   responseText: string
   createdAt: string
@@ -37,6 +39,7 @@ export type ResolutionReportData = {
   chapterId: number
   chapterTitle: string
   completedAt: string
+  resolutionQuestion?: string
   identityResolution?: string
   proofs: Array<{
     type: 'text' | 'image' | 'audio' | 'video'
@@ -307,6 +310,7 @@ async function buildDynamicAssessmentQuestions(
             high,
             userResponse: Number.isFinite(numericResponse) ? numericResponse : 0,
             maxValue,
+            questionType: 'scale',
           })
           scaleIndex += 1
         }
@@ -337,9 +341,47 @@ async function buildDynamicAssessmentQuestions(
             high: hasCorrect ? 'Correct' : 'Answered',
             userResponse: hasCorrect ? (isCorrect ? 1 : 0) : (selectedOptionId ? 1 : 0),
             maxValue: 1,
+            questionType: 'mcq',
             responseLabel: hasCorrect
               ? (isCorrect ? 'Correct' : 'Incorrect')
               : (selectedOption?.text ? `Selected: ${String(selectedOption.text)}` : 'No response'),
+          })
+        }
+      }
+
+      if (blockRecord.type === 'yes_no_check') {
+        const yesNoBlock = blockRecord
+        const statements = Array.isArray(yesNoBlock.statements) ? yesNoBlock.statements : []
+        for (const s of statements) {
+          if (!s || typeof s !== 'object') continue
+          const sRecord = s as Record<string, unknown>
+          const statementId = String(sRecord.id || `yn_${questions.length + 1}`)
+          const statementText = String(sRecord.text || '').trim()
+          const rawResponse = responses[statementId]
+          const responseValue = String(rawResponse ?? '').toLowerCase()
+
+          let responseLabel = 'No response'
+          let numericResponse = 0
+          if (responseValue === 'yes') {
+            responseLabel = 'Yes'
+            numericResponse = 1
+          } else if (responseValue === 'no') {
+            responseLabel = 'No'
+            numericResponse = 0
+          } else if (responseValue === 'not_sure') {
+            responseLabel = 'Not sure'
+            numericResponse = 0
+          }
+
+          questions.push({
+            id: statementId,
+            question: statementText || `Question ${questions.length + 1}`,
+            low: 'No',
+            high: 'Yes',
+            userResponse: numericResponse,
+            maxValue: 1,
+            questionType: 'yes_no',
+            responseLabel,
           })
         }
       }
@@ -411,7 +453,14 @@ export async function getAssessmentReportData(
     let chapterTitle = config.chapterTitle
     let maxScore = config.maxScore
 
-    if (config.questions.length > 0) {
+    // Prefer dynamic chapter content first so report always reflects admin-edited questions
+    const dynamic = await buildDynamicAssessmentQuestions(supabase, chapterId, responses)
+    chapterTitle = dynamic.chapterTitle
+    questionsWithResponses = dynamic.questions
+    maxScore = questionsWithResponses.reduce((sum, q) => sum + (q.maxValue || 0), 0)
+
+    // Fallback to static config only when dynamic content is unavailable
+    if (!questionsWithResponses.length && config.questions.length > 0) {
       questionsWithResponses = config.questions.map((q) => {
         const raw = responses[String(q.id)]
         const userResponse = typeof raw === 'number' ? raw : Number(raw || 0)
@@ -419,24 +468,29 @@ export async function getAssessmentReportData(
           ...q,
           userResponse: Number.isFinite(userResponse) ? userResponse : 0,
           maxValue: 7,
+          questionType: 'scale' as const,
         }
       })
-    } else {
-      const dynamic = await buildDynamicAssessmentQuestions(supabase, chapterId, responses)
-      chapterTitle = dynamic.chapterTitle
-      questionsWithResponses = dynamic.questions
       maxScore = questionsWithResponses.reduce((sum, q) => sum + (q.maxValue || 0), 0)
-      if (!questionsWithResponses.length) {
-        return { success: false, error: 'No assessment questions found for this chapter' }
-      }
+    }
+
+    if (!questionsWithResponses.length) {
+      return { success: false, error: 'No assessment questions found for this chapter' }
     }
 
     const computedScore = questionsWithResponses.reduce((sum, q) => sum + (q.userResponse || 0), 0)
+    const firstType = questionsWithResponses[0]?.questionType
+    const assessmentTypeLabel =
+      firstType === 'mcq'
+        ? 'Self-Check (MCQ)'
+        : firstType === 'yes_no'
+        ? 'Self-Check (Yes/No)'
+        : 'Self-Check (Scale)'
 
     const reportData: AssessmentReportData = {
       chapterId,
       chapterTitle,
-      assessmentType: 'Self-Check (Baseline)',
+      assessmentType: assessmentTypeLabel,
       score: typeof finalAssessment.score === 'number' ? finalAssessment.score : computedScore,
       maxScore,
       completedAt: finalAssessment.created_at,
@@ -482,12 +536,13 @@ export async function getResolutionReportData(
     const followThroughQuestions: Array<{ id: string; label: string }> = []
     const promptQuestionsMap = new Map<string, string>()
 
+    let resolutionQuestion: string | undefined
     if (chapterRow?.id) {
       const { data: chapterSteps, error: chapterStepsError } = await supabase
         .from('chapter_steps')
         .select('id, step_type')
         .eq('chapter_id', chapterRow.id)
-        .in('step_type', ['framework', 'techniques', 'follow_through'])
+        .in('step_type', ['framework', 'techniques', 'follow_through', 'resolution'])
 
       if (chapterStepsError) {
         console.error('[getResolutionReportData] Error fetching chapter_steps:', chapterStepsError)
@@ -502,8 +557,11 @@ export async function getResolutionReportData(
       const followThroughStepIds = (chapterSteps ?? [])
         .filter((s) => s.step_type === 'follow_through')
         .map((s) => s.id)
+      const resolutionStepIds = (chapterSteps ?? [])
+        .filter((s) => s.step_type === 'resolution')
+        .map((s) => s.id)
 
-      const allStepIds = [...frameworkStepIds, ...techniquesStepIds, ...followThroughStepIds]
+      const allStepIds = [...frameworkStepIds, ...techniquesStepIds, ...followThroughStepIds, ...resolutionStepIds]
 
       if (allStepIds.length > 0) {
         const { data: pages, error: pagesError } = await supabase
@@ -526,28 +584,60 @@ export async function getResolutionReportData(
           const isFramework = frameworkStepIds.includes(page.step_id)
           const isTechnique = techniquesStepIds.includes(page.step_id)
           const isFollowThrough = followThroughStepIds.includes(page.step_id)
+          const isResolution = resolutionStepIds.includes(page.step_id)
 
           for (const block of blocks) {
             if (!block || typeof block !== 'object') continue
             const b = block as Record<string, unknown>
-            if (b.type !== 'prompt' || !b.id || !b.label) continue
+            if (b.type === 'prompt' && b.id && b.label) {
+              const id = String(b.id)
+              const label = String(b.label)
+              promptQuestionsMap.set(id, label)
 
-            const id = String(b.id)
-            const label = String(b.label)
-            promptQuestionsMap.set(id, label)
+              if (isFramework && !seenByCategory.framework.has(id)) {
+                frameworkQuestions.push({ id, label })
+                seenByCategory.framework.add(id)
+              } else if (isTechnique && !seenByCategory.techniques.has(id)) {
+                techniquesQuestions.push({ id, label })
+                seenByCategory.techniques.add(id)
+              } else if (isFollowThrough && !seenByCategory.followThrough.has(id)) {
+                followThroughQuestions.push({ id, label })
+                seenByCategory.followThrough.add(id)
+              }
+            }
 
-            if (isFramework && !seenByCategory.framework.has(id)) {
-              frameworkQuestions.push({ id, label })
-              seenByCategory.framework.add(id)
-            } else if (isTechnique && !seenByCategory.techniques.has(id)) {
-              techniquesQuestions.push({ id, label })
-              seenByCategory.techniques.add(id)
-            } else if (isFollowThrough && !seenByCategory.followThrough.has(id)) {
-              followThroughQuestions.push({ id, label })
-              seenByCategory.followThrough.add(id)
+            // Support follow-through checklist prompts in reports.
+            if (b.type === 'checklist' && Array.isArray(b.items)) {
+              for (const item of b.items as Array<Record<string, unknown>>) {
+                if (!item || typeof item !== 'object') continue
+                const itemText = typeof item.text === 'string' ? item.text.trim() : ''
+                if (!itemText) continue
+                const itemIdRaw = typeof item.id === 'string' ? item.id : `checklist_${itemText}`
+                const id = String(itemIdRaw)
+
+                if (isFollowThrough && !seenByCategory.followThrough.has(id)) {
+                  followThroughQuestions.push({ id, label: itemText })
+                  seenByCategory.followThrough.add(id)
+                }
+              }
+            }
+
+            // Capture chapter-configured resolution question prompt
+            // from the detailed scenario text for report proof Q/A display.
+            if (isResolution && b.type === 'identity_resolution_guidance' && !resolutionQuestion) {
+              const scenarioText = typeof b.exampleText === 'string' ? b.exampleText.trim() : ''
+              if (scenarioText) {
+                resolutionQuestion = scenarioText
+              } else {
+                const subtitle = typeof b.subtitle === 'string' ? b.subtitle.trim() : ''
+                if (subtitle) {
+                  resolutionQuestion = subtitle
+                }
+              }
             }
           }
         }
+
       }
     } else {
       console.warn(`[getResolutionReportData] Chapter ${chapterId} not found in chapters table`)
@@ -629,6 +719,7 @@ export async function getResolutionReportData(
       const promptKey = String(d.promptKey ?? '')
       console.log(`  - Artifact: ${promptKey}`)
       const item: YourTurnQandA = {
+        promptId: d.promptId != null ? String(d.promptId) : null,
         promptText: d.promptText != null ? String(d.promptText) : null,
         responseText: String(d.responseText ?? ''),
         createdAt: row.created_at ?? '',
@@ -641,7 +732,10 @@ export async function getResolutionReportData(
         techniques.push(item)
         console.log(`    → Added to techniques`)
       }
-      else if (promptKey.startsWith(`${prefix}followthrough_`)) {
+      else if (
+        promptKey.startsWith(`${prefix}followthrough_`) ||
+        promptKey.startsWith(`${prefix}follow_through_`)
+      ) {
         followThrough.push(item)
         console.log(`    → Added to followThrough`)
       } else {
@@ -685,7 +779,7 @@ export async function getResolutionReportData(
       let questionText: string | null = null
       
       // Method 1: Extract from prompt_key format like "ch1_framework_spark_s_pattern"
-      const traditionalMatch = promptKey.match(/(?:framework|technique|followthrough)_(.+)$/)
+      const traditionalMatch = promptKey.match(/(?:framework|technique|followthrough|follow_through)_(.+)$/)
       if (traditionalMatch) {
         const promptId = traditionalMatch[1]
         console.log(`    Traditional format - Extracted ID: ${promptId}`)
@@ -696,6 +790,7 @@ export async function getResolutionReportData(
       // We don't have the question text for these, so we'll show generic message
       
       const item: YourTurnQandA = {
+        promptId: traditionalMatch?.[1] ? String(traditionalMatch[1]) : null,
         promptText: questionText || null,
         responseText: answerText,
         createdAt: row.created_at ?? '',
@@ -710,7 +805,7 @@ export async function getResolutionReportData(
       } else if (promptKey.includes('technique_')) {
         techniques.push(item)
         console.log(`    → Added to techniques`)
-      } else if (promptKey.includes('followthrough_')) {
+      } else if (promptKey.includes('followthrough_') || promptKey.includes('follow_through_')) {
         followThrough.push(item)
         console.log(`    → Added to followThrough`)
       } else if (promptKey.startsWith('prompt_')) {
@@ -730,6 +825,7 @@ export async function getResolutionReportData(
       chapterId,
       chapterTitle,
       completedAt: proofArtifacts?.[0]?.created_at ?? new Date().toISOString(),
+      resolutionQuestion,
       identityResolution: identityStatement,
       proofs,
       yourTurnByCategory: { framework, techniques, followThrough },

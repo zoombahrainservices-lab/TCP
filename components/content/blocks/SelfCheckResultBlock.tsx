@@ -12,7 +12,7 @@ export default function SelfCheckResultBlock({
   title = 'Self-Check Results',
   subtitle = 'This is your starting point for this chapter—not your ending point.',
   scoreBandsTitle = 'Score Bands Explained',
-  scoreBands = [],
+  scoreBands,
   scoreMessage,
   buttonText = 'Continue to Framework →',
   assessmentType = 'scale',
@@ -38,7 +38,9 @@ export default function SelfCheckResultBlock({
     { range: '1-8', label: 'Low anxiety', explanation: 'Low anxiety. Keep practicing to stay confident.' },
   ];
   
-  const displayBands = scoreBands.length > 0 ? scoreBands : defaultScaleBands;
+  // Respect explicit empty score bands from admin.
+  // Only use defaults when scoreBands is not provided at all.
+  const displayBands = scoreBands ?? (assessmentType === 'scale' ? defaultScaleBands : []);
 
   return (
     <div className="self-check-result-block w-full">

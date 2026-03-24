@@ -5,16 +5,15 @@
  * - This file MUST only be imported from server components / server code.
  * - It MUST NOT be used from edge or client code.
  *
- * NOTE:
- * We intentionally do NOT wrap these in `unstable_cache` anymore because
- * Next.js forbids using dynamic sources like `cookies()` anywhere inside
- * a cache scope. To avoid subtle coupling issues, we keep these as plain
- * async helpers. Performance wins still come from:
- * - using a single RPC (`get_chapter_bundle`)
- * - avoiding per-request middleware auth checks for public content
+ * CACHING STRATEGY:
+ * - Public content (chapters, steps, pages) is cached using unstable_cache
+ * - Service-role queries are safe to cache (no user-specific data, no cookies())
+ * - Short TTL (5 minutes) to balance performance and freshness
+ * - Tagged for manual invalidation when content is updated
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { unstable_cache } from 'next/cache'
 
 // Verify this is server-only
 if (typeof window !== 'undefined') {
@@ -38,101 +37,220 @@ function createServiceClient() {
   })
 }
 
+function hasMeaningfulSupabaseError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const record = error as Record<string, unknown>
+  return (
+    typeof record.message === 'string' && record.message.trim().length > 0
+  ) || typeof record.code === 'string' || typeof record.details === 'string'
+}
+
 /**
  * Get chapter + steps bundle via a single RPC.
+ * Cached for 5 minutes per chapter slug.
  */
-export async function getCachedChapterBundle(chapterSlug: string) {
-  const supabase = createServiceClient()
+export const getCachedChapterBundle = unstable_cache(
+  async (chapterSlug: string) => {
+    const supabase = createServiceClient()
 
-  // Primary path: use the RPC for best performance
-  const { data, error } = await supabase.rpc('get_chapter_bundle', {
-    chapter_slug: chapterSlug,
-  })
+    // Primary path: use the RPC for best performance
+    const { data, error } = await supabase.rpc('get_chapter_bundle', {
+      chapter_slug: chapterSlug,
+    })
 
-  const hasValidData = Array.isArray(data) && data.length > 0 && data[0]?.chapter_data
+    const hasValidData = Array.isArray(data) && data.length > 0 && data[0]?.chapter_data
 
-  if (hasValidData) {
-    const chapter = data[0].chapter_data as any
-    const steps = data[0].steps_data as any[]
+    if (hasValidData) {
+      const chapter = data[0].chapter_data as any
+      const steps = data[0].steps_data as any[]
+
+      return {
+        chapter,
+        steps,
+        error: null,
+      }
+    }
+
+    // Fallback path: if the RPC is missing or misconfigured, fall back to direct queries
+
+    const { data: chapterRows, error: chapterError } = await supabase
+      .from('chapters')
+      .select('*')
+      .eq('slug', chapterSlug)
+      .eq('is_published', true)
+      .limit(1)
+
+    if (chapterError || !chapterRows || chapterRows.length === 0) {
+      return { chapter: null, steps: [], error: chapterError || error }
+    }
+
+    const chapter = chapterRows[0] as any
+
+    const { data: stepsRows, error: stepsError } = await supabase
+      .from('chapter_steps')
+      .select('*')
+      .eq('chapter_id', chapter.id)
+      .order('order_index', { ascending: true })
+
+    if (stepsError) {
+      console.error('getCachedChapterBundle: error fetching steps in fallback', stepsError)
+    }
 
     return {
       chapter,
-      steps,
-      error: null,
+      steps: (stepsRows as any[]) || [],
+      error: stepsError || chapterError || error || null,
     }
+  },
+  ['chapter-bundle'],
+  {
+    revalidate: 300, // 5 minutes
+    tags: ['chapters', 'steps', 'content'],
   }
-
-  // Fallback path: if the RPC is missing or misconfigured, fall back to direct queries
-
-  const { data: chapterRows, error: chapterError } = await supabase
-    .from('chapters')
-    .select('*')
-    .eq('slug', chapterSlug)
-    .eq('is_published', true)
-    .limit(1)
-
-  if (chapterError || !chapterRows || chapterRows.length === 0) {
-    return { chapter: null, steps: [], error: chapterError || error }
-  }
-
-  const chapter = chapterRows[0] as any
-
-  const { data: stepsRows, error: stepsError } = await supabase
-    .from('chapter_steps')
-    .select('*')
-    .eq('chapter_id', chapter.id)
-    .order('order_index', { ascending: true })
-
-  if (stepsError) {
-    console.error('getCachedChapterBundle: error fetching steps in fallback', stepsError)
-  }
-
-  return {
-    chapter,
-    steps: (stepsRows as any[]) || [],
-    error: stepsError || chapterError || error || null,
-  }
-}
+)
 
 /**
  * Get all pages for a step.
+ * Cached for 5 minutes per step.
  */
-export async function getCachedStepPages(stepId: string) {
-  const supabase = createServiceClient()
+export const getCachedStepPages = unstable_cache(
+  async (stepId: string) => {
+    const supabase = createServiceClient()
 
-  const { data, error } = await supabase
-    .from('step_pages')
-    .select('*')
-    .eq('step_id', stepId)
-    .order('order_index', { ascending: true })
+    const { data, error } = await supabase
+      .from('step_pages')
+      .select('*')
+      .eq('step_id', stepId)
+      .order('order_index', { ascending: true })
 
-  if (error) {
-    console.error('Error fetching step pages:', error)
-    return []
+    if (error) {
+      console.error('Error fetching step pages:', error)
+      return []
+    }
+
+    return data || []
+  },
+  ['step-pages'],
+  {
+    revalidate: 300, // 5 minutes
+    tags: ['pages', 'content'],
   }
-
-  return data || []
-}
+)
 
 /**
  * Get all published chapters (for dashboard / map).
+ * Cached for 5 minutes to reduce repeated DB hits.
  */
-export async function getCachedAllChapters() {
-  const supabase = createServiceClient()
+export const getCachedAllChapters = unstable_cache(
+  async () => {
+    const supabase = createServiceClient()
 
-  const { data, error } = await supabase
-    .from('chapters')
-    .select('*')
-    .eq('is_published', true)
-    .order('order_index', { ascending: true })
+    const { data, error } = await supabase
+      .from('chapters')
+      .select('*')
+      .eq('is_published', true)
+      .order('order_index', { ascending: true })
 
-  if (error) {
-    console.error('Error fetching chapters:', error)
-    return []
+    if (error) {
+      console.error('Error fetching chapters:', error)
+      return []
+    }
+
+    return data || []
+  },
+  ['all-published-chapters'],
+  {
+    revalidate: 300, // 5 minutes
+    tags: ['chapters', 'content'],
   }
+)
 
-  return data || []
-}
+/**
+ * Get fallback preview image per chapter from the first "read" step/page.
+ * Used when chapter-level preview image is missing.
+ */
+export const getCachedChapterReadingPreviewImages = unstable_cache(
+  async () => {
+    const supabase = createServiceClient()
+
+    const { data: readSteps, error: readStepsError } = await supabase
+      .from('chapter_steps')
+      .select('id, chapter_id, step_type, order_index')
+      .eq('step_type', 'read')
+      .order('chapter_id', { ascending: true })
+      .order('order_index', { ascending: true })
+
+    if (hasMeaningfulSupabaseError(readStepsError) || !readSteps) {
+      if (hasMeaningfulSupabaseError(readStepsError)) {
+        console.error('Error fetching read steps for preview fallback:', readStepsError)
+      }
+      return {} as Record<string, string>
+    }
+
+    // Keep only the first read step per chapter.
+    const firstReadStepByChapter = new Map<string, string>()
+    for (const step of readSteps as any[]) {
+      const chapterId = typeof step.chapter_id === 'string' ? step.chapter_id : null
+      if (!chapterId) continue
+      if (!firstReadStepByChapter.has(chapterId) && typeof step.id === 'string') {
+        firstReadStepByChapter.set(chapterId, step.id)
+      }
+    }
+
+    const stepIds = Array.from(firstReadStepByChapter.values())
+    if (stepIds.length === 0) return {} as Record<string, string>
+
+    const { data: pages, error: pagesError } = await supabase
+      .from('step_pages')
+      .select('step_id, hero_image_url, content, order_index')
+      .in('step_id', stepIds)
+      .order('order_index', { ascending: true })
+
+    if (hasMeaningfulSupabaseError(pagesError) || !pages) {
+      if (hasMeaningfulSupabaseError(pagesError)) {
+        console.error('Error fetching read step pages for preview fallback:', pagesError)
+      }
+      return {} as Record<string, string>
+    }
+
+    const previewByChapterId: Record<string, string> = {}
+
+    // Build reverse lookup step_id -> chapter_id.
+    const chapterByStepId = new Map<string, string>()
+    for (const [chapterId, stepId] of firstReadStepByChapter.entries()) {
+      chapterByStepId.set(stepId, chapterId)
+    }
+
+    for (const page of pages as any[]) {
+      const stepId = typeof page.step_id === 'string' ? page.step_id : null
+      if (!stepId) continue
+
+      const chapterId = chapterByStepId.get(stepId)
+      if (!chapterId || previewByChapterId[chapterId]) continue
+
+      const hero = typeof page.hero_image_url === 'string' ? page.hero_image_url.trim() : ''
+      if (hero) {
+        previewByChapterId[chapterId] = hero
+        continue
+      }
+
+      const content = Array.isArray(page.content) ? page.content : []
+      const imageBlock = content.find(
+        (block: any) => block && block.type === 'image' && typeof block.src === 'string' && block.src.trim().length > 0
+      )
+      if (imageBlock?.src) {
+        previewByChapterId[chapterId] = String(imageBlock.src)
+      }
+    }
+
+    return previewByChapterId
+  },
+  ['chapter-reading-preview-images'],
+  {
+    revalidate: 300,
+    tags: ['chapters', 'steps', 'pages', 'content'],
+  }
+)
 
 /**
  * Get published chapter by chapter_number (for legacy /chapter/[chapterId] routes).
@@ -215,4 +333,30 @@ export async function getCachedChapterBundleAdmin(chapterSlug: string) {
     steps: (stepsRows as any[]) || [],
     error: stepsError || chapterError || error || null,
   }
+}
+
+/**
+ * Invalidate content caches after admin updates.
+ * Call this from admin routes after creating/updating/deleting content.
+ * 
+ * @example
+ * ```ts
+ * import { invalidateContentCache } from '@/lib/content/cache.server'
+ * 
+ * // After updating a chapter
+ * await updateChapter(...)
+ * invalidateContentCache(['chapters'])
+ * 
+ * // After updating multiple content types
+ * invalidateContentCache(['chapters', 'steps', 'pages'])
+ * ```
+ */
+export function invalidateContentCache(tags: string[] = ['content']) {
+  const { revalidateTag } = require('next/cache')
+  
+  for (const tag of tags) {
+    revalidateTag(tag)
+  }
+  
+  return { invalidated: tags }
 }

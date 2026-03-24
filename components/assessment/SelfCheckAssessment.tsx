@@ -23,6 +23,12 @@ interface SelfCheckAssessmentProps {
   onSaveAnswers?: (answers: Record<number, number>, totalScore: number) => Promise<{ success: boolean; error?: string }>;
 }
 
+interface ResultBand {
+  range: string;
+  label?: string;
+  explanation: string;
+}
+
 export default function SelfCheckAssessment({
   chapterId,
   chapterSlug,
@@ -96,6 +102,9 @@ export default function SelfCheckAssessment({
     questionsSubtitle: questionsStepSubtitle,
     resultTitle: 'Self-Check Results',
     resultSubtitle: 'This is your starting point for this chapter—not your ending point.',
+    resultScoreBandsTitle: 'Score Bands Explained',
+    resultScoreBands: [] as ResultBand[],
+    resultButtonText: 'Continue to Framework →',
     introStyles: {
       titleColor: '#111827',
       titleSize: '5xl',
@@ -148,6 +157,9 @@ export default function SelfCheckAssessment({
           questionsSubtitle: intro?.questionsSubtitle || prev.questionsSubtitle,
           resultTitle: result?.title || prev.resultTitle,
           resultSubtitle: result?.subtitle || prev.resultSubtitle,
+          resultScoreBandsTitle: result?.scoreBandsTitle || prev.resultScoreBandsTitle,
+          resultScoreBands: Array.isArray(result?.scoreBands) ? result.scoreBands : prev.resultScoreBands,
+          resultButtonText: result?.buttonText || prev.resultButtonText,
           introStyles: {
             ...prev.introStyles,
             ...(intro?.styles || {}),
@@ -169,38 +181,47 @@ export default function SelfCheckAssessment({
   }, [chapterId, questions.length]);
 
   // Score band logic
+  const defaultResultBands: ResultBand[] = [
+    { range: `${Math.ceil(maxScore * 0.75)}-${maxScore}`, label: "You're managing it", explanation: 'Keep building experience and reps.' },
+    { range: `${Math.ceil(maxScore * 0.5)}-${Math.ceil(maxScore * 0.75) - 1}`, label: 'Moderate anxiety', explanation: 'Focus on Techniques #1 and #3.' },
+    { range: `${Math.ceil(maxScore * 0.25)}-${Math.ceil(maxScore * 0.5) - 1}`, label: "You're where Tony started", explanation: 'VOICE framework will help the most here.' },
+    { range: `1-${Math.ceil(maxScore * 0.25) - 1}`, label: 'Low anxiety', explanation: "You're doing well. Keep practicing to stay confident." },
+  ];
+
+  const activeBands = copy.resultScoreBands.length > 0 ? copy.resultScoreBands : defaultResultBands;
+
+  const scoreInRange = (score: number, range: string): boolean => {
+    const raw = String(range || '').trim();
+    const plusMatch = raw.match(/^(\d+)\+$/);
+    if (plusMatch) return score >= Number(plusMatch[1]);
+
+    const dashMatch = raw.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (dashMatch) {
+      const min = Number(dashMatch[1]);
+      const max = Number(dashMatch[2]);
+      return score >= min && score <= max;
+    }
+
+    const singleMatch = raw.match(/^(\d+)$/);
+    if (singleMatch) return score === Number(singleMatch[1]);
+
+    return false;
+  };
+
+  const matchedBand = activeBands.find((band) => scoreInRange(totalScore, band.range));
+
   const getScoreBand = () => {
-    const percent = (totalScore / maxScore) * 100;
-    if (percent >= 75) return {
-      band: "You're managing it",
-      color: '#16a34a',
-      message: 'Keep building experience and reps.',
-    };
-    if (percent >= 50) return {
-      band: 'Moderate anxiety',
-      color: '#f7b418',
-      message: 'Focus on Techniques #1 and #3.',
-    };
-    if (percent >= 25) return {
-      band: "You're where Tony started",
-      color: '#dc2626',
-      message: 'VOICE framework will help the most here.',
-    };
-    return {
-      band: 'Low anxiety',
-      color: '#0073ba',
-      message: "You're doing well. Keep practicing to stay confident.",
-    };
+    if (matchedBand) {
+      return {
+        band: matchedBand.label || 'Your Result',
+        color: '#0073ba',
+        message: matchedBand.explanation || '',
+      };
+    }
+    return { band: 'Your Result', color: '#0073ba', message: '' };
   };
 
   const scoreBand = getScoreBand();
-
-  const scoreBandsExplained = [
-    { range: `${Math.ceil(maxScore * 0.75)}-${maxScore}`, description: "You're managing it. Keep building experience." },
-    { range: `${Math.ceil(maxScore * 0.5)}-${Math.ceil(maxScore * 0.75) - 1}`, description: 'Moderate anxiety. Focus on Techniques #1 and #3.' },
-    { range: `${Math.ceil(maxScore * 0.25)}-${Math.ceil(maxScore * 0.5) - 1}`, description: "You're where Tony started. VOICE framework will help the most." },
-    { range: `1-${Math.ceil(maxScore * 0.25) - 1}`, description: 'Low anxiety. Keep practicing to stay confident.' },
-  ];
 
   // RETRY MODAL (if user already completed)
   if (showRetryModal) {
@@ -370,16 +391,16 @@ export default function SelfCheckAssessment({
               }}
             >
               <h3 className="text-2xl font-black mb-4">
-                Score Bands Explained
+                {copy.resultScoreBandsTitle}
               </h3>
               <div className="space-y-3">
-                {scoreBandsExplained.map((band, idx) => (
+                {activeBands.map((band, idx) => (
                   <div key={idx} className="flex gap-4">
                     <span className="font-bold w-24">
                       {band.range}
                     </span>
                     <span>
-                      {band.description}
+                      {band.explanation}
                     </span>
                   </div>
                 ))}
@@ -400,7 +421,7 @@ export default function SelfCheckAssessment({
                 e.currentTarget.style.backgroundColor = copy.resultStyles.buttonBgColor;
               }}
             >
-              Continue to Framework →
+              {copy.resultButtonText}
             </button>
           </div>
         </MainWithBackground>

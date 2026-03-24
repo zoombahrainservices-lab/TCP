@@ -540,7 +540,7 @@ export default function ResolutionPage({
 
   return (
     <div
-      className="min-h-screen bg-[url('/BG.png')] dark:bg-[url('/dbg.png')] bg-cover bg-center bg-no-repeat"
+      className="min-h-screen overflow-hidden bg-[url('/BG.png')] dark:bg-[url('/dbg.png')] bg-cover bg-center bg-no-repeat"
     >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Page heading */}
@@ -556,7 +556,7 @@ export default function ResolutionPage({
         {/* Identity + proof UI */}
         <div className="space-y-6">
           {saveError && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-5 sm:px-6 py-4 text-sm font-semibold text-red-800">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-5 sm:px-6 py-4 text-sm font-semibold text-red-800 dark:border-red-500/70 dark:bg-red-950/60 dark:text-red-300">
               {saveError}
             </div>
           )}
