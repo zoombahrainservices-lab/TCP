@@ -17,6 +17,8 @@ interface ReadingLayoutProps {
   showDownloadButton?: boolean;
   downloadUrl?: string;
   className?: string;
+  /** Pass isAdmin from server to avoid repeated client fetches */
+  isAdmin?: boolean;
 }
 
 export default function ReadingLayout({
@@ -28,23 +30,10 @@ export default function ReadingLayout({
   showDownloadButton = false,
   downloadUrl,
   className = '',
+  isAdmin = false,
 }: ReadingLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/auth/check-admin')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setIsAdmin(Boolean(data.isAdmin));
-      })
-      .catch(() => {
-        if (!cancelled) setIsAdmin(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
 
   const handleClose = () => {
     if (onClose) {
