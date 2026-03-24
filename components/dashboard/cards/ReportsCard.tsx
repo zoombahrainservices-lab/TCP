@@ -60,7 +60,7 @@ export default function ReportsCard({
         </div>
 
         {/* Chart area */}
-        <div className="relative mt-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/60">
+        <div className="reports-light-panel relative mt-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/60">
           {/* Timeline labels */}
           <div className="mb-3 flex items-center justify-between text-xs font-semibold text-slate-400">
             <span>4w ago</span>
@@ -114,12 +114,12 @@ export default function ReportsCard({
           {/* Stats row */}
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-white px-4 py-3 ring-1 ring-slate-200/60">
-              <div className="text-lg font-black text-orange-500">+{xpThisWeek}</div>
-              <div className="text-xs font-semibold text-slate-500">XP This Week</div>
+              <div className="reports-stat-value text-lg font-black text-orange-500 dark:!text-black">+{xpThisWeek}</div>
+              <div className="reports-stat-label text-xs font-semibold text-slate-500 dark:!text-black">XP This Week</div>
             </div>
             <div className="rounded-xl bg-white px-4 py-3 ring-1 ring-slate-200/60">
-              <div className="text-lg font-black text-orange-500">+{skillImprovement}</div>
-              <div className="text-xs font-semibold text-slate-500">Skill Improvement</div>
+              <div className="reports-stat-value text-lg font-black text-orange-500 dark:!text-black">+{skillImprovement}</div>
+              <div className="reports-stat-label text-xs font-semibold text-slate-500 dark:!text-black">Skill Improvement</div>
             </div>
           </div>
 

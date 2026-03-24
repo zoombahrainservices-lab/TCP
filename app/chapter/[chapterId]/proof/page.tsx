@@ -540,8 +540,7 @@ export default function ResolutionPage({
 
   return (
     <div
-      className="min-h-screen bg-cover bg-center bg-no-repeat dark:bg-[#142A4A]"
-      style={{ backgroundImage: "url('/BG.png')" }}
+      className="min-h-screen bg-[url('/BG.png')] dark:bg-[url('/dbg.png')] bg-cover bg-center bg-no-repeat"
     >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Page heading */}

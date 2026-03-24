@@ -330,6 +330,26 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     return trimmed.length > 0 ? trimmed : null;
   };
 
+  const getHeroImageSrcForPage = (pageData: Page | undefined): string | null => {
+    if (!pageData) return null;
+
+    const pageLevelImage = getSafeImageSrc(pageData.hero_image_url);
+    if (pageLevelImage) return pageLevelImage;
+
+    const pageBlocks = (pageData.content ?? []) as any[];
+    const firstImageBlock = pageBlocks.find(
+      (block) => block && typeof block === 'object' && block.type === 'image' && block.src
+    );
+    const blockImage = getSafeImageSrc(firstImageBlock?.src);
+    if (blockImage) return blockImage;
+
+    return (
+      getSafeImageSrc(step.hero_image_url) ??
+      getSafeImageSrc(chapter.hero_image_url) ??
+      getSafeImageSrc(chapter.thumbnail_url)
+    );
+  };
+
   let heroImageSrc: string | null =
     getSafeImageSrc(currentPageData?.hero_image_url) ??
     getSafeImageSrc(step.hero_image_url) ??
@@ -372,6 +392,29 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       : undefined;
   const firstBlockIsHeading = firstBlockType === 'heading';
   const showPageTitle = currentPageData?.title && !firstBlockIsHeading;
+
+  // Preload upcoming page images to make "Next" transitions feel instant.
+  useEffect(() => {
+    if (typeof window === 'undefined' || pages.length === 0) return;
+
+    const preload = (src: string | null) => {
+      if (!src) return;
+      const img = new window.Image();
+      img.decoding = 'async';
+      img.src = src;
+    };
+
+    const nextIndex = Math.max(currentPage + 1, 0);
+    preload(getHeroImageSrcForPage(pages[nextIndex]));
+    preload(getHeroImageSrcForPage(pages[nextIndex + 1]));
+  }, [currentPage, pages, step.hero_image_url, chapter.hero_image_url, chapter.thumbnail_url]);
+
+  // Prefetch next step route as early as possible.
+  useEffect(() => {
+    if (nextUrl) {
+      router.prefetch(nextUrl);
+    }
+  }, [router, nextUrl]);
 
   // ============================================================================
   // FRAMEWORK PROGRESS STRIP (SPARK / VOICE / any framework)

@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import { signUp, signInWithGoogle } from '@/app/actions/auth'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { getOnboardingData, getCategoryName, clearOnboardingData } from '@/lib/onboarding/storage'
+import { validatePassword } from '@/lib/utils/validation'
 
 export default function RegisterForm() {
+  const router = useRouter()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,6 +34,12 @@ export default function RegisterForm() {
     e.preventDefault()
     setError('')
 
+    const passwordValidation = validatePassword(password, { username: fullName, email })
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.message || 'Password is invalid.')
+      return
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
@@ -49,8 +58,8 @@ export default function RegisterForm() {
     } else {
       // Clear onboarding data after successful registration
       clearOnboardingData()
+      router.push(result?.redirectTo || '/dashboard')
     }
-    // If successful, the action will redirect
   }
 
   const handleGoogleSignup = async () => {
@@ -167,7 +176,9 @@ export default function RegisterForm() {
               )}
             </button>
           </div>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">At least 8 characters</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Use a mix of uppercase letters, lowercase letters, numbers, and symbols to create a strong password.
+          </p>
         </div>
         
         <div className="w-full">

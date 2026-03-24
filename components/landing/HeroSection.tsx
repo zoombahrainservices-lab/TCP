@@ -129,14 +129,24 @@ export function HeroSection({ buttonsRef }: HeroSectionProps) {
                 }}
                 className="w-32 sm:w-40 md:w-48"
               >
-                <Image
-                  src="/TCP-Logo.svg"
-                  alt="TCP Logo"
-                  width={200}
-                  height={60}
-                  className="w-full h-auto"
-                  priority
-                />
+                <div className="relative w-full">
+                  <Image
+                    src="/TCP-logo.png"
+                    alt="TCP Logo"
+                    width={200}
+                    height={60}
+                    className="w-full h-auto dark:hidden"
+                    priority
+                  />
+                  <Image
+                    src="/TCP-logo-white.png"
+                    alt="TCP Logo"
+                    width={200}
+                    height={60}
+                    className="w-full h-auto hidden dark:block"
+                    priority
+                  />
+                </div>
               </motion.div>
             </motion.div>
 

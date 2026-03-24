@@ -18,7 +18,7 @@ export default function SelfCheckIntroBlock({
       {/* Title */}
       {title && (
         <h1 
-          className="text-4xl font-bold mb-4 text-center"
+          className="self-check-intro-heading text-4xl font-bold mb-4 text-center"
           style={{ color: styles.titleColor || undefined }}
         >
           {title}
@@ -36,7 +36,7 @@ export default function SelfCheckIntroBlock({
       )}
 
       {/* Body Paragraphs */}
-      <div className="space-y-4 mb-8">
+      <div className="self-check-intro-card space-y-4 mb-8">
         {body1 && (
           <p 
             className="text-base leading-relaxed"
@@ -58,7 +58,7 @@ export default function SelfCheckIntroBlock({
       {/* Highlight Box */}
       {(highlightTitle || highlightBody) && (
         <div 
-          className="p-6 rounded-lg border-l-4 mb-6"
+          className="self-check-intro-highlight p-6 rounded-lg border-l-4 mb-6"
           style={{
             backgroundColor: styles.highlightBgColor || '#fef3c7',
             borderColor: styles.highlightBgColor || '#f59e0b',

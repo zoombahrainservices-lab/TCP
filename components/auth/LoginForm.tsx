@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { signInWithGoogle } from '@/app/actions/auth'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { validatePassword } from '@/lib/utils/validation'
 
 export default function LoginForm() {
   const router = useRouter()
@@ -17,6 +18,13 @@ export default function LoginForm() {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    const passwordValidation = validatePassword(password, { email })
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.message || 'Password is invalid.')
+      return
+    }
+
     setLoading(true)
 
     try {

@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { validatePassword } from '@/lib/utils/validation'
 
 export async function POST(request: NextRequest) {
   const { email, password } = await request.json()
+
+  const passwordValidation = validatePassword(password, { email })
+  if (!passwordValidation.valid) {
+    return NextResponse.json(
+      { error: passwordValidation.message || 'Password is invalid.' },
+      { status: 400 }
+    )
+  }
 
   const cookieStore = await cookies()
 
@@ -29,7 +38,10 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.log('Signin - signInWithPassword error:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Password is incorrect. Please try again.' },
+      { status: 400 }
+    )
   }
 
   const {

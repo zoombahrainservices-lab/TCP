@@ -244,7 +244,7 @@ export default function SelfCheckAssessment({
         <MainWithBackground>
           <div className="mx-auto max-w-[980px] px-6 py-12 lg:py-16">
             <h1 
-              className="font-black mb-3"
+              className="self-check-intro-heading font-black mb-3"
               style={{ 
                 color: copy.introStyles.titleColor,
                 fontSize: copy.introStyles.titleSize === '5xl' ? '3rem' : 
@@ -262,7 +262,7 @@ export default function SelfCheckAssessment({
             </h2>
 
             <div 
-              className="rounded-2xl p-8 shadow-sm mb-8 space-y-6"
+              className="self-check-intro-card rounded-2xl p-8 shadow-sm mb-8 space-y-6"
               style={{ 
                 backgroundColor: copy.introStyles.bodyBgColor,
                 color: copy.introStyles.bodyTextColor
@@ -276,7 +276,7 @@ export default function SelfCheckAssessment({
               </p>
 
               <div 
-                className="p-6 rounded-xl"
+                className="self-check-intro-highlight p-6 rounded-xl"
                 style={{
                   backgroundColor: copy.introStyles.highlightBgColor,
                   borderWidth: '1px',
@@ -324,7 +324,7 @@ export default function SelfCheckAssessment({
         <MainWithBackground>
           <div className="mx-auto flex h-full max-w-[980px] flex-col px-6 py-8 lg:py-10">
             <h1 
-              className="text-4xl font-black mb-1"
+              className="self-check-result-heading text-4xl font-black mb-1"
               style={{ color: copy.resultStyles.titleColor }}
             >
               {copy.resultTitle}
@@ -337,33 +337,33 @@ export default function SelfCheckAssessment({
             </p>
 
             <div 
-              className="rounded-2xl p-8 shadow-sm mb-4 text-center"
+              className="self-check-result-score-box rounded-2xl p-8 shadow-sm mb-4 text-center"
               style={{ 
                 backgroundColor: copy.resultStyles.scoreBgColor,
                 color: copy.resultStyles.scoreTextColor
               }}
             >
-              <div className="text-7xl font-black mb-2">
+              <div className="self-check-result-score text-7xl font-black mb-2 dark:!text-[#111111]">
                 {totalScore}
               </div>
-              <p className="text-sm mb-6" style={{ opacity: 0.7 }}>
+              <p className="self-check-result-outof text-sm mb-6 dark:!text-[#111111] dark:!opacity-100" style={{ opacity: 0.7 }}>
                 out of {maxScore}
               </p>
 
               <div 
-                className="inline-block px-8 py-3 rounded-full text-white font-bold text-lg"
+                className="self-check-result-badge inline-block px-8 py-3 rounded-full text-white font-bold text-lg"
                 style={{ backgroundColor: scoreBand.color }}
               >
                 {scoreBand.band}
               </div>
 
-              <p className="mt-6 text-lg">
+              <p className="self-check-result-message mt-6 text-lg">
                 {scoreBand.message}
               </p>
             </div>
 
             <div 
-              className="rounded-2xl p-6 mb-4 flex-1 overflow-auto"
+              className="self-check-result-expl-box rounded-2xl p-6 mb-4 flex-1 overflow-auto"
               style={{ 
                 backgroundColor: copy.resultStyles.explanationBgColor,
                 color: copy.resultStyles.explanationTextColor

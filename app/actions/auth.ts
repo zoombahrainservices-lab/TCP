@@ -54,7 +54,7 @@ export async function signUp(email: string, password: string, fullName: string) 
     return { error: 'Invalid email format' }
   }
 
-  const passwordValidation = validatePassword(password)
+  const passwordValidation = validatePassword(password, { username: fullName, email })
   if (!passwordValidation.valid) {
     return { error: passwordValidation.message }
   }
@@ -80,15 +80,15 @@ export async function signUp(email: string, password: string, fullName: string) 
   }
 
   if (data.user) {
-    // Create profile using admin client to bypass RLS
+    // Create/update profile using admin client to bypass RLS
     const adminClient = createAdminClient()
     const { error: profileError } = await adminClient
       .from('profiles')
-      .insert({
+      .upsert({
         id: data.user.id,
         email: data.user.email,
         full_name: fullName,
-      })
+      }, { onConflict: 'id' })
 
     if (profileError) {
       if (process.env.NODE_ENV === 'development') {
@@ -97,8 +97,18 @@ export async function signUp(email: string, password: string, fullName: string) 
       return { error: 'Failed to create profile' }
     }
 
+    // Ensure the new user gets an active session for dashboard access
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (signInError) {
+      return { error: signInError.message }
+    }
+
     revalidatePath('/', 'layout')
-    redirect('/dashboard')
+    return { success: true, redirectTo: '/dashboard' }
   }
 
   return { error: 'Signup failed' }

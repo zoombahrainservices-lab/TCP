@@ -225,6 +225,18 @@ body {
   color: #d1d5db !important;
 }
 
+/* Landing section with white background should keep black text in dark mode */
+.dark .landing-light-band .neuro-heading {
+  color: #111111 !important;
+}
+.dark .landing-light-band .neuro-copy {
+  color: #111111 !important;
+}
+.dark .landing-light-band strong,
+.dark .landing-light-band b {
+  color: #111111 !important;
+}
+
 /* Override any component-level dark colors that might be too dark */
 .dark [class*="text-blue-"]:not([class*="text-blue-50"]):not([class*="text-blue-100"]):not([class*="text-blue-200"]),
 .dark [class*="text-green-"]:not([class*="text-green-50"]):not([class*="text-green-100"]):not([class*="text-green-200"]),
@@ -1600,5 +1612,65 @@ body {
 .dark .gmLabel {
   color: rgba(248, 250, 252, 0.95);
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+
+/* Keep Reports dashboard panel readable in dark mode */
+.dark .reports-light-panel {
+  background: rgba(241, 245, 249, 0.92) !important;
+}
+
+.dark .reports-light-panel span,
+.dark .reports-light-panel div {
+  color: #111111 !important;
+}
+
+.dark .reports-light-panel .reports-stat-value,
+.dark .reports-light-panel .reports-stat-label {
+  color: #111111 !important;
+}
+
+/* Self-check intro: white heading + black card text in dark mode */
+.dark .self-check-intro-heading {
+  color: #ffffff !important;
+}
+
+.dark .self-check-intro-card,
+.dark .self-check-intro-card p,
+.dark .self-check-intro-card span,
+.dark .self-check-intro-highlight,
+.dark .self-check-intro-highlight p,
+.dark .self-check-intro-highlight span {
+  color: #111111 !important;
+}
+
+/* Self-check result: white heading + black text inside result boxes in dark mode */
+.dark .self-check-result-heading {
+  color: #ffffff !important;
+}
+
+.dark .self-check-result-score-box,
+.dark .self-check-result-score-box p,
+.dark .self-check-result-score-box span,
+.dark .self-check-result-score-box div,
+.dark .self-check-result-expl-box,
+.dark .self-check-result-expl-box p,
+.dark .self-check-result-expl-box span,
+.dark .self-check-result-expl-box div,
+.dark .self-check-result-expl-box h3 {
+  color: #111111 !important;
+}
+
+.dark .self-check-result-badge {
+  color: #ffffff !important;
+}
+
+.dark .self-check-result-score,
+.dark .self-check-result-outof,
+.dark .self-check-result-message {
+  color: #111111 !important;
+}
+
+.dark .self-check-result-outof {
+  opacity: 1 !important;
 }
 

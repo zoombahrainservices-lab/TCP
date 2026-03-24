@@ -44,13 +44,22 @@ export default function FullScreenOverlay({
       {/* TCP Logo in bottom right corner */}
       {showLogo && (
         <div className="absolute bottom-8 right-8 z-10 opacity-30">
-          <Image
-            src="/TCP-Logo.svg"
-            alt="TCP"
-            width={200}
-            height={60}
-            className="w-48 h-auto"
-          />
+          <div className="relative w-48">
+            <Image
+              src="/TCP-logo.png"
+              alt="TCP"
+              width={200}
+              height={60}
+              className="w-48 h-auto dark:hidden"
+            />
+            <Image
+              src="/TCP-logo-white.png"
+              alt="TCP"
+              width={200}
+              height={60}
+              className="w-48 h-auto hidden dark:block"
+            />
+          </div>
         </div>
       )}
 
