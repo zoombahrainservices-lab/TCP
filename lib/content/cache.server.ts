@@ -234,7 +234,17 @@ export const getCachedChapterReadingPreviewImages = unstable_cache(
         continue
       }
 
-      const content = Array.isArray(page.content) ? page.content : []
+      let content: any[] = []
+      if (Array.isArray(page.content)) {
+        content = page.content
+      } else if (typeof page.content === 'string') {
+        try {
+          const parsed = JSON.parse(page.content)
+          content = Array.isArray(parsed) ? parsed : []
+        } catch {
+          content = []
+        }
+      }
       const imageBlock = content.find(
         (block: any) => block && block.type === 'image' && typeof block.src === 'string' && block.src.trim().length > 0
       )
