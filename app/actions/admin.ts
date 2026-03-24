@@ -12,10 +12,10 @@ import { unstable_cache } from 'next/cache'
 
 function revalidatePublicContentCaches() {
   // Keep dashboard/reading caches fresh after admin edits.
-  revalidateTag('chapters')
-  revalidateTag('steps')
-  revalidateTag('pages')
-  revalidateTag('content')
+  revalidateTag('chapters', 'max')
+  revalidateTag('steps', 'max')
+  revalidateTag('pages', 'max')
+  revalidateTag('content', 'max')
 }
 
 // Internal function that does the actual work
