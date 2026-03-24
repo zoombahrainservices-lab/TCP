@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardNav } from '@/components/ui/DashboardNav';
 import { MainWithBackground } from '@/components/dashboard/MainWithBackground';
+import AdminEditButton from '@/components/admin/AdminEditButton';
 
 export interface MCQAssessmentQuestion {
   id: string;
@@ -24,6 +25,10 @@ interface SelfCheckMCQAssessmentProps {
     answers: Record<string, string>,
     totalScore: number
   ) => Promise<{ success: boolean; error?: string }>;
+  adminEditChapterId?: string;
+  adminEditPageId?: string;
+  adminEditStepId?: string;
+  adminEditReturnUrl?: string;
 }
 
 export default function SelfCheckMCQAssessment({
@@ -35,6 +40,10 @@ export default function SelfCheckMCQAssessment({
   questionsStepSubtitle,
   hasCompletedBefore = false,
   onSaveAnswers,
+  adminEditChapterId,
+  adminEditPageId,
+  adminEditStepId,
+  adminEditReturnUrl,
 }: SelfCheckMCQAssessmentProps) {
   const _unused = { chapterId, chapterSlug };
   const router = useRouter();
@@ -193,6 +202,16 @@ export default function SelfCheckMCQAssessment({
             >
               Continue →
             </button>
+            {adminEditChapterId && adminEditPageId ? (
+              <div className="mt-3 flex justify-center">
+                <AdminEditButton
+                  chapterId={adminEditChapterId}
+                  pageId={adminEditPageId}
+                  stepId={adminEditStepId}
+                  returnUrl={adminEditReturnUrl}
+                />
+              </div>
+            ) : null}
           </div>
         </MainWithBackground>
       </div>
@@ -281,6 +300,14 @@ export default function SelfCheckMCQAssessment({
             >
               {currentPage === totalPages - 1 ? (saving ? 'Saving...' : 'Complete Self-Check →') : 'Next →'}
             </button>
+            {adminEditChapterId && adminEditPageId ? (
+              <AdminEditButton
+                chapterId={adminEditChapterId}
+                pageId={adminEditPageId}
+                stepId={adminEditStepId}
+                returnUrl={adminEditReturnUrl}
+              />
+            ) : null}
           </div>
         </div>
       </MainWithBackground>

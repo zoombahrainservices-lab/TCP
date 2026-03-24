@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardNav } from '@/components/ui/DashboardNav';
 import { MainWithBackground } from '@/components/dashboard/MainWithBackground';
+import AdminEditButton from '@/components/admin/AdminEditButton';
 
 export interface AssessmentQuestion {
   id: number;
@@ -21,12 +22,17 @@ interface SelfCheckAssessmentProps {
   questionsStepSubtitle: string;
   hasCompletedBefore?: boolean;
   onSaveAnswers?: (answers: Record<number, number>, totalScore: number) => Promise<{ success: boolean; error?: string }>;
+  adminEditChapterId?: string;
+  adminEditPageId?: string;
+  adminEditStepId?: string;
+  adminEditReturnUrl?: string;
 }
 
 interface ResultBand {
   range: string;
   label?: string;
   explanation: string;
+  color?: string;
 }
 
 export default function SelfCheckAssessment({
@@ -38,6 +44,10 @@ export default function SelfCheckAssessment({
   questionsStepSubtitle,
   hasCompletedBefore = false,
   onSaveAnswers,
+  adminEditChapterId,
+  adminEditPageId,
+  adminEditStepId,
+  adminEditReturnUrl,
 }: SelfCheckAssessmentProps) {
   const router = useRouter();
   const [showRetryModal, setShowRetryModal] = useState(hasCompletedBefore);
@@ -182,10 +192,10 @@ export default function SelfCheckAssessment({
 
   // Score band logic
   const defaultResultBands: ResultBand[] = [
-    { range: `${Math.ceil(maxScore * 0.75)}-${maxScore}`, label: "You're managing it", explanation: 'Keep building experience and reps.' },
-    { range: `${Math.ceil(maxScore * 0.5)}-${Math.ceil(maxScore * 0.75) - 1}`, label: 'Moderate anxiety', explanation: 'Focus on Techniques #1 and #3.' },
-    { range: `${Math.ceil(maxScore * 0.25)}-${Math.ceil(maxScore * 0.5) - 1}`, label: "You're where Tony started", explanation: 'VOICE framework will help the most here.' },
-    { range: `1-${Math.ceil(maxScore * 0.25) - 1}`, label: 'Low anxiety', explanation: "You're doing well. Keep practicing to stay confident." },
+    { range: '25+', label: "You're a strong analytical thinker", explanation: 'CLARITY will help you actually be heard.', color: '#ef4444' },
+    { range: '18-24', label: 'You naturally spot problems', explanation: 'Work on delivery and timing.', color: '#f59e0b' },
+    { range: '10-17', label: 'Critique', explanation: 'You balance critique with appreciation fairly well.', color: '#0073ba' },
+    { range: '1-9', label: 'Building Confidence', explanation: 'You may need to speak up more about the issues you notice.', color: '#22c55e' },
   ];
 
   const activeBands = copy.resultScoreBands.length > 0 ? copy.resultScoreBands : defaultResultBands;
@@ -210,15 +220,22 @@ export default function SelfCheckAssessment({
 
   const matchedBand = activeBands.find((band) => scoreInRange(totalScore, band.range));
 
+  const getDefaultBandColorByScore = (score: number): string => {
+    if (score >= 25) return '#ef4444'; // 25+ red
+    if (score >= 18) return '#f59e0b'; // 18-24 yellow
+    if (score >= 10) return '#0073ba'; // 10-17 blue
+    return '#22c55e'; // 1-9 green
+  };
+
   const getScoreBand = () => {
     if (matchedBand) {
       return {
         band: matchedBand.label || 'Your Result',
-        color: '#0073ba',
+        color: matchedBand.color || getDefaultBandColorByScore(totalScore),
         message: matchedBand.explanation || '',
       };
     }
-    return { band: 'Your Result', color: '#0073ba', message: '' };
+    return { band: 'Your Result', color: getDefaultBandColorByScore(totalScore), message: '' };
   };
 
   const scoreBand = getScoreBand();
@@ -331,6 +348,16 @@ export default function SelfCheckAssessment({
             >
               Start Self-Check →
             </button>
+            {adminEditChapterId && adminEditPageId ? (
+              <div className="mt-3 flex justify-center">
+                <AdminEditButton
+                  chapterId={adminEditChapterId}
+                  pageId={adminEditPageId}
+                  stepId={adminEditStepId}
+                  returnUrl={adminEditReturnUrl}
+                />
+              </div>
+            ) : null}
           </div>
         </MainWithBackground>
       </div>
@@ -423,6 +450,16 @@ export default function SelfCheckAssessment({
             >
               {copy.resultButtonText}
             </button>
+            {adminEditChapterId && adminEditPageId ? (
+              <div className="mt-3 flex justify-center">
+                <AdminEditButton
+                  chapterId={adminEditChapterId}
+                  pageId={adminEditPageId}
+                  stepId={adminEditStepId}
+                  returnUrl={adminEditReturnUrl}
+                />
+              </div>
+            ) : null}
           </div>
         </MainWithBackground>
       </div>
@@ -488,6 +525,14 @@ export default function SelfCheckAssessment({
             >
               Next →
             </button>
+            {adminEditChapterId && adminEditPageId ? (
+              <AdminEditButton
+                chapterId={adminEditChapterId}
+                pageId={adminEditPageId}
+                stepId={adminEditStepId}
+                returnUrl={adminEditReturnUrl}
+              />
+            ) : null}
           </div>
         </div>
       </MainWithBackground>

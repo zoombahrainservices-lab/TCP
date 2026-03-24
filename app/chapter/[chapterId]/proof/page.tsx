@@ -8,6 +8,7 @@ import { celebrateSectionCompletion } from '@/lib/celebration/celebrate'
 import { getClient } from '@/lib/supabase/client'
 import { saveIdentityResolutionForChapter1, type IdentityResolutionData } from '@/app/actions/identity'
 import { useClickSound } from '@/lib/hooks/useClickSound'
+import AdminEditButton from '@/components/admin/AdminEditButton'
 
 type ResolutionType = 'text' | 'image' | 'audio' | 'video'
 
@@ -78,6 +79,7 @@ export default function ResolutionPage({
   const [nextId, setNextId] = useState(2)
   const [isProcessing, setIsProcessing] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [adminEditMeta, setAdminEditMeta] = useState<{ chapterId: string; stepId: string; pageId: string } | null>(null)
 
   const recordingDraftIdRef = useRef<number | null>(null)
   const [recordingDraftId, setRecordingDraftId] = useState<number | null>(null)
@@ -169,6 +171,41 @@ export default function ResolutionPage({
           proofLabel: proofBlock?.label || prev.proofLabel,
           proofPlaceholder: proofBlock?.placeholder || prev.proofPlaceholder,
         }));
+
+        // Resolve IDs for admin edit button (same editor flow used by reading pages).
+        const { data: chapterRow } = await supabase
+          .from('chapters')
+          .select('id')
+          .eq('chapter_number', chapterId)
+          .maybeSingle();
+        if (!chapterRow?.id) return;
+
+        const { data: resolutionStep } = await supabase
+          .from('chapter_steps')
+          .select('id')
+          .eq('chapter_id', chapterRow.id)
+          .eq('step_type', 'resolution')
+          .order('step_order', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (!resolutionStep?.id) return;
+
+        const { data: resolutionPage } = await supabase
+          .from('chapter_pages')
+          .select('id')
+          .eq('step_id', resolutionStep.id)
+          .order('page_order', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (!resolutionPage?.id) return;
+
+        if (!cancelled) {
+          setAdminEditMeta({
+            chapterId: chapterRow.id as string,
+            stepId: resolutionStep.id as string,
+            pageId: resolutionPage.id as string,
+          });
+        }
       } catch (err) {
         console.error('[Resolution] Failed to load chapter-specific copy:', err)
       }
@@ -732,7 +769,15 @@ export default function ResolutionPage({
           </button>
 
           {/* Save & Continue Button */}
-          <div className="flex justify-end pt-4">
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-4">
+            {adminEditMeta ? (
+              <AdminEditButton
+                chapterId={adminEditMeta.chapterId}
+                pageId={adminEditMeta.pageId}
+                stepId={adminEditMeta.stepId}
+                returnUrl={`/chapter/${chapterId}/proof`}
+              />
+            ) : null}
             <button
               onClick={handleCompleteResolution}
               disabled={isProcessing || recordingDraftId != null}

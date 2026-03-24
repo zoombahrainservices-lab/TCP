@@ -387,6 +387,8 @@ export interface ScoreBand {
   label?: string;
   /** Explanation text for this score range */
   explanation: string;
+  /** Badge color for this score range */
+  color?: string;
 }
 
 export interface SelfCheckResultBlock {

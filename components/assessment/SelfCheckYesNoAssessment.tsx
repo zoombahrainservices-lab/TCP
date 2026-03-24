@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardNav } from '@/components/ui/DashboardNav';
 import { MainWithBackground } from '@/components/dashboard/MainWithBackground';
+import AdminEditButton from '@/components/admin/AdminEditButton';
 
 export interface YesNoAssessmentQuestion {
   id: string;
@@ -29,6 +30,10 @@ interface SelfCheckYesNoAssessmentProps {
     answers: Record<string, 'yes' | 'no' | 'not_sure'>,
     yesCount: number
   ) => Promise<{ success: boolean; error?: string }>;
+  adminEditChapterId?: string;
+  adminEditPageId?: string;
+  adminEditStepId?: string;
+  adminEditReturnUrl?: string;
 }
 
 type YesNoValue = 'yes' | 'no' | 'not_sure';
@@ -43,6 +48,10 @@ export default function SelfCheckYesNoAssessment({
   questionsStepSubtitle,
   hasCompletedBefore = false,
   onSaveAnswers,
+  adminEditChapterId,
+  adminEditPageId,
+  adminEditStepId,
+  adminEditReturnUrl,
 }: SelfCheckYesNoAssessmentProps) {
   const _unused = { chapterId, chapterSlug };
   const router = useRouter();
@@ -344,6 +353,16 @@ export default function SelfCheckYesNoAssessment({
             >
               Start Self-Check →
             </button>
+            {adminEditChapterId && adminEditPageId ? (
+              <div className="mt-3 flex justify-center">
+                <AdminEditButton
+                  chapterId={adminEditChapterId}
+                  pageId={adminEditPageId}
+                  stepId={adminEditStepId}
+                  returnUrl={adminEditReturnUrl}
+                />
+              </div>
+            ) : null}
           </div>
         </MainWithBackground>
       </div>
@@ -463,6 +482,16 @@ export default function SelfCheckYesNoAssessment({
             >
               {copy.resultButtonText}
             </button>
+            {adminEditChapterId && adminEditPageId ? (
+              <div className="mt-3 flex justify-center">
+                <AdminEditButton
+                  chapterId={adminEditChapterId}
+                  pageId={adminEditPageId}
+                  stepId={adminEditStepId}
+                  returnUrl={adminEditReturnUrl}
+                />
+              </div>
+            ) : null}
           </div>
         </MainWithBackground>
       </div>
@@ -526,6 +555,14 @@ export default function SelfCheckYesNoAssessment({
             >
               {currentPage === totalPages - 1 ? (saving ? 'Saving...' : 'Complete Self-Check →') : 'Next →'}
             </button>
+            {adminEditChapterId && adminEditPageId ? (
+              <AdminEditButton
+                chapterId={adminEditChapterId}
+                pageId={adminEditPageId}
+                stepId={adminEditStepId}
+                returnUrl={adminEditReturnUrl}
+              />
+            ) : null}
           </div>
         </div>
       </MainWithBackground>

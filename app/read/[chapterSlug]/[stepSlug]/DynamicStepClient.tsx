@@ -1,17 +1,15 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Download } from 'lucide-react';
 import toast from 'react-hot-toast';
+import dynamic from 'next/dynamic';
 import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
 import ChapterCoverPage from '@/components/content/ChapterCoverPage';
 import FrameworkCoverPage from '@/components/content/FrameworkCoverPage';
-import SelfCheckAssessment, { type AssessmentQuestion } from '@/components/assessment/SelfCheckAssessment';
-import SelfCheckMCQAssessment, { type MCQAssessmentQuestion } from '@/components/assessment/SelfCheckMCQAssessment';
 import AdminEditButton from '@/components/admin/AdminEditButton';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
@@ -20,6 +18,23 @@ import { celebrateSectionCompletion } from '@/lib/celebration/celebrate';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
 import { playClickSound } from '@/lib/celebration/sounds';
+import { getSectionImageUrlPrimary, type SectionStepType } from '@/lib/chapterImages';
+import { usePrefetchImage } from '@/lib/hooks/usePrefetchImage';
+
+// Lazy load self-check components (only used on assessment steps)
+const SelfCheckAssessment = dynamic(() => import('@/components/assessment/SelfCheckAssessment'), {
+  ssr: false,
+});
+const SelfCheckMCQAssessment = dynamic(() => import('@/components/assessment/SelfCheckMCQAssessment'), {
+  ssr: false,
+});
+const SelfCheckYesNoAssessment = dynamic(() => import('@/components/assessment/SelfCheckYesNoAssessment'), {
+  ssr: false,
+});
+
+import type { AssessmentQuestion } from '@/components/assessment/SelfCheckAssessment';
+import type { MCQAssessmentQuestion } from '@/components/assessment/SelfCheckMCQAssessment';
+import type { YesNoAssessmentQuestion, YesNoScoreBand } from '@/components/assessment/SelfCheckYesNoAssessment';
 
 interface Props {
   chapter: Chapter;
@@ -28,9 +43,10 @@ interface Props {
   nextStepSlug: string | null;
   nextStep: Step | null;
   initialAnswers?: Record<string, any>;
+  isAdmin?: boolean;
 }
 
-export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, nextStep, initialAnswers = {} }: Props) {
+export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, nextStep, initialAnswers = {}, isAdmin = false }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -318,7 +334,20 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   // Derive hero image and content blocks so that image is on the LEFT
   // Priority: page.hero_image_url → first image block from current page → step.hero_image_url → chapter images → placeholder
   // CRITICAL: Remove ALL image blocks from content so they never appear on the right
-  const rawBlocks = (currentPageData?.content ?? []) as any[];
+  const normalizePageBlocks = (content: unknown): any[] => {
+    if (Array.isArray(content)) return content;
+    if (typeof content === 'string') {
+      try {
+        const parsed = JSON.parse(content);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const rawBlocks = normalizePageBlocks(currentPageData?.content);
   
   // Title style: from page_meta block (stored in content) or from page.title_style column
   const pageMetaBlock = rawBlocks[0]?.type === 'page_meta' ? rawBlocks[0] : null;
@@ -327,7 +356,16 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const getSafeImageSrc = (value: unknown): string | null => {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
+    if (!trimmed) return null;
+    const normalized = trimmed.toLowerCase();
+    if (
+      normalized === '/placeholder.png' ||
+      normalized.endsWith('/placeholder.png') ||
+      normalized === 'placeholder.png'
+    ) {
+      return null;
+    }
+    return trimmed;
   };
 
   const getHeroImageSrcForPage = (pageData: Page | undefined): string | null => {
@@ -336,7 +374,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     const pageLevelImage = getSafeImageSrc(pageData.hero_image_url);
     if (pageLevelImage) return pageLevelImage;
 
-    const pageBlocks = (pageData.content ?? []) as any[];
+    const pageBlocks = normalizePageBlocks(pageData.content);
     const firstImageBlock = pageBlocks.find(
       (block) => block && typeof block === 'object' && block.type === 'image' && block.src
     );
@@ -357,6 +395,12 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     getSafeImageSrc(chapter.thumbnail_url);
   let heroImageAlt: string = currentPageData?.title || step.title;
   let contentBlocks: any[] = rawBlocks;
+
+  const stepTypeForImage = step.step_type as SectionStepType;
+  const sectionFallbackImage =
+    chapter.chapter_number && stepTypeForImage
+      ? getSectionImageUrlPrimary(chapter.chapter_number, stepTypeForImage)
+      : '';
 
   // Find first image block in current page (fallback if page.hero_image_url is not set)
   const firstImageBlock = rawBlocks.find(
@@ -392,22 +436,31 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       : undefined;
   const firstBlockIsHeading = firstBlockType === 'heading';
   const showPageTitle = currentPageData?.title && !firstBlockIsHeading;
+  const isFollowThroughChecklistPage =
+    step.step_type === 'follow_through' &&
+    Array.isArray(contentBlocks) &&
+    contentBlocks.some(
+      (block) => block && typeof block === 'object' && (block as { type?: string }).type === 'checklist'
+    );
 
-  // Preload upcoming page images to make "Next" transitions feel instant.
+  const [displayHeroImageSrc, setDisplayHeroImageSrc] = useState<string | null>(heroImageSrc);
+
   useEffect(() => {
-    if (typeof window === 'undefined' || pages.length === 0) return;
+    setDisplayHeroImageSrc(heroImageSrc);
+  }, [heroImageSrc]);
 
-    const preload = (src: string | null) => {
-      if (!src) return;
-      const img = new window.Image();
-      img.decoding = 'async';
-      img.src = src;
-    };
+  const handleHeroImageError = () => {
+    if (sectionFallbackImage && displayHeroImageSrc !== sectionFallbackImage) {
+      setDisplayHeroImageSrc(sectionFallbackImage);
+      return;
+    }
+    setDisplayHeroImageSrc(null);
+  };
 
-    const nextIndex = Math.max(currentPage + 1, 0);
-    preload(getHeroImageSrcForPage(pages[nextIndex]));
-    preload(getHeroImageSrcForPage(pages[nextIndex + 1]));
-  }, [currentPage, pages, step.hero_image_url, chapter.hero_image_url, chapter.thumbnail_url]);
+  // Aggressively prefetch next page's hero image using the new hook
+  const nextPageIndex = Math.max(currentPage + 1, 0);
+  const nextImageSrc = getHeroImageSrcForPage(pages[nextPageIndex]);
+  usePrefetchImage(nextImageSrc);
 
   // Prefetch next step route as early as possible.
   useEffect(() => {
@@ -527,16 +580,22 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       return {
         hasScaleBlocks: false,
         hasMcqBlocks: false,
+        hasYesNoBlocks: false,
         questions: [] as AssessmentQuestion[],
         mcqQuestions: [] as MCQAssessmentQuestion[],
+        yesNoQuestions: [] as YesNoAssessmentQuestion[],
+        yesNoScoreBands: [] as YesNoScoreBand[],
       };
     }
 
     const questions: AssessmentQuestion[] = [];
     const mcqQuestions: MCQAssessmentQuestion[] = [];
+    const yesNoQuestions: YesNoAssessmentQuestion[] = [];
+    const yesNoScoreBands: YesNoScoreBand[] = [];
     let questionCounter = 1;
     let hasScaleBlocks = false;
     let hasMcqBlocks = false;
+    let hasYesNoBlocks = false;
 
     for (const page of pages) {
       const pageBlocks = (page.content ?? []) as any[];
@@ -587,14 +646,47 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
             }
           }
         }
+
+        if (block.type === 'yes_no_check') {
+          hasYesNoBlocks = true;
+          const yesNoBlock = block as any;
+          
+          // Parse statements/questions
+          if (yesNoBlock.statements && Array.isArray(yesNoBlock.statements)) {
+            for (const statement of yesNoBlock.statements) {
+              if (statement && statement.id && statement.text) {
+                yesNoQuestions.push({
+                  id: String(statement.id),
+                  text: String(statement.text),
+                });
+              }
+            }
+          }
+          
+          // Parse score bands if present
+          if (yesNoBlock.scoring && yesNoBlock.scoring.bands && Array.isArray(yesNoBlock.scoring.bands)) {
+            for (const band of yesNoBlock.scoring.bands) {
+              if (band && Array.isArray(band.range) && band.range.length === 2) {
+                yesNoScoreBands.push({
+                  range: [band.range[0], band.range[1]],
+                  label: String(band.label || ''),
+                  description: band.description ? String(band.description) : undefined,
+                });
+              }
+            }
+          }
+        }
       }
     }
 
-    return { hasScaleBlocks, hasMcqBlocks, questions, mcqQuestions };
+    return { hasScaleBlocks, hasMcqBlocks, hasYesNoBlocks, questions, mcqQuestions, yesNoQuestions, yesNoScoreBands };
   }, [isSelfCheck, pages]);
 
   // Use legacy slider UI only for pure scale-based self-check steps.
   // If MCQ exists (or mixed content), fall back to normal block rendering below.
+  const selfCheckPageId = pages[0]?.id;
+  const selfCheckReturnUrl = `/read/${chapter.slug}/${step.slug}`;
+
   if (isSelfCheck && selfCheckAnalysis.hasScaleBlocks && !selfCheckAnalysis.hasMcqBlocks) {
     const questions = selfCheckAnalysis.questions;
     if (questions.length === 0) {
@@ -604,6 +696,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
           onClose={() => router.push('/dashboard')}
           serverCurrentChapter={chapter.chapter_number}
           collapseSidebarByDefault={true}
+          isAdmin={isAdmin}
         >
           <div className="mx-auto w-full max-w-3xl px-6 py-10">
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
@@ -683,6 +776,10 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
         questionsStepSubtitle="Rate each statement from 1 to 7. Be honest—only you see this."
         hasCompletedBefore={hasCompletedBefore}
         onSaveAnswers={handleSaveAnswers}
+        adminEditChapterId={chapter.id}
+        adminEditPageId={selfCheckPageId}
+        adminEditStepId={step.id}
+        adminEditReturnUrl={selfCheckReturnUrl}
       />
     );
   }
@@ -697,6 +794,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
           onClose={() => router.push('/dashboard')}
           serverCurrentChapter={chapter.chapter_number}
           collapseSidebarByDefault={true}
+          isAdmin={isAdmin}
         >
           <div className="mx-auto w-full max-w-3xl px-6 py-10">
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
@@ -759,24 +857,112 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
         questionsStepSubtitle="Answer one question at a time. Be honest—only you see this."
         hasCompletedBefore={hasCompletedBefore}
         onSaveAnswers={handleSaveMcqAnswers}
+        adminEditChapterId={chapter.id}
+        adminEditPageId={selfCheckPageId}
+        adminEditStepId={step.id}
+        adminEditReturnUrl={selfCheckReturnUrl}
+      />
+    );
+  }
+
+  // Self-check Yes/No: render full-page Yes/No assessment flow
+  if (isSelfCheck && selfCheckAnalysis.hasYesNoBlocks) {
+    const yesNoQuestions = selfCheckAnalysis.yesNoQuestions;
+    if (yesNoQuestions.length === 0) {
+      return (
+        <ReadingLayout
+          currentProgress={progress}
+          onClose={() => router.push('/dashboard')}
+          serverCurrentChapter={chapter.chapter_number}
+          collapseSidebarByDefault={true}
+          isAdmin={isAdmin}
+        >
+          <div className="mx-auto w-full max-w-3xl px-6 py-10">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
+              <h2 className="text-2xl font-bold text-amber-900 mb-2">Self-Check Not Configured</h2>
+              <p className="text-amber-800">
+                Yes/No blocks were found, but no statements are configured yet.
+              </p>
+            </div>
+          </div>
+        </ReadingLayout>
+      );
+    }
+
+    const selfCheckKey = `ch${chapter.chapter_number}_self_check_baseline`;
+    const hasCompletedBefore = !!(initialAnswers && initialAnswers[selfCheckKey]);
+
+    const handleSaveYesNoAnswers = async (answers: Record<string, 'yes' | 'no' | 'not_sure'>, yesCount: number) => {
+      // Convert Yes/No answers to the assessment format expected by submitAssessment
+      const result = await submitAssessment(
+        chapter.chapter_number,
+        'baseline',
+        answers as any,
+        yesCount
+      );
+      if (!result.success) {
+        toast.error('Failed to save your answers. Please try again.');
+        return result;
+      }
+
+      try {
+        const sectionResult = await completeDynamicSection({
+          chapterNumber: chapter.chapter_number,
+          stepType: 'self_check',
+        });
+
+        if (sectionResult && sectionResult.success) {
+          setTimeout(() => {
+            celebrateSectionCompletion({
+              xpResult: (sectionResult as any).xpResult,
+              reasonCode: (sectionResult as any).reasonCode,
+              streakResult: (sectionResult as any).streakResult,
+              chapterCompleted: (sectionResult as any).chapterCompleted,
+              title: 'Self-Check Complete!',
+            });
+          }, 600);
+        }
+      } catch (error) {
+        console.error('Error completing self-check section:', error);
+      }
+
+      return result;
+    };
+
+    return (
+      <SelfCheckYesNoAssessment
+        chapterId={chapter.chapter_number}
+        chapterSlug={chapter.slug}
+        questions={yesNoQuestions}
+        scoreBands={selfCheckAnalysis.yesNoScoreBands}
+        nextStepUrl={nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : '/dashboard'}
+        questionsStepTitle={`Chapter ${chapter.chapter_number} Self-Check`}
+        questionsStepSubtitle="Answer each statement honestly. Only you see this."
+        hasCompletedBefore={hasCompletedBefore}
+        onSaveAnswers={handleSaveYesNoAnswers}
+        adminEditChapterId={chapter.id}
+        adminEditPageId={selfCheckPageId}
+        adminEditStepId={step.id}
+        adminEditReturnUrl={selfCheckReturnUrl}
       />
     );
   }
 
   // Explicit empty-state for self-check steps with no supported assessment blocks.
-  if (isSelfCheck && !selfCheckAnalysis.hasScaleBlocks && !selfCheckAnalysis.hasMcqBlocks) {
+  if (isSelfCheck && !selfCheckAnalysis.hasScaleBlocks && !selfCheckAnalysis.hasMcqBlocks && !selfCheckAnalysis.hasYesNoBlocks) {
     return (
       <ReadingLayout
         currentProgress={progress}
         onClose={() => router.push('/dashboard')}
         serverCurrentChapter={chapter.chapter_number}
         collapseSidebarByDefault={true}
+        isAdmin={isAdmin}
       >
         <div className="mx-auto w-full max-w-3xl px-6 py-10">
           <div className="rounded-xl border border-red-200 bg-red-50 p-6">
             <h2 className="text-2xl font-bold text-red-900 mb-2">Self-Check Content Missing</h2>
             <p className="text-red-800">
-              No `scale_questions` or `mcq` blocks were found for this chapter&apos;s self-check step.
+              No `scale_questions`, `mcq`, or `yes_no_check` blocks were found for this chapter&apos;s self-check step.
             </p>
           </div>
         </div>
@@ -787,12 +973,13 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   // If we're on the cover page (currentPage === -1) for "read" step, show cover
   if (currentPage === -1 && step.step_type === 'read') {
     return (
-      <ReadingLayout 
-        currentProgress={progress} 
-        onClose={() => router.push('/dashboard')} 
-        serverCurrentChapter={chapter.chapter_number}
-        collapseSidebarByDefault={true}
-      >
+    <ReadingLayout
+      currentProgress={progress}
+      onClose={() => router.push('/dashboard')}
+      serverCurrentChapter={chapter.chapter_number}
+      collapseSidebarByDefault={true}
+      isAdmin={isAdmin}
+    >
         <ChapterCoverPage
           chapterNumber={chapter.chapter_number}
           title={chapter.title}
@@ -812,12 +999,13 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
 
     if (frameworkCoverBlock) {
       return (
-        <ReadingLayout 
-          currentProgress={progress} 
-          onClose={() => router.push('/dashboard')} 
-          serverCurrentChapter={chapter.chapter_number}
-          collapseSidebarByDefault={true}
-        >
+    <ReadingLayout
+      currentProgress={progress}
+      onClose={() => router.push('/dashboard')}
+      serverCurrentChapter={chapter.chapter_number}
+      collapseSidebarByDefault={true}
+      isAdmin={isAdmin}
+    >
           <FrameworkCoverPage
             frameworkCode={frameworkCoverBlock.frameworkCode}
             frameworkTitle={frameworkCoverBlock.frameworkTitle}
@@ -833,34 +1021,35 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
 
   // Other steps: use image left, content right layout
   return (
-    <ReadingLayout 
-      currentProgress={progress} 
-      onClose={() => router.push('/dashboard')} 
+    <ReadingLayout
+      currentProgress={progress}
+      onClose={() => router.push('/dashboard')}
       serverCurrentChapter={chapter.chapter_number}
       collapseSidebarByDefault={true}
+      isAdmin={isAdmin}
     >
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        {/* Left side: Image */}
-        <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative overflow-hidden bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
-          {heroImageSrc ? (
-            <Image
-              src={heroImageSrc}
-              alt={heroImageAlt}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority
-            />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#F2E9D8] to-[#E8DBC0] dark:from-[#0f1b2d] dark:to-[#13233a]" />
-          )}
-        </div>
+        {!isFollowThroughChecklistPage && (
+          <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative overflow-hidden bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
+            {displayHeroImageSrc ? (
+              <img
+                src={displayHeroImageSrc}
+                alt={heroImageAlt}
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="eager"
+                decoding="async"
+                onError={handleHeroImageError}
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#F2E9D8] to-[#E8DBC0] dark:from-[#0f1b2d] dark:to-[#13233a]" />
+            )}
+          </div>
+        )}
 
-        {/* Right side: Content + Navigation */}
-        <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className={`${isFollowThroughChecklistPage ? 'w-full' : 'w-full lg:w-1/2'} bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col flex-1 min-h-0 overflow-hidden`}>
           {/* Content - scrollable on mobile */}
-          <div className="flex-1 p-6 sm:p-8 lg:p-12 min-h-0 reading-scroll">
-            <div className="space-y-6">
+          <div className={`flex-1 ${isFollowThroughChecklistPage ? 'p-6 sm:p-8' : 'p-6 sm:p-8 lg:p-12'} min-h-0 reading-scroll`}>
+            <div className={`${isFollowThroughChecklistPage ? 'max-w-[980px] mx-auto w-full' : ''} space-y-6`}>
               <div className="mb-6">
                 <p className="text-sm text-[#ff6a38] font-semibold uppercase tracking-wide mb-2">
                   {step.title}

@@ -45,10 +45,10 @@ export default function ContentEditor({
   const saveBlockEditRef = useRef<(() => void) | null>(null);
 
   const DEFAULT_SCALE_SCORE_BANDS = [
-    { range: '27-35', label: 'High confidence', explanation: "You're managing it. Keep building experience." },
-    { range: '18-26', label: 'Moderate anxiety', explanation: 'Moderate anxiety. Focus on Techniques #1 and #3.' },
-    { range: '9-17', label: 'Starting point', explanation: "You're where Tony started. VOICE framework will help the most." },
-    { range: '1-8', label: 'Low anxiety', explanation: 'Low anxiety. Keep practicing to stay confident.' },
+    { range: '25+', label: "You're a strong analytical thinker", explanation: 'CLARITY will help you actually be heard.', color: '#ef4444' },
+    { range: '18-24', label: 'You naturally spot problems', explanation: 'Work on delivery and timing.', color: '#f59e0b' },
+    { range: '10-17', label: 'Critique', explanation: 'You balance critique with appreciation fairly well.', color: '#0073ba' },
+    { range: '1-9', label: 'Building Confidence', explanation: 'You may need to speak up more about the issues you notice.', color: '#22c55e' },
   ]
   const [showBlockPalette, setShowBlockPalette] = useState(false)
 
@@ -353,15 +353,29 @@ export default function ContentEditor({
   
   // Listen for force-save events from parent
   useEffect(() => {
-    const handleForceSave = () => {
-      if (editingIndex !== null && editingData && saveBlockEditRef.current) {
-        saveBlockEditRef.current();
+    const handleForceSave = (event: Event) => {
+      const customEvent = event as CustomEvent<{ onSaved?: (latestContent: any[]) => void }>
+      const onSaved = customEvent.detail?.onSaved
+
+      if (editingIndex !== null && editingData) {
+        const newContent = [...content]
+        const normalizedBlock = normalizeBlock(editingData)
+        newContent[editingIndex] = normalizedBlock
+
+        onChange(newContent)
+        setEditingIndex(null)
+        setEditingData(null)
+
+        onSaved?.(newContent)
+        return
       }
+
+      onSaved?.(content)
     };
     
     window.addEventListener('force-save-content-editor', handleForceSave);
     return () => window.removeEventListener('force-save-content-editor', handleForceSave);
-  }, [editingIndex, editingData]);
+  }, [content, editingData, editingIndex, normalizeBlock, onChange]);
 
   const handleDeleteBlock = (index: number) => {
     if (confirm('Delete this block?')) {
@@ -2190,7 +2204,7 @@ export default function ContentEditor({
                                 const bands = editingData?.scoreBands || [];
                                 setEditingData({
                                   ...editingData,
-                                  scoreBands: [...bands, { range: '', label: '', explanation: '' }]
+                                  scoreBands: [...bands, { range: '', label: '', explanation: '', color: '#0073ba' }]
                                 });
                               }}
                             >
@@ -2273,6 +2287,34 @@ export default function ContentEditor({
                                       className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 min-h-[60px] focus:ring-2 focus:ring-blue-500"
                                       placeholder="You're managing it. Keep building experience."
                                     />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                      Badge Color
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="color"
+                                        value={band.color || '#0073ba'}
+                                        onChange={(e) => {
+                                          const newBands = [...(editingData?.scoreBands || [])];
+                                          newBands[idx] = { ...newBands[idx], color: e.target.value };
+                                          setEditingData({ ...editingData, scoreBands: newBands });
+                                        }}
+                                        className="h-9 w-12 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={band.color || ''}
+                                        onChange={(e) => {
+                                          const newBands = [...(editingData?.scoreBands || [])];
+                                          newBands[idx] = { ...newBands[idx], color: e.target.value };
+                                          setEditingData({ ...editingData, scoreBands: newBands });
+                                        }}
+                                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"
+                                        placeholder="#0073ba"
+                                      />
+                                    </div>
                                   </div>
                                 </div>
                                 <button

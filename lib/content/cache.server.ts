@@ -40,9 +40,45 @@ function createServiceClient() {
 function hasMeaningfulSupabaseError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const record = error as Record<string, unknown>
+  const hasMeaningfulText = (value: unknown) => {
+    if (typeof value !== 'string') return false
+    const text = value.trim()
+    if (!text) return false
+    // Supabase/Turbopack occasionally surfaces placeholder-like text values.
+    // Ignore these so we don't spam console with non-actionable "{}" errors.
+    const normalized = text.toLowerCase()
+    if (
+      normalized === '{}' ||
+      normalized === 'null' ||
+      normalized === 'undefined' ||
+      normalized === '[object object]'
+    ) {
+      return false
+    }
+    return true
+  }
   return (
-    typeof record.message === 'string' && record.message.trim().length > 0
-  ) || typeof record.code === 'string' || typeof record.details === 'string'
+    hasMeaningfulText(record.message) ||
+    hasMeaningfulText(record.code) ||
+    hasMeaningfulText(record.details) ||
+    hasMeaningfulText(record.hint)
+  )
+}
+
+function isMissingColumnSupabaseError(error: unknown, columnName: string): boolean {
+  if (!error || typeof error !== 'object') return false
+  const record = error as Record<string, unknown>
+  const message = typeof record.message === 'string' ? record.message.toLowerCase() : ''
+  const details = typeof record.details === 'string' ? record.details.toLowerCase() : ''
+  const code = typeof record.code === 'string' ? record.code : ''
+  const column = columnName.toLowerCase()
+  // Postgres undefined_column is 42703. We also match text defensively.
+  return (
+    code === '42703' ||
+    message.includes(column) ||
+    message.includes('column') ||
+    details.includes(column)
+  )
 }
 
 /**
@@ -200,11 +236,23 @@ export const getCachedChapterReadingPreviewImages = unstable_cache(
     const stepIds = Array.from(firstReadStepByChapter.values())
     if (stepIds.length === 0) return {} as Record<string, string>
 
-    const { data: pages, error: pagesError } = await supabase
+    let { data: pages, error: pagesError } = await supabase
       .from('step_pages')
       .select('step_id, hero_image_url, content, order_index')
       .in('step_id', stepIds)
       .order('order_index', { ascending: true })
+
+    // Backward-compatible fallback for older DB states where step_pages.hero_image_url
+    // does not exist yet. We can still resolve preview from content image blocks.
+    if (isMissingColumnSupabaseError(pagesError, 'hero_image_url')) {
+      const fallbackQuery = await supabase
+        .from('step_pages')
+        .select('step_id, content, order_index')
+        .in('step_id', stepIds)
+        .order('order_index', { ascending: true })
+      pages = fallbackQuery.data as any
+      pagesError = fallbackQuery.error
+    }
 
     if (hasMeaningfulSupabaseError(pagesError) || !pages) {
       if (hasMeaningfulSupabaseError(pagesError)) {

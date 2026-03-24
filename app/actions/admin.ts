@@ -3,12 +3,20 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/guards'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { unstable_cache } from 'next/cache'
 
 // ============================================================================
 // DASHBOARD STATS
 // ============================================================================
+
+function revalidatePublicContentCaches() {
+  // Keep dashboard/reading caches fresh after admin edits.
+  revalidateTag('chapters')
+  revalidateTag('steps')
+  revalidateTag('pages')
+  revalidateTag('content')
+}
 
 // Internal function that does the actual work
 async function fetchDashboardStats() {
@@ -1100,6 +1108,8 @@ export async function updateChapter(chapterId: string, data: any) {
     revalidatePath('/admin/chapters')
     revalidatePath(`/admin/chapters/${chapterId}`)
     revalidatePath(`/admin/chapters/${idToUse}`)
+    revalidatePath('/dashboard')
+    revalidatePublicContentCaches()
 
     return { success: true }
   } catch (error) {
@@ -1439,7 +1449,9 @@ export async function updateStep(stepId: string, data: any) {
 
     if (error) throw error
 
-    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
+    // Keep dashboard/read caches in sync after admin step edits.
+    revalidatePath('/dashboard')
+    revalidatePublicContentCaches()
 
     return { success: true }
   } catch (error) {
@@ -1723,7 +1735,9 @@ export async function deletePage(pageId: string) {
 
     if (error) throw error
 
-    // NOTE: revalidatePath removed for optimistic updates - client handles UI refresh
+    // Keep dashboard/read caches in sync after admin page edits.
+    revalidatePath('/dashboard')
+    revalidatePublicContentCaches()
 
     return { success: true }
   } catch (error) {
@@ -1753,6 +1767,8 @@ export async function updatePageContent(pageId: string, content: any[]) {
     if (error) throw error
 
     revalidatePath('/admin/chapters')
+    revalidatePath('/dashboard')
+    revalidatePublicContentCaches()
 
     return { success: true }
   } catch (error) {

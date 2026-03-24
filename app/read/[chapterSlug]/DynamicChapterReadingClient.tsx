@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import Image from 'next/image';
 import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
 import ChapterCoverPage from '@/components/content/ChapterCoverPage';
@@ -161,21 +160,53 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
   // Calculate progress (include cover page in calculation)
   const progress = currentPage === -1 ? 0 : Math.round(((currentPage + 1) / pages.length) * 100);
 
+  const normalizeBlocks = (content: unknown): any[] => {
+    if (Array.isArray(content)) return content;
+    if (typeof content === 'string') {
+      try {
+        const parsed = JSON.parse(content);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const getSafeImageSrc = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    // Ignore legacy placeholders; they caused broken images in reading.
+    const normalized = trimmed.toLowerCase();
+    if (
+      normalized === '/placeholder.png' ||
+      normalized.endsWith('/placeholder.png') ||
+      normalized === 'placeholder.png'
+    ) {
+      return null;
+    }
+    return trimmed;
+  };
+
   // Helper function to get hero image for any page
   const getHeroImageForPage = useCallback((pageIndex: number): string | null => {
     if (pageIndex < 0 || pageIndex >= pages.length) return null;
     
     const pageData = pages[pageIndex];
-    const content = (pageData?.content ?? []) as any[];
+    const content = normalizeBlocks(pageData?.content);
+    const pageHero = getSafeImageSrc((pageData as any)?.hero_image_url);
     const imageBlock = content.find(
       (b: any) => b && b.type === 'image' && b.src && typeof b.src === 'string'
     );
+    const blockHero = getSafeImageSrc(imageBlock?.src);
     
-    // Prefer chapter preview image when available.
-    if (chapter.hero_image_url) return chapter.hero_image_url;
-    if (chapter.thumbnail_url) return chapter.thumbnail_url;
-    // Fallback to first reading image only if preview is missing.
-    if (imageBlock?.src) return imageBlock.src as string;
+    // Reading should prefer page-specific image first.
+    if (pageHero) return pageHero;
+    if (blockHero) return blockHero;
+    if (getSafeImageSrc(readingStep.hero_image_url)) return getSafeImageSrc(readingStep.hero_image_url);
+    if (getSafeImageSrc(chapter.hero_image_url)) return getSafeImageSrc(chapter.hero_image_url);
+    if (getSafeImageSrc(chapter.thumbnail_url)) return getSafeImageSrc(chapter.thumbnail_url);
     
     // Legacy fallbacks
     if (chapter.chapter_number === 1) {
@@ -185,17 +216,23 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     }
     
     return null;
-  }, [pages, chapter]);
+  }, [pages, chapter, readingStep]);
 
   // Hero image (only for content pages, not cover)
-  const rawContent = (currentPageData?.content ?? []) as any[];
+  const rawContent = normalizeBlocks(currentPageData?.content);
   const firstImageBlock = rawContent.find(
     (b: any) => b && b.type === 'image' && b.src && typeof b.src === 'string'
   ) as any | undefined;
 
   // Legacy local fallbacks only if no DB-driven hero exists
   let legacyFallback: string | null = null;
-  if (!chapter.hero_image_url && !firstImageBlock?.src) {
+  const safeChapterHero = getSafeImageSrc(chapter.hero_image_url);
+  const safeChapterThumb = getSafeImageSrc(chapter.thumbnail_url);
+  const safeStepHero = getSafeImageSrc(readingStep.hero_image_url);
+  const safePageHero = getSafeImageSrc((currentPageData as any)?.hero_image_url);
+  const safeBlockHero = getSafeImageSrc(firstImageBlock?.src);
+
+  if (!safeChapterHero && !safeChapterThumb && !safeStepHero && !safePageHero && !safeBlockHero) {
     if (chapter.chapter_number === 1) {
       legacyFallback = '/slider-work-on-quizz/chapter1/chaper1-1.jpeg';
     } else if (chapter.chapter_number === 2) {
@@ -203,13 +240,25 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     }
   }
 
-  // Use chapter preview first, then fallback to first reading image.
+  // Reading should use page image first, then chapter-level fallbacks.
   const heroImageSrc =
-    chapter.hero_image_url ||
-    chapter.thumbnail_url ||
-    (firstImageBlock?.src as string | undefined) ||
+    safePageHero ||
+    safeBlockHero ||
+    safeStepHero ||
+    safeChapterHero ||
+    safeChapterThumb ||
     legacyFallback ||
-    null; // Use null instead of '/placeholder.png' to show gradient fallback
+    null;
+  const [displayHeroImageSrc, setDisplayHeroImageSrc] = useState<string | null>(heroImageSrc);
+  useEffect(() => {
+    setDisplayHeroImageSrc(heroImageSrc);
+  }, [heroImageSrc]);
+
+  const handleHeroImageError = () => {
+    // Hard fallback: if the selected image fails, don't keep broken image icon.
+    setDisplayHeroImageSrc(null);
+  };
+
 
   const heroImageAlt =
     (firstImageBlock?.alt as string | undefined) ||
@@ -249,16 +298,14 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
         // CONTENT SLIDES - Image left, Text right (mobile: stacked)
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden order-1">
-            {heroImageSrc ? (
-              <Image
-                src={heroImageSrc}
+            {displayHeroImageSrc ? (
+              <img
+                src={displayHeroImageSrc}
                 alt={heroImageAlt}
-                fill
-                priority
-                fetchPriority="high"
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                quality={85}
-                className="object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="eager"
+                decoding="async"
+                onError={handleHeroImageError}
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-[#F2E9D8] to-[#E8DBC0] dark:from-[#0f1b2d] dark:to-[#13233a]" />
@@ -274,7 +321,7 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
                 className="max-w-3xl mx-auto"
               >
                 {(() => {
-                  const blocks = currentPageData?.content && Array.isArray(currentPageData.content) ? currentPageData.content : [];
+                  const blocks = normalizeBlocks(currentPageData?.content);
                   const firstRenderedBlock = blocks.find((b: any) => b.type !== 'title_slide' && !(blocks.indexOf(b) === 0 && b.type === 'image'));
                   const firstBlockIsHeading = firstRenderedBlock && (firstRenderedBlock as any).type === 'heading';
                   const showPageTitle = currentPageData?.title && !firstBlockIsHeading;
@@ -284,7 +331,7 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
                     </h2>
                   ) : null;
                 })()}
-                {currentPageData?.content && Array.isArray(currentPageData.content) && currentPageData.content.map((block: any, index: number) => {
+                {normalizeBlocks(currentPageData?.content).map((block: any, index: number) => {
                   if (block.type === 'title_slide') return null;
                   if (block.type === 'image') return null;
                   return (

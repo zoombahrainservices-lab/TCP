@@ -313,6 +313,7 @@ const SelfCheckResultBlockSchema = z.object({
     range: z.string(),
     label: z.string().optional(),
     explanation: z.string(),
+    color: z.string().optional(),
   })).optional(),
   scoreMessage: z.string().optional(),
   buttonText: z.string().optional(),

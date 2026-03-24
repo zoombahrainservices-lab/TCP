@@ -270,15 +270,29 @@ export default function PageContentEditorPage() {
       blockTypes: content.map(b => b?.type)
     })
     
-    // CRITICAL FIX: Force ContentEditor to save any open edits first
-    // by triggering a custom event that ContentEditor can listen to
-    const saveEvent = new CustomEvent('force-save-content-editor')
-    window.dispatchEvent(saveEvent)
+    // Force ContentEditor to commit any open edit and return latest content.
+    const latestContent = await new Promise<any[]>((resolve) => {
+      let settled = false
+      const resolveOnce = (value: any[]) => {
+        if (settled) return
+        settled = true
+        resolve(value)
+      }
+
+      const saveEvent = new CustomEvent('force-save-content-editor', {
+        detail: {
+          onSaved: (updatedContent: any[]) => {
+            resolveOnce(updatedContent)
+          },
+        },
+      })
+      window.dispatchEvent(saveEvent)
+
+      // Safety fallback: if listener is unavailable, keep previous behavior.
+      setTimeout(() => resolveOnce(content), 120)
+    })
     
-    // Give ContentEditor time to process the save
-    await new Promise(resolve => setTimeout(resolve, 100))
-    
-    await savePage(content)
+    await savePage(latestContent)
   }
 
   const handleMigrateImages = async () => {
