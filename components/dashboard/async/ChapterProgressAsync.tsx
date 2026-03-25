@@ -91,7 +91,6 @@ export default async function ChapterProgressAsync({ userId }: Props) {
         xpAward={userProgress.xpAward}
         progress={userProgress.progress}
         chapterImage={userProgress.chapterImage}
-        continueHref={readingHref}
       />
       <WhatsNextCard />
     </div>

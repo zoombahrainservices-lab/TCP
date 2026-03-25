@@ -6,6 +6,8 @@ interface QueuedWrite {
   timestamp: number;
 }
 
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 class BackgroundWriteQueue {
   private queue: QueuedWrite[] = [];
   private processing = false;
@@ -20,7 +22,9 @@ class BackgroundWriteQueue {
     };
 
     this.queue.push(write);
-    console.log(`[WriteQueue] Enqueued ${write.id}, queue length: ${this.queue.length}`);
+    if (isDevelopment) {
+      console.log(`[WriteQueue] Enqueued ${write.id}, queue length: ${this.queue.length}`);
+    }
     this.process();
   }
 
@@ -34,7 +38,9 @@ class BackgroundWriteQueue {
 
       try {
         await write.operation();
-        console.log(`[WriteQueue] Success: ${write.id}`);
+        if (isDevelopment) {
+          console.log(`[WriteQueue] Success: ${write.id}`);
+        }
         this.queue.shift(); // Remove from queue
       } catch (error) {
         write.retries++;
@@ -58,7 +64,9 @@ class BackgroundWriteQueue {
 
   clear() {
     this.queue = [];
-    console.log('[WriteQueue] Cleared all pending writes');
+    if (isDevelopment) {
+      console.log('[WriteQueue] Cleared all pending writes');
+    }
   }
 
   getQueueLength(): number {

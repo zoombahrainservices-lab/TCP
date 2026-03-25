@@ -247,7 +247,7 @@ export async function getNextStep(chapterId: string, currentStepOrderIndex: numb
   
   const { data, error } = await supabase
     .from('chapter_steps')
-    .select('*')
+    .select('id, chapter_id, step_type, title, slug, order_index, is_required, unlock_rule, created_at')
     .eq('chapter_id', chapterId)
     .gt('order_index', currentStepOrderIndex)
     .order('order_index')
@@ -266,7 +266,7 @@ export async function getNextStepWithContent(chapterId: string, currentStepOrder
 
   const { data: steps, error } = await supabase
     .from('chapter_steps')
-    .select('*')
+    .select('id, chapter_id, step_type, title, slug, order_index, is_required, unlock_rule, created_at')
     .eq('chapter_id', chapterId)
     .gt('order_index', currentStepOrderIndex)
     .order('order_index');
@@ -291,12 +291,74 @@ export async function getNextStepWithContent(chapterId: string, currentStepOrder
   return null;
 }
 
+/**
+ * V2: Optimized version that fetches all pages in a single query.
+ * Replaces N+1 pattern with 2 queries total.
+ */
+export async function getNextStepWithContentV2(chapterId: string, currentStepOrderIndex: number): Promise<Step | null> {
+  const supabase = await createClient();
+
+  // Query 1: Get all steps after current
+  const { data: steps, error } = await supabase
+    .from('chapter_steps')
+    .select('id, chapter_id, step_type, title, slug, order_index, is_required, unlock_rule, created_at')
+    .eq('chapter_id', chapterId)
+    .gt('order_index', currentStepOrderIndex)
+    .order('order_index');
+
+  if (error || !steps || steps.length === 0) {
+    return null;
+  }
+
+  // Special case: If first step is resolution, return it immediately
+  // Resolution steps don't have pages in step_pages table
+  if (steps[0].step_type === 'resolution') {
+    return steps[0];
+  }
+
+  // Query 2: Fetch pages for ALL steps at once
+  const stepIds = steps.map(s => s.id);
+  const { data: allPages, error: pagesError } = await supabase
+    .from('step_pages')
+    .select('id, step_id')
+    .in('step_id', stepIds);
+
+  if (pagesError) {
+    console.error('Error fetching step pages in batch:', pagesError);
+    // Fallback to sequential if batch query fails
+    return getNextStepWithContent(chapterId, currentStepOrderIndex);
+  }
+
+  // Group pages by step_id
+  const pagesByStepId = new Map<string, any[]>();
+  for (const page of allPages || []) {
+    if (!pagesByStepId.has(page.step_id)) {
+      pagesByStepId.set(page.step_id, []);
+    }
+    pagesByStepId.get(page.step_id)!.push(page);
+  }
+
+  // Return first step that has pages (or resolution)
+  for (const step of steps) {
+    if (step.step_type === 'resolution') {
+      return step;
+    }
+    
+    const pages = pagesByStepId.get(step.id) || [];
+    if (pages.length > 0) {
+      return step;
+    }
+  }
+
+  return null;
+}
+
 export async function getPreviousStep(chapterId: string, currentStepOrderIndex: number): Promise<Step | null> {
   const supabase = await createClient();
   
   const { data, error } = await supabase
     .from('chapter_steps')
-    .select('*')
+    .select('id, chapter_id, step_type, title, slug, order_index, is_required, unlock_rule, created_at')
     .eq('chapter_id', chapterId)
     .lt('order_index', currentStepOrderIndex)
     .order('order_index', { ascending: false })

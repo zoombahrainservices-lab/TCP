@@ -9,13 +9,16 @@ export default async function MapPage() {
   
   const supabase = await createClient()
   
+  // Extract published chapter IDs for bounded queries
+  const publishedChapterIds = chapters.map((ch: any) => ch.id)
+  
   // Get user's progress
   const { data: progressData } = await supabase
     .from('chapter_progress')
     .select('chapter_id, sections_completed')
     .eq('user_id', user.id)
   
-  // Get all steps and pages for all chapters
+  // Get steps ONLY for published chapters (bounded query)
   const { data: allSteps } = await supabase
     .from('chapter_steps')
     .select(`
@@ -26,12 +29,20 @@ export default async function MapPage() {
       slug,
       order_index
     `)
+    .in('chapter_id', publishedChapterIds)
     .order('order_index', { ascending: true })
   
-  const { data: allPages } = await supabase
-    .from('step_pages')
-    .select('id, step_id, title, slug, order_index')
-    .order('order_index', { ascending: true })
+  // Extract step IDs for bounded page query
+  const stepIds = allSteps?.map(s => s.id) || []
+  
+  // Get pages ONLY for steps of published chapters (bounded query)
+  const { data: allPages } = stepIds.length > 0 
+    ? await supabase
+        .from('step_pages')
+        .select('id, step_id, title, slug, order_index')
+        .in('step_id', stepIds)
+        .order('order_index', { ascending: true })
+    : { data: [] }
   
   // Get completed pages
   const { data: completedPages } = await supabase
@@ -41,7 +52,7 @@ export default async function MapPage() {
   
   const completedPageIds = new Set(completedPages?.map(c => c.page_id) || [])
   
-  // Organize data by chapter
+  // Organize data by chapter (same logic as before)
   const chaptersWithProgress = chapters.map((chapter: any) => {
     const steps = allSteps?.filter(s => s.chapter_id === chapter.id) || []
     const stepsWithPages = steps.map(step => ({
@@ -58,14 +69,8 @@ export default async function MapPage() {
     }
   })
   
-  // Get user role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  
-  const isAdmin = profile?.role === 'admin'
+  // Use role from requireAuth (already fetched profiles)
+  const isAdmin = user.role === 'admin'
   
   // Determine current chapter (similar to dashboard logic)
   const publishedChapters = Array.isArray(chaptersWithProgress) ? chaptersWithProgress : []

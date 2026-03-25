@@ -98,7 +98,7 @@ export default function FullscreenCelebration({ payload, onClose }: FullscreenCe
 
   // Auto-close timer
   useEffect(() => {
-    const closeMs = payload.autoCloseMs || 2000
+    const closeMs = payload.autoCloseMs ?? 5000
     timerRef.current = setTimeout(() => {
       onClose()
     }, closeMs)

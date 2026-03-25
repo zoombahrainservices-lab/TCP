@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import Link from 'next/link'
 import Card from '../ui/Card'
 
 export default function InProgressCard({
@@ -12,7 +11,6 @@ export default function InProgressCard({
   xpAward = 20,
   progress = 20,
   chapterImage = '/slider-work-on-quizz/chapter1/chaper1-1.jpeg',
-  continueHref,
 }: {
   chapterNumber?: number
   title?: string
@@ -21,9 +19,7 @@ export default function InProgressCard({
   xpAward?: number
   progress?: number
   chapterImage?: string
-  continueHref?: string
 }) {
-  const targetHref = continueHref ?? `/read/chapter-${chapterNumber}`
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col lg:flex-row">
@@ -39,12 +35,6 @@ export default function InProgressCard({
           {/* Soft gradient overlay for better text/badge contrast */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/25 via-black/10 to-transparent" />
 
-          {/* IN PROGRESS badge */}
-          <div className="absolute left-3 top-3 sm:left-4 sm:top-4 z-10">
-            <span className="rounded-full bg-orange-500 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[clamp(10px,1.8vw,12px)] font-black text-white shadow-sm">
-              IN PROGRESS
-            </span>
-          </div>
         </div>
 
         {/* Right: Content */}
@@ -52,8 +42,8 @@ export default function InProgressCard({
           {/* Top row: badges */}
           <div className="flex items-center justify-between gap-3 sm:gap-4 flex-wrap">
             <div className="flex items-center gap-2 sm:gap-3">
-              <span className="rounded-full bg-orange-100 dark:bg-orange-900/30 px-2.5 py-1 sm:px-3 text-[clamp(10px,1.8vw,12px)] font-bold text-orange-600 dark:text-orange-400">
-                IN PROGRESS
+              <span className="text-[clamp(12px,2vw,14px)] font-semibold text-orange-600 dark:text-orange-400">
+                In Progress
               </span>
               <span className="flex items-center gap-1 text-[clamp(12px,2vw,14px)] font-semibold text-slate-500 dark:text-slate-400">
                 <span>⏱</span> {readTime} min
@@ -96,13 +86,9 @@ export default function InProgressCard({
                 ))}
               </div>
             </div>
-
-            <Link
-              href={targetHref}
-              className="rounded-xl bg-slate-900 dark:bg-slate-700 px-[clamp(16px,3vw,20px)] py-[clamp(8px,1.5vh,10px)] text-[clamp(12px,2vw,14px)] font-black text-white hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors whitespace-nowrap w-full sm:w-auto text-center"
-            >
-              Continue →
-            </Link>
+            <span className="text-[clamp(12px,2vw,14px)] font-semibold text-slate-500 dark:text-slate-400">
+              Continue from Today&apos;s Focus
+            </span>
           </div>
         </div>
       </div>

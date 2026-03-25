@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCachedChapterBundle } from '@/lib/content/cache.server';
 import { getStepPages, getNextStep } from '@/lib/content/queries';
 import { getChapterPromptAnswers } from '@/app/actions/prompts';
+import { getSession } from '@/lib/auth/guards';
 import DynamicChapterReadingClient from './DynamicChapterReadingClient';
 import ReadingErrorBoundary from '@/components/error/ReadingErrorBoundary';
 import ContentNotAvailable from '@/components/error/ContentNotAvailable';
@@ -35,7 +36,16 @@ export default async function DynamicChapterReadingPage({
     );
   }
 
-  const pages = await getStepPages(readStep.id);
+  // Parallelize independent queries after chapter/step is known
+  const [pages, nextStep, { data: savedAnswers }, session] = await Promise.all([
+    getStepPages(readStep.id),
+    getNextStep(chapter.id, readStep.order_index),
+    getChapterPromptAnswers(chapter.chapter_number),
+    getSession(),
+  ]);
+
+  const isAdmin = session?.role === 'admin';
+
   if (!pages.length) {
     return (
       <ContentNotAvailable
@@ -47,10 +57,7 @@ export default async function DynamicChapterReadingPage({
     );
   }
 
-  const nextStep = await getNextStep(chapter.id, readStep.order_index);
   const nextStepSlug = nextStep?.slug ?? null;
-
-  const { data: savedAnswers } = await getChapterPromptAnswers(chapter.chapter_number);
 
   return (
     <ReadingErrorBoundary fallbackUrl="/dashboard">
@@ -60,6 +67,7 @@ export default async function DynamicChapterReadingPage({
         pages={pages}
         nextStepSlug={nextStepSlug}
         initialAnswers={savedAnswers}
+        isAdmin={isAdmin}
       />
     </ReadingErrorBoundary>
   );

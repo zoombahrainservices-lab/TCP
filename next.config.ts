@@ -1,13 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Enable source maps in production to debug React hook errors (see browser console for real stack traces)
-  productionBrowserSourceMaps: true,
+  // Disable source maps in production to reduce build output size
+  productionBrowserSourceMaps: false,
   // Don't bundle these in API routes (resolve from node_modules at runtime). No full "puppeteer" on serverless.
   serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
-  // Include Chromium bin/brotli assets in serverless bundle (fixes /var/task/.../chromium/bin missing). Next 16: top-level key.
+  // Include Chromium bin/brotli assets ONLY for report/PDF routes (not all routes)
   outputFileTracingIncludes: {
-    '/*': ['./node_modules/@sparticuz/chromium/**'],
+    '/api/reports/**': ['./node_modules/@sparticuz/chromium/**'],
   },
   images: {
     remotePatterns: [
@@ -26,9 +26,11 @@ const nextConfig: NextConfig = {
     // Optimize images aggressively
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 31536000, // Cache for 1 year
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920], // Removed 2048, 3840 (too large)
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    qualities: [75, 85], // Support quality 85 used in reading pages
+    // Lower quality for faster initial load
+    dangerouslyAllowSVG: false,
+    contentDispositionType: 'inline',
   },
   experimental: {
     serverActions: {

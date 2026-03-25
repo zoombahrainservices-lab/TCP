@@ -88,7 +88,7 @@ function showSimpleToast(message: string, description?: string) {
       </div>
     </div>
   ), {
-    duration: 3000,
+    duration: 5000,
     position: 'top-center',
   })
 }
@@ -114,7 +114,7 @@ export function celebrateSectionCompletion(options: CelebrationOptions) {
       subtitle: `Level ${xpResult.newLevel}`,
       newLevel: xpResult.newLevel,
       intensity: 'mega',
-      autoCloseMs: 2800
+      autoCloseMs: 5000,
     })
   }
   
@@ -126,7 +126,7 @@ export function celebrateSectionCompletion(options: CelebrationOptions) {
       subtitle: '6/6 Sections Mastered',
       xp: xpResult?.xpAwarded,
       intensity: 'mega',
-      autoCloseMs: 3000
+      autoCloseMs: 5000,
     })
   }
   
@@ -138,7 +138,7 @@ export function celebrateSectionCompletion(options: CelebrationOptions) {
       bonusXp: streakResult.bonusXP,
       streakDays: streakResult.milestoneReached,
       intensity: 'big',
-      autoCloseMs: 2400
+      autoCloseMs: 5000,
     })
   } else if (streakResult?.milestone) {
     // Legacy format support
@@ -148,7 +148,7 @@ export function celebrateSectionCompletion(options: CelebrationOptions) {
       bonusXp: streakResult.milestone.bonusXP,
       streakDays: streakResult.milestone.days,
       intensity: 'big',
-      autoCloseMs: 2400
+      autoCloseMs: 5000,
     })
   }
   
@@ -160,7 +160,7 @@ export function celebrateSectionCompletion(options: CelebrationOptions) {
       title: title,
       xp: xpResult.xpAwarded,
       intensity: 'micro',
-      autoCloseMs: 1600
+      autoCloseMs: 5000,
     })
   }
   

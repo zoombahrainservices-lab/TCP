@@ -1,4 +1,5 @@
-import { getWeeklyReportsData, getGamificationData } from '@/app/actions/gamification'
+import { getWeeklyReportsData } from '@/app/actions/gamification'
+import { getCachedGamificationData } from '@/lib/dashboard/cache.server'
 import StreakCard from '@/components/dashboard/cards/StreakCard'
 import ReportsCard from '@/components/dashboard/cards/ReportsCard'
 
@@ -9,7 +10,7 @@ interface Props {
 export default async function ReportsAsync({ userId }: Props) {
   const [reportsData, gamificationData] = await Promise.all([
     getWeeklyReportsData(userId),
-    getGamificationData(userId)
+    getCachedGamificationData(userId)
   ])
 
   const totalXP = gamificationData.data?.total_xp ?? 0

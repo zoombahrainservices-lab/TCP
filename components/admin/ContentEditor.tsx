@@ -547,6 +547,7 @@ export default function ContentEditor({
                 {editingIndex === index ? (
                   <div className="space-y-4">
                     {/* Block-specific fields */}
+                    {/* IMPORTANT: Use editingData for preview during editing, block for display after saving */}
                     {block.type === 'heading' && (
                       <>
                         <div>
@@ -2602,11 +2603,12 @@ export default function ContentEditor({
                     </div>
                   </div>
                 ) : (
-                  <div 
+                  <div
                     className="prose dark:prose-invert max-w-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/50 p-2 rounded transition-colors"
                     onClick={() => handleEditBlock(index)}
                   >
-                    <BlockRenderer block={block} />
+                    {/* CRITICAL FIX: Use content[index] instead of block to ensure latest data */}
+                    <BlockRenderer block={content[index]} key={`preview-${index}-${content[index].text?.substring(0, 50) || Date.now()}`} />
                   </div>
                 )}
               </div>

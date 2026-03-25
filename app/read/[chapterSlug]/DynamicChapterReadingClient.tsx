@@ -270,9 +270,21 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
   const nextImageSrc = getHeroImageForPage(nextPageIndex);
   usePrefetchImage(nextImageSrc);
 
+  // Chapter reading PDF download URL
+  // Priority:
+  // 1) admin-configured chapter.pdf_url
+  // 2) chapter 1 legacy printable PDF in public/chapter
+  const chapterPdfUrl =
+    (typeof chapter.pdf_url === 'string' && chapter.pdf_url.trim().length > 0
+      ? chapter.pdf_url.trim()
+      : null) ??
+    (chapter.chapter_number === 1
+      ? `/chapter/${encodeURIComponent('Chapter 1_ From Stage Star to Silent Struggles - Printable (1).pdf')}`
+      : null);
+
   const handleDownloadChapterPdf = () => {
-    const pdfUrl = `/api/reports/chapter/${chapter.chapter_number}?answers=true`;
-    window.open(pdfUrl, '_blank');
+    if (!chapterPdfUrl) return;
+    window.open(chapterPdfUrl, '_blank');
   };
 
   // Use ReadingLayout for consistent navigation across all chapters
@@ -292,7 +304,7 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
           subtitle={chapter.subtitle}
           onContinue={handleNext}
           onDownload={handleDownloadChapterPdf}
-          showDownloadButton={true}
+          showDownloadButton={!!chapterPdfUrl}
         />
       ) : (
         // CONTENT SLIDES - Image left, Text right (mobile: stacked)

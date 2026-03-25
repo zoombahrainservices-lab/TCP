@@ -1,4 +1,4 @@
-import { getGamificationData } from '@/app/actions/gamification'
+import { getCachedGamificationData } from '@/lib/dashboard/cache.server'
 import { getLevelThreshold } from '@/lib/gamification/math'
 import TopHero from '@/components/dashboard/TopHero'
 
@@ -15,7 +15,7 @@ export default async function GamificationAsync({
   continueHref, 
   continueLabel 
 }: Props) {
-  const { data: gamificationData, error: gamificationError } = await getGamificationData(userId)
+  const { data: gamificationData, error: gamificationError } = await getCachedGamificationData(userId)
   
   const totalXP = gamificationData?.total_xp ?? 0
   const level = gamificationData?.level ?? 1

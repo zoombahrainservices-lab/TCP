@@ -50,7 +50,7 @@ export default function QuoteBlock({ text, author, role, color, bgColor, borderC
     >
       {isHTML ? (
         <div
-          className={`${sizeClass} leading-relaxed mb-3 italic ${alignClass} ${!color ? 'text-[#2a2416] dark:text-gray-200' : ''} prose dark:prose-invert max-w-none`}
+          className={`${sizeClass} leading-relaxed mb-3 italic ${alignClass} ${!color ? 'text-[#2a2416] dark:text-gray-200' : ''} prose dark:prose-invert max-w-none [&_p:empty]:min-h-[1.5em]`}
           style={textStyle}
           dangerouslySetInnerHTML={{ __html: htmlContent }}
         />

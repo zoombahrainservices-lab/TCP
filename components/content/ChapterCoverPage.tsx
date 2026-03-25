@@ -31,7 +31,9 @@ export default function ChapterCoverPage({
           fill
           className="object-cover"
           priority
-          quality={100}
+          fetchPriority="high"
+          sizes="100vw"
+          quality={85}
         />
         {/* Dark gradient overlay for better text contrast */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/70 to-black/80" />
@@ -117,7 +119,7 @@ export default function ChapterCoverPage({
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white text-sm font-semibold shadow-lg transition-all border border-white/20"
               >
                 <Download className="w-4 h-4" />
-                Download Chapter Report
+                Download Chapter PDF
               </button>
             )}
           </motion.div>

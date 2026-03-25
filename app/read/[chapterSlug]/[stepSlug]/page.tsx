@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCachedChapterBundle, getCachedChapterBundleAdmin } from '@/lib/content/cache.server';
-import { getStepPages, getNextStepWithContent } from '@/lib/content/queries';
+import { getStepPages, getNextStepWithContentV2 } from '@/lib/content/queries';
 import { getChapterPromptAnswers } from '@/app/actions/prompts';
 import { getYourTurnResponses } from '@/app/actions/yourTurn';
 import { getSession } from '@/lib/auth/guards';
@@ -37,7 +37,13 @@ export default async function DynamicStepPage({
   const step = steps.find(s => s.slug === stepSlug);
   if (!step) redirect(`/read/${chapterSlug}`);
 
-  const pages = await getStepPages(step.id);
+  // Parallelize independent queries after step is known
+  const [pages, nextStep, { data: savedAnswers }, yourTurnByPrompt] = await Promise.all([
+    getStepPages(step.id),
+    getNextStepWithContentV2(chapter.id, step.order_index),
+    getChapterPromptAnswers(chapter.chapter_number),
+    getYourTurnResponses(chapter.chapter_number),
+  ]);
   
   // Enhanced error handling: Show user-friendly message instead of crashing
   if (!pages.length) {
@@ -55,7 +61,7 @@ export default async function DynamicStepPage({
       : step.title;
 
     // Try to find next available step
-    const nextAvailableStep = await getNextStepWithContent(chapter.id, step.order_index);
+    const nextAvailableStep = nextStep;
     
     return (
       <ContentNotAvailable
@@ -71,13 +77,7 @@ export default async function DynamicStepPage({
     );
   }
 
-  const nextStep = await getNextStepWithContent(chapter.id, step.order_index);
   const nextStepSlug = nextStep?.slug ?? null;
-
-  // Load both: prompt answers (user_prompt_answers) AND Your Turn responses (artifacts)
-  // so the framework/techniques/follow-through steps show real saved data
-  const { data: savedAnswers } = await getChapterPromptAnswers(chapter.chapter_number);
-  const yourTurnByPrompt = await getYourTurnResponses(chapter.chapter_number);
 
   // Merge: Your Turn responses keyed by promptKey (e.g. ch1_framework_1) so blocks with matching id show saved text
   const mergedAnswers: Record<string, any> = { ...savedAnswers };
@@ -96,6 +96,7 @@ export default async function DynamicStepPage({
         nextStepSlug={nextStepSlug}
         nextStep={nextStep}
         initialAnswers={mergedAnswers}
+        isAdmin={isAdmin}
       />
     </ReadingErrorBoundary>
   );

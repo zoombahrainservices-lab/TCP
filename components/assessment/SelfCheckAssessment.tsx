@@ -300,7 +300,7 @@ export default function SelfCheckAssessment({
             </h2>
 
             <div 
-              className="self-check-intro-card rounded-2xl p-8 shadow-sm mb-8 space-y-6"
+              className="self-check-intro-card rounded-2xl p-8 shadow-sm mb-8 space-y-6 dark:[&_*]:!text-black"
               style={{ 
                 backgroundColor: copy.introStyles.bodyBgColor,
                 color: copy.introStyles.bodyTextColor

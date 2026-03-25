@@ -1,3 +1,18 @@
+/* CRITICAL FIX: Let inline style attributes work by not defining conflicting properties */
+/* Inline style attributes have specificity of 1,0,0,0 which beats all CSS selectors */
+/* EXCEPT when CSS uses !important (0,0,0,0 + !important beats 1,0,0,0) */
+/* Solution: Don't use !important and don't set the property at all for styled elements */
+
+/* Remove Tailwind prose color rules for elements with inline styles */
+.prose :where(span[style], p[style], div[style]) {
+  /* Don't set color here - let inline style work */
+}
+
+/* For dark mode prose */
+.dark .prose :where(span[style], p[style], div[style]) {
+  /* Don't set color here - let inline style work */
+}
+
 /* TipTap Editor Styles */
 .ProseMirror {
   outline: none;
@@ -5,6 +20,11 @@
 
 .ProseMirror p {
   margin: 0.5em 0;
+}
+
+/* SPACING FIX: Empty paragraphs should create visual gaps */
+.ProseMirror p:empty {
+  min-height: 1.5em;
 }
 
 .ProseMirror h2 {

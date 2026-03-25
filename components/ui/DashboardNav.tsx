@@ -10,14 +10,6 @@ import { getClient } from '@/lib/supabase/client'
 
 const STORAGE_KEY = 'tcpCurrentChapter'
 
-type ChapterNavItem = {
-  chapterNumber: number
-  slug: string
-  title: string
-  isUnlocked: boolean
-  isCurrent: boolean
-}
-
 type DashboardNavProps = {
   /** When on dashboard, use this so Framework/Techniques/Resolution/Follow-through match current chapter */
   serverCurrentChapter?: number
@@ -32,7 +24,6 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(!collapseSidebarByDefault)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [storedChapter, setStoredChapter] = useState<number | null>(null)
-  const [chapterNav, setChapterNav] = useState<ChapterNavItem[] | null>(null)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -81,29 +72,6 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
   const activeChapter = hasChapterInPath
     ? chapterFromPath
     : (serverCurrentChapter ?? storedChapter ?? 1)
-
-  const isReadingRoute = pathname.startsWith('/read/')
-
-  // When reading, show a chapter list with lock/unlock status.
-  useEffect(() => {
-    if (!isReadingRoute) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const res = await fetch('/api/content/chapters', { method: 'GET' })
-        if (!res.ok) return
-        const json = (await res.json()) as { chapters?: ChapterNavItem[] }
-        if (cancelled) return
-        const list = Array.isArray(json?.chapters) ? json.chapters : []
-        setChapterNav(list.filter((c) => typeof c?.chapterNumber === 'number' && c.chapterNumber > 0))
-      } catch {
-        // ignore (sidebar still works without the chapter list)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [isReadingRoute])
 
   // Helper: chapter slug for dynamic read routes
   const chapterSlugByNumber: Record<number, string> = {
@@ -376,73 +344,6 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
 
         {/* Navigation Menu */}
         <nav className="flex-1 overflow-y-auto p-4 flex flex-col">
-          {/* Reading-only: Chapter list with lock/unlock */}
-          {isReadingRoute && (
-            <div className="mb-4">
-              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">
-                Chapters
-              </p>
-              <div className="space-y-1">
-                {(chapterNav ?? []).length > 0 ? (
-                  chapterNav!.map((ch) => {
-                    const href = `/read/${ch.slug}`
-                    const locked = !ch.isUnlocked
-                    return (
-                      <Link
-                        key={`chapter-nav-${ch.chapterNumber}`}
-                        href={locked ? pathname : href}
-                        onClick={(e) => {
-                          if (locked) {
-                            e.preventDefault()
-                            return
-                          }
-                          if (collapseSidebarByDefault) setDesktopSidebarOpen(false)
-                        }}
-                        aria-disabled={locked}
-                        className={[
-                          'flex items-center justify-between gap-3 px-3 py-2 rounded-lg border transition-colors',
-                          locked
-                            ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40'
-                            : 'border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800',
-                          ch.isCurrent ? 'ring-2 ring-[#ff6a38]/40' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                            {ch.title}
-                          </span>
-                          <span className="block text-xs text-gray-500 dark:text-gray-400">
-                            {locked ? 'Locked' : 'Unlocked'}
-                          </span>
-                        </span>
-                        <span className="flex-shrink-0 text-gray-500 dark:text-gray-400">
-                          {locked ? (
-                            // lock icon
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 11V7a4 4 0 10-8 0v4m-1 0h10a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7a2 2 0 012-2z" />
-                            </svg>
-                          ) : (
-                            // check icon
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </span>
-                      </Link>
-                    )
-                  })
-                ) : (
-                  <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">
-                    Loading chapters…
-                  </div>
-                )}
-              </div>
-              <div className="my-4 border-t border-gray-200 dark:border-gray-700" />
-            </div>
-          )}
-
           {/* All Menu Items with Dividers */}
           <ul className="space-y-2">
             {menuItems.map((item, index) => {
@@ -563,71 +464,6 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
 
         {/* Navigation Menu */}
         <nav className="flex-1 overflow-y-auto p-4 flex flex-col">
-          {/* Reading-only: Chapter list with lock/unlock */}
-          {isReadingRoute && (
-            <div className="mb-4">
-              <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">
-                Chapters
-              </p>
-              <div className="space-y-1">
-                {(chapterNav ?? []).length > 0 ? (
-                  chapterNav!.map((ch) => {
-                    const href = `/read/${ch.slug}`
-                    const locked = !ch.isUnlocked
-                    return (
-                      <Link
-                        key={`chapter-nav-mobile-${ch.chapterNumber}`}
-                        href={locked ? pathname : href}
-                        onClick={(e) => {
-                          if (locked) {
-                            e.preventDefault()
-                            return
-                          }
-                          setMobileMenuOpen(false)
-                        }}
-                        aria-disabled={locked}
-                        className={[
-                          'flex items-center justify-between gap-3 px-3 py-2 rounded-lg border transition-colors',
-                          locked
-                            ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40'
-                            : 'border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800',
-                          ch.isCurrent ? 'ring-2 ring-[#ff6a38]/40' : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                            {ch.title}
-                          </span>
-                          <span className="block text-xs text-gray-500 dark:text-gray-400">
-                            {locked ? 'Locked' : 'Unlocked'}
-                          </span>
-                        </span>
-                        <span className="flex-shrink-0 text-gray-500 dark:text-gray-400">
-                          {locked ? (
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 11V7a4 4 0 10-8 0v4m-1 0h10a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7a2 2 0 012-2z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </span>
-                      </Link>
-                    )
-                  })
-                ) : (
-                  <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">
-                    Loading chapters…
-                  </div>
-                )}
-              </div>
-              <div className="my-4 border-t border-gray-200 dark:border-gray-700" />
-            </div>
-          )}
-
           {/* All Menu Items with Dividers */}
           <ul className="space-y-2">
             {menuItems.map((item, index) => {

@@ -57,10 +57,11 @@ export default function StoryBlock({
   if (isHTML) {
     // HTML mode: render the TipTap HTML string directly so inline spans
     // (e.g. a single red word) are respected.
+    // SPACING FIX: Empty paragraphs now preserve vertical spacing
     return (
       <div className="story-block mb-6 font-sans" style={wrapperStyle}>
         <div
-          className={`${bodyClass} ${alignClass} prose dark:prose-invert max-w-none [&_p:empty]:h-5 [&_p:empty]:my-0`}
+          className={`${bodyClass} ${alignClass} prose dark:prose-invert max-w-none [&_p:empty]:min-h-[1.5em]`}
           style={textStyle}
           dangerouslySetInnerHTML={{ __html: htmlContent }}
         />

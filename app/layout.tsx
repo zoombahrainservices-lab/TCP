@@ -71,6 +71,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="scroll-smooth">
       <head>
+        {/* Preconnect to Supabase for faster image loading */}
+        <link rel="preconnect" href="https://rqmxrmhgimjjuubahqka.supabase.co" />
+        <link rel="dns-prefetch" href="https://rqmxrmhgimjjuubahqka.supabase.co" />
         <script
           dangerouslySetInnerHTML={{
             __html: `

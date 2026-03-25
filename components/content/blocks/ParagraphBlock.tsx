@@ -51,10 +51,11 @@ export default function ParagraphBlock({
   if (isHTML) {
     // When content comes from TipTap (HTML string), render it as HTML so
     // inline spans like <span style="color: ...">word</span> actually apply.
+    // SPACING FIX: Empty paragraphs now preserve vertical spacing
     return (
       <div className={className} style={style}>
         <div
-          className="prose dark:prose-invert max-w-none [&_p:empty]:h-5 [&_p:empty]:my-0"
+          className="prose dark:prose-invert max-w-none [&_p:empty]:min-h-[1.5em]"
           dangerouslySetInnerHTML={{ __html: htmlContent }}
         />
       </div>

@@ -193,35 +193,61 @@ body {
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
+/* ==================================================================
+   HEADINGS: Dark & Light Mode
+   ================================================================== */
+
 /* 50% dark tint over background image in dark mode */
-/* Make headings white in dark mode, regardless of text-slate-* classes */
-.dark h1,
-.dark h2,
-.dark h3,
-.dark h4 {
+/* Make headings white in dark mode, EXCEPT those with inline colors */
+.dark h1:not([style*="color"]),
+.dark h2:not([style*="color"]),
+.dark h3:not([style*="color"]),
+.dark h4:not([style*="color"]) {
   color: #f9fafb;
 }
 
+/* CRITICAL FIX: Light mode headings - don't force colors */
+h1[style*="color"],
+h2[style*="color"],
+h3[style*="color"],
+h4[style*="color"] {
+  /* Inline style wins */
+}
+
 /* Force all text to be readable in dark mode */
-.dark p,
-.dark span,
-.dark div:not(.mapNode):not(.mapNodeFull):not(.tcpMarker):not(.gmLabel):not(.mapLabel):not(.mapLabelFull):not(.chapterLabel):not(.tcpMarkerLabel) {
+/* UPDATED: Exclude elements with inline style attributes OR containing styled children */
+.dark p:not([style*="color"]):not(:has([style*="color"])),
+.dark span:not([style*="color"]):not(:has([style*="color"])),
+.dark div:not([style*="color"]):not(:has([style*="color"])):not(.mapNode):not(.mapNodeFull):not(.tcpMarker):not(.gmLabel):not(.mapLabel):not(.mapLabelFull):not(.chapterLabel):not(.tcpMarkerLabel) {
   color: #e5e7eb !important;
 }
 
-/* Ensure strong emphasis remains white */
-.dark strong,
-.dark b {
+/* Ensure strong emphasis remains white UNLESS it has color or is inside a styled element */
+.dark strong:not([style*="color"]):not(:has([style*="color"])),
+.dark b:not([style*="color"]):not(:has([style*="color"])) {
   color: #ffffff !important;
 }
 
-/* List items should be white */
-.dark li {
+/* CRITICAL: Override above - strong INSIDE styled elements inherit (HIGHER SPECIFICITY!) */
+.dark.prose [style*="color"] strong,
+.dark.prose [style*="color"] b,
+.dark .prose [style*="color"] strong,
+.dark .prose [style*="color"] b,
+.prose [style*="color"] strong,
+.prose [style*="color"] b,
+[style*="color"] strong,
+[style*="color"] b {
+  color: inherit !important;
+  /* This rule MUST have equal or higher specificity to override the white-forcing rule above */
+}
+
+/* List items should be white UNLESS styled */
+.dark li:not([style*="color"]):not(:has([style*="color"])) {
   color: #e5e7eb !important;
 }
 
 /* Blockquotes */
-.dark blockquote {
+.dark blockquote:not([style*="color"]):not(:has([style*="color"])) {
   color: #d1d5db !important;
 }
 
@@ -247,7 +273,8 @@ body {
   color: #f3f4f6 !important;
 }
 
-/* Override inline styles with dark colors in dark mode */
+/* UPDATED: Only force dark colors to white in dark mode, not ALL inline colors */
+/* This allows admin-set bright colors (blue, green, red, etc.) to display correctly */
 .dark [style*="color: rgb(0, 0, 0)"],
 .dark [style*="color: #000000"],
 .dark [style*="color: #000"],
@@ -260,7 +287,8 @@ body {
   color: #ffffff !important;
 }
 
-/* Target any very dark text colors (RGB values where all components are < 100) */
+/* Target any very dark text colors (RGB where all components are < 50) */
+/* This catches very dark colors that would be invisible in dark mode */
 .dark [style*="color: rgb(0,"],
 .dark [style*="color: rgb(1,"],
 .dark [style*="color: rgb(2,"],
@@ -270,7 +298,47 @@ body {
 .dark [style*="color: rgb(6,"],
 .dark [style*="color: rgb(7,"],
 .dark [style*="color: rgb(8,"],
-.dark [style*="color: rgb(9,"] {
+.dark [style*="color: rgb(9,"],
+.dark [style*="color: rgb(10,"],
+.dark [style*="color: rgb(11,"],
+.dark [style*="color: rgb(12,"],
+.dark [style*="color: rgb(13,"],
+.dark [style*="color: rgb(14,"],
+.dark [style*="color: rgb(15,"],
+.dark [style*="color: rgb(16,"],
+.dark [style*="color: rgb(17,"],
+.dark [style*="color: rgb(18,"],
+.dark [style*="color: rgb(19,"],
+.dark [style*="color: rgb(20,"],
+.dark [style*="color: rgb(21,"],
+.dark [style*="color: rgb(22,"],
+.dark [style*="color: rgb(23,"],
+.dark [style*="color: rgb(24,"],
+.dark [style*="color: rgb(25,"],
+.dark [style*="color: rgb(26,"],
+.dark [style*="color: rgb(27,"],
+.dark [style*="color: rgb(28,"],
+.dark [style*="color: rgb(29,"],
+.dark [style*="color: rgb(30,"],
+.dark [style*="color: rgb(31,"],
+.dark [style*="color: rgb(32,"],
+.dark [style*="color: rgb(33,"],
+.dark [style*="color: rgb(34,"],
+.dark [style*="color: rgb(35,"],
+.dark [style*="color: rgb(36,"],
+.dark [style*="color: rgb(37,"],
+.dark [style*="color: rgb(38,"],
+.dark [style*="color: rgb(39,"],
+.dark [style*="color: rgb(40,"],
+.dark [style*="color: rgb(41,"],
+.dark [style*="color: rgb(42,"],
+.dark [style*="color: rgb(43,"],
+.dark [style*="color: rgb(44,"],
+.dark [style*="color: rgb(45,"],
+.dark [style*="color: rgb(46,"],
+.dark [style*="color: rgb(47,"],
+.dark [style*="color: rgb(48,"],
+.dark [style*="color: rgb(49,"] {
   color: #ffffff !important;
 }
 
@@ -294,39 +362,90 @@ body {
   --tw-prose-td-borders: #4b5563;
 }
 
-/* Force all prose text elements to be light in dark mode, overriding inline styles */
-.dark .prose p,
-.dark .prose span,
-.dark .prose div {
+/* Force all prose text elements to be light in dark mode */
+/* UPDATED: Exclude elements with inline styles */
+.dark .prose p:not([style*="color"]),
+.dark .prose span:not([style*="color"]),
+.dark .prose div:not([style*="color"]) {
   color: #e5e7eb !important;
 }
 
-.dark .prose strong,
-.dark .prose b {
+/* SPACING FIX: Ensure paragraphs have consistent spacing */
+.prose p {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+
+/* First paragraph has no top margin */
+.prose p:first-child {
+  margin-top: 0;
+}
+
+/* Last paragraph has no bottom margin */
+.prose p:last-child {
+  margin-bottom: 0;
+}
+
+/* Empty paragraphs create visual spacing */
+.prose p:empty {
+  min-height: 1.5em;
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+
+.dark .prose strong:not([style*="color"]),
+.dark .prose b:not([style*="color"]) {
   color: #ffffff !important;
 }
 
-.dark .prose h1,
-.dark .prose h2,
-.dark .prose h3,
-.dark .prose h4,
-.dark .prose h5,
-.dark .prose h6 {
+/* CRITICAL OVERRIDE: Strong inside styled elements inherit color (MUST come after above!) */
+.dark .prose [style*="color"] strong,
+.dark .prose [style*="color"] b,
+.prose [style*="color"] strong,
+.prose [style*="color"] b {
+  color: inherit !important;
+  /* This rule has equal or higher specificity and comes AFTER, so it wins! */
+}
+
+/* ==================================================================
+   CRITICAL FIX: Admin Text Styling (H2 + Bold + Color)
+   ================================================================== */
+
+/* Remove test colors - let inline styles work */
+.prose span[style*="color"],
+.dark .prose span[style*="color"],
+.prose h2 > span[style*="color"],
+.dark .prose h2 > span[style*="color"] {
+  /* DON'T set any color property - inline style will work */
+}
+
+/* ==================================================================
+   PROSE HEADINGS: Light & Dark Mode  
+   ================================================================== */
+
+/* Light mode prose headings - don't override inline colors */
+.prose h1:not([style*="color"]),
+.prose h2:not([style*="color"]),
+.prose h3:not([style*="color"]),
+.prose h4:not([style*="color"]),
+.prose h5:not([style*="color"]),
+.prose h6:not([style*="color"]) {
+  /* Tailwind prose defaults apply only when NO inline color */
+}
+
+/* Dark mode prose headings */
+.dark .prose h1:not([style*="color"]),
+.dark .prose h2:not([style*="color"]),
+.dark .prose h3:not([style*="color"]),
+.dark .prose h4:not([style*="color"]),
+.dark .prose h5:not([style*="color"]),
+.dark .prose h6:not([style*="color"]) {
   color: #ffffff !important;
 }
 
-/* Override any inline styled dark colors within prose */
-.dark .prose [style*="color: rgb(0, 0, 0)"],
-.dark .prose [style*="color: #000000"],
-.dark .prose [style*="color: #000"],
-.dark .prose [style*="color: rgb(42, 36, 22)"],
-.dark .prose [style*="color: #2a2416"],
-.dark .prose [style*="color: rgb(17, 17, 17)"],
-.dark .prose [style*="color: #111111"],
-.dark .prose [style*="color: #111"],
-.dark .prose [style*="color: black"] {
-  color: #ffffff !important;
-}
+/* REMOVED: Old rules that forced black/dark colors to white */
+/* These were blocking admin's custom color choices */
+/* Admin-set colors now work in both light and dark modes */
 
 /* Keep bright colors (like orange) visible but ensure they're bright enough */
 .dark .prose [style*="color: rgb(255, 106, 56)"],

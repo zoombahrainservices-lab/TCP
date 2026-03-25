@@ -83,14 +83,17 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       : `/read/${chapter.slug}/${nextStepSlug}`
     : null;
 
-  // Chapter PDF download URL (actual reading content PDF)
-  // Chapter 1 uses the exact printable PDF filename; other chapters can be added here
-  const chapterPdfFilenames: Record<number, string> = {
-    1: 'Chapter 1_ From Stage Star to Silent Struggles - Printable (1).pdf',
-  };
-  const chapterPdfUrl = chapterPdfFilenames[chapter.chapter_number]
-    ? `/chapter/${encodeURIComponent(chapterPdfFilenames[chapter.chapter_number])}`
-    : `/chapter/Chapter ${chapter.chapter_number}_ ${chapter.title} - Printable.pdf`;
+  // Chapter reading PDF download URL
+  // Priority:
+  // 1) admin-configured chapter.pdf_url
+  // 2) chapter 1 legacy printable PDF in public/chapter
+  const chapterPdfUrl =
+    (typeof chapter.pdf_url === 'string' && chapter.pdf_url.trim().length > 0
+      ? chapter.pdf_url.trim()
+      : null) ??
+    (chapter.chapter_number === 1
+      ? `/chapter/${encodeURIComponent('Chapter 1_ From Stage Star to Silent Struggles - Printable (1).pdf')}`
+      : null);
 
   const handleDownloadChapterCore = () => {
     if (!chapterPdfUrl) return;
@@ -985,6 +988,8 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
           title={chapter.title}
           subtitle={chapter.subtitle}
           onContinue={handleNext}
+          onDownload={handleDownloadChapter}
+          showDownloadButton={!!chapterPdfUrl}
         />
       </ReadingLayout>
     );

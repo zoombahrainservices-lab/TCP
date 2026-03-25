@@ -114,7 +114,7 @@ export default function CalloutBlock({
           )}
           {isHTML ? (
             <div 
-              className={`text-base leading-relaxed ${style.text} prose dark:prose-invert max-w-none`}
+              className={`text-base leading-relaxed ${style.text} prose dark:prose-invert max-w-none [&_p:empty]:min-h-[1.5em]`}
               style={customTextStyle}
               dangerouslySetInnerHTML={{ __html: htmlContent }}
             />

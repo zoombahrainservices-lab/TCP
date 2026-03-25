@@ -1,8 +1,7 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { requireAuth } from '@/lib/auth/guards'
-import { getCachedAllChapters } from '@/lib/content/cache.server'
-import { getChapterReportsData } from '@/app/actions/gamification'
+import { getCachedChapterReportsData, getDashboardChapters, getCurrentChapterFromReports } from '@/lib/dashboard/cache.server'
 import CurrentChapterSync from '@/components/dashboard/CurrentChapterSync'
 import { Settings } from 'lucide-react'
 
@@ -20,10 +19,10 @@ export default async function DashboardPage() {
   // Only wait for auth + minimal data to render shell instantly
   const user = await requireAuth()
   
-  // Get minimal data needed for navigation (cached)
+  // Get minimal data needed for navigation (cached and deduped across layout/page/async children)
   const [chapterReports, allChapters] = await Promise.all([
-    getChapterReportsData(user.id),
-    getCachedAllChapters(),
+    getCachedChapterReportsData(user.id),
+    getDashboardChapters(),
   ])
 
   // Format name as "FIRST L." (first name + last initial) like "TOM H."
@@ -33,36 +32,11 @@ export default async function DashboardPage() {
   const lastInitial = nameParts.length > 1 ? nameParts[nameParts.length - 1]?.[0]?.toUpperCase() + '.' : ''
   const displayName = `${firstName} ${lastInitial}`.trim()
 
-  // Determine current chapter for navigation (minimal computation)
+  // Determine current chapter for navigation (use shared helper)
   const publishedChapters = Array.isArray(allChapters) ? allChapters : []
   const progressList = Array.isArray(chapterReports) ? chapterReports : []
 
-  const progressByNumber = new Map<number, any>()
-  for (const row of progressList) {
-    if (typeof row.chapter_id === 'number') {
-      progressByNumber.set(row.chapter_id, row)
-    }
-  }
-
-  let currentChapterNumber: number | null = null
-  for (const chapter of publishedChapters) {
-    const chapterNum = chapter.chapter_number as number
-    const progress = progressByNumber.get(chapterNum)
-    const totalSections = progress?.totalSections ?? 6
-    const completedCount = progress?.completedCount ?? 0
-
-    if (!progress || completedCount < totalSections) {
-      currentChapterNumber = chapterNum
-      break
-    }
-  }
-
-  if (currentChapterNumber == null && publishedChapters.length > 0) {
-    const last = publishedChapters[publishedChapters.length - 1]
-    currentChapterNumber = last.chapter_number as number
-  }
-
-  const currentChapter = currentChapterNumber ?? 1
+  const currentChapter = getCurrentChapterFromReports(publishedChapters, progressList)
   const currentChapterMeta = publishedChapters.find(c => c.chapter_number === currentChapter) ?? publishedChapters[0]
   const currentChapterSlug = currentChapterMeta?.slug ?? publishedChapters[0]?.slug
 
