@@ -35,13 +35,13 @@ export default function ChecklistBlock({
   return (
     <div className="checklist-block mb-6 p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-[#ff6a38]/20">
       {title && (
-        <h3 className="text-2xl font-bold text-[#2a2416] dark:text-white mb-4">
+        <h3 className="text-2xl font-bold text-[#2a2416] dark:text-black mb-4">
           {title}
         </h3>
       )}
 
       <div className="mb-4">
-        <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+        <div className="flex items-center justify-between text-sm text-gray-600 dark:text-black mb-2">
           <span>Progress</span>
           <span>{localChecked.length} / {items.length}</span>
         </div>
@@ -57,7 +57,7 @@ export default function ChecklistBlock({
         {items.map((item) => (
           <label
             key={item.id}
-            className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-colors"
+            className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-pink-200 hover:bg-gray-50 dark:bg-pink-200 dark:hover:bg-pink-300 cursor-pointer transition-colors"
           >
             <div className="flex-shrink-0 mt-0.5">
               <input
@@ -78,8 +78,8 @@ export default function ChecklistBlock({
             </div>
             <span className={`flex-1 text-base ${
               localChecked.includes(item.id)
-                ? 'line-through text-gray-500 dark:text-gray-500'
-                : 'text-[#2a2416] dark:text-white'
+                ? 'line-through text-gray-500 dark:text-black'
+                : 'text-[#2a2416] dark:text-black'
             }`}>
               {item.text}
             </span>
