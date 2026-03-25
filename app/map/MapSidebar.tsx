@@ -32,7 +32,7 @@ export default function MapSidebar({ currentChapterSlug, isAdmin }: MapSidebarPr
 
   const navItems = [
     { href: '/map', icon: MapIcon, label: 'Map', exact: true },
-    { href: `/read/${currentChapterSlug}`, icon: BookOpen, label: 'Reading' },
+    { href: '/read', icon: BookOpen, label: 'Reading' },
     { href: `/read/${currentChapterSlug}/assessment`, icon: CheckSquare, label: 'Self-Check' },
     { href: `/read/${currentChapterSlug}/framework`, icon: Layers, label: 'Framework' },
     { href: `/read/${currentChapterSlug}/techniques`, icon: Lightbulb, label: 'Techniques' },
