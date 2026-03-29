@@ -12,7 +12,6 @@ import StreakCard from '@/components/dashboard/cards/StreakCard'
 import ChapterProgressProfileCard from '@/components/dashboard/cards/ChapterProgressProfileCard'
 import ReportsCard from '@/components/dashboard/cards/ReportsCard'
 import RecentActivityProfileCard from '@/components/dashboard/cards/RecentActivityProfileCard'
-import ChapterReportsCard from '@/components/dashboard/cards/ChapterReportsCard'
 
 export default async function ProfilePage() {
   const user = await requireAuth()
@@ -85,44 +84,33 @@ export default async function ProfilePage() {
           levelThreshold={levelThreshold}
         />
 
-        <div className="mt-6 grid grid-cols-12 gap-6">
-          {/* Row 1 */}
-          <div className="col-span-12 lg:col-span-8">
+        <div className="mt-6 grid grid-cols-12 gap-[10px]">
+          {/* Left column */}
+          <div className="col-span-12 flex flex-col gap-[10px] lg:col-span-8">
             <ProfileSummaryCard
               totalXP={totalXP}
               level={level}
               chapterReports={chapterReports}
             />
-          </div>
-          <div className="col-span-12 lg:col-span-4">
-            <StreakCard currentStreak={currentStreak} longestStreak={longestStreak} />
-          </div>
-
-          {/* Row 2 */}
-          <div className="col-span-12 lg:col-span-8">
-            <div className="mb-4 px-1">
+            <div className="px-1 pt-1">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">
                 You&apos;re making progress. Keep going.
               </h3>
               <p className="text-slate-500 dark:text-slate-400">Track your journey and growth.</p>
             </div>
             <ChapterProgressProfileCard chapterReports={chapterReports} />
+            <RecentActivityProfileCard recentXP={recentXP} />
           </div>
-          <div className="col-span-12 lg:col-span-4">
+
+          {/* Right column */}
+          <div className="col-span-12 flex flex-col gap-[10px] lg:col-span-4">
+            <StreakCard currentStreak={currentStreak} longestStreak={longestStreak} />
             <ReportsCard
               xpThisWeek={reportsData.xpThisWeek}
               skillImprovement={reportsData.skillImprovement}
               totalXP={totalXP}
               weeklyXPData={reportsData.weeklyXPData}
             />
-          </div>
-
-          {/* Row 3 */}
-          <div className="col-span-12 lg:col-span-8">
-            <RecentActivityProfileCard recentXP={recentXP} />
-          </div>
-          <div className="col-span-12 lg:col-span-4">
-            <ChapterReportsCard chapters={chapterReports} />
           </div>
         </div>
       </div>

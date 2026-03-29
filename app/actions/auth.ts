@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { validateEmail, validatePassword } from '@/lib/utils/validation'
+import { resolveOAuthRedirectBaseUrl } from '@/lib/auth/oauth-origins'
 
 export async function signInWithEmail(email: string, password: string) {
   if (!validateEmail(email)) {
@@ -116,9 +117,7 @@ export async function signUp(email: string, password: string, fullName: string) 
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : null)
+  const appUrl = await resolveOAuthRedirectBaseUrl()
   const redirectTo = appUrl ? `${appUrl}/auth/callback` : undefined
 
   const { data, error } = await supabase.auth.signInWithOAuth({

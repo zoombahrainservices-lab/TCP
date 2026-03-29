@@ -54,30 +54,46 @@ export default async function ReportPage() {
     if (typeof cid === 'number' && !isNaN(cid)) xpByChapter[cid] = (cr as { xp?: number }).xp ?? 0
   }
 
-  const comprehensiveChapters = skillScores.map((s) => ({
-    chapterId: s.chapter_id,
-    bestScore: s.best_score,
-    improvement: Math.max(0, s.improvement ?? 0),
-    xpEarned: xpByChapter[s.chapter_id] ?? 0,
-  }))
+  const skillByChapter: Record<number, { best_score: number | null; improvement: number | null }> = {}
+  for (const s of skillScores) {
+    skillByChapter[s.chapter_id] = {
+      best_score: s.best_score ?? null,
+      improvement: s.improvement ?? 0,
+    }
+  }
 
-  // Featured chapter for Chapter Overall Score (most progressed / highest chapter with data)
+  const comprehensiveChapters = chapterReports.map((cr) => {
+    const chapterId =
+      (cr as { chapter_id?: number }).chapter_id ??
+      parseInt(String((cr as { title?: string }).title || '').replace('Chapter ', ''), 10)
+    const skill = skillByChapter[chapterId]
+    return {
+      chapterId,
+      bestScore: skill?.best_score ?? null,
+      improvement: Math.max(0, skill?.improvement ?? 0),
+      xpEarned: xpByChapter[chapterId] ?? 0,
+    }
+  })
+
+  const chapterIds = comprehensiveChapters
+    .map((c) => c.chapterId)
+    .filter((id) => Number.isFinite(id) && id > 0)
+  const maxChapterInProgress = chapterIds.length > 0 ? Math.max(...chapterIds) : 1
+  const targetFeaturedChapterId = Math.max(1, maxChapterInProgress - 1)
+
+  // Featured chapter for Chapter Overall Score: latest completed chapter (n-1) fallback to highest available.
   let featuredChapterData = null
-  const chapterWithMostProgress = chapterReports.reduce(
-    (best, cr) => {
-      const xp = cr.xp ?? 0
-      return !best || xp > (best.xp ?? 0) ? cr : best
-    },
-    null as (typeof chapterReports)[0] | null
-  )
 
   const getChapterId = (cr: { title?: string; chapter_id?: number }) =>
     cr.chapter_id ?? parseInt(String(cr.title || '').replace('Chapter ', ''), 10)
 
-  if (chapterWithMostProgress || skillScores.length > 0) {
-    const chapterId = chapterWithMostProgress
-      ? getChapterId(chapterWithMostProgress)
-      : skillScores[0]?.chapter_id ?? 1
+  const fallbackChapterId =
+    chapterIds.length > 0 ? Math.max(...chapterIds) : skillScores[0]?.chapter_id ?? 1
+  const chapterId = chapterIds.includes(targetFeaturedChapterId)
+    ? targetFeaturedChapterId
+    : fallbackChapterId
+
+  if (chapterId) {
     const skill = skillScores.find((s) => s.chapter_id === chapterId)
     const cr = chapterReports.find(
       (c) => getChapterId(c) === chapterId
@@ -116,27 +132,24 @@ export default async function ReportPage() {
         </div>
 
         <div className="grid grid-cols-12 gap-6">
-          {/* Top row */}
-          <div className="col-span-12 lg:col-span-8">
+          {/* Left column */}
+          <div className="col-span-12 flex flex-col gap-6 lg:col-span-8">
             <ChapterOverallScoreCard data={featuredChapterData} />
-          </div>
-          <div className="col-span-12 lg:col-span-4">
-            <ComprehensiveReportCard
-              chapters={comprehensiveChapters}
-              totalXPEarned={totalXP}
-            />
-          </div>
-
-          {/* Bottom row */}
-          <div className="col-span-12 lg:col-span-8">
             <XPAndScoresCard
               weeklyXPData={weeklyXP}
               xpThisWeek={xpThisWeek}
               totalImprovement={reportsSkillImprovement}
               totalXPEarned={totalXP}
+              chapterCount={chapterIds.length}
             />
           </div>
-          <div className="col-span-12 lg:col-span-4">
+
+          {/* Right column */}
+          <div className="col-span-12 flex flex-col gap-6 lg:col-span-4">
+            <ComprehensiveReportCard
+              chapters={comprehensiveChapters}
+              totalXPEarned={totalXP}
+            />
             <ReportRecentActivityCard recentXP={recentXP} xpToday={xpToday} />
           </div>
         </div>

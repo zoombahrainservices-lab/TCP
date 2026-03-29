@@ -566,16 +566,24 @@ export default function ContentEditor({
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Heading Text
                           </label>
-                          <input
-                            type="text"
-                            value={editingData?.text || ''}
-                            onChange={(e) => setEditingData({ ...editingData, text: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                            placeholder="Enter heading text"
+                          <RichTextEditor
+                            content={editingData?.text || ''}
+                            onChange={(html) => {
+                              const updatedBlock = { ...editingData, text: html }
+                              setEditingData(updatedBlock)
+                              const newContent = [...content]
+                              newContent[index] = updatedBlock
+                              onChange(newContent)
+                            }}
+                            placeholder="Enter heading text..."
+                            minHeight="80px"
                           />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            💡 Select text to apply bold, italic, color, or size formatting
+                          </p>
                         </div>
                       </>
                     )}
@@ -1010,15 +1018,20 @@ export default function ContentEditor({
                           </Button>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Title
                           </label>
-                          <input
-                            type="text"
-                            value={editingData?.title || ''}
-                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                          <RichTextEditor
+                            content={editingData?.title || ''}
+                            onChange={(html) => {
+                              const updatedBlock = { ...editingData, title: html }
+                              setEditingData(updatedBlock)
+                              const newContent = [...content]
+                              newContent[index] = updatedBlock
+                              onChange(newContent)
+                            }}
                             placeholder="Callout title"
+                            minHeight="60px"
                           />
                         </div>
                         <div>
@@ -1044,42 +1057,52 @@ export default function ContentEditor({
                     {block.type === 'checklist' && (
                       <>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Checklist Title (optional)
                           </label>
-                          <input
-                            type="text"
-                            value={editingData?.title || ''}
-                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                          <RichTextEditor
+                            content={editingData?.title || ''}
+                            onChange={(html) => {
+                              const updatedBlock = { ...editingData, title: html }
+                              setEditingData(updatedBlock)
+                              const newContent = [...content]
+                              newContent[index] = updatedBlock
+                              onChange(newContent)
+                            }}
                             placeholder="YOUR COMMITMENT"
+                            minHeight="80px"
                           />
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Checklist Items
                           </label>
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             {(editingData?.items || []).map((item: any, itemIdx: number) => (
-                              <div key={item.id || itemIdx} className="flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  value={item?.text || ''}
-                                  onChange={(e) => {
-                                    const nextItems = [...(editingData?.items || [])]
-                                    nextItems[itemIdx] = { ...item, text: e.target.value }
-                                    setEditingData({ ...editingData, items: nextItems })
-                                  }}
-                                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
-                                  placeholder={`Item ${itemIdx + 1}`}
-                                />
+                              <div key={item.id || itemIdx} className="flex items-start gap-2">
+                                <div className="flex-1">
+                                  <RichTextEditor
+                                    content={item?.text || ''}
+                                    onChange={(html) => {
+                                      const nextItems = [...(editingData?.items || [])]
+                                      nextItems[itemIdx] = { ...item, text: html }
+                                      const updatedBlock = { ...editingData, items: nextItems }
+                                      setEditingData(updatedBlock)
+                                      const newContent = [...content]
+                                      newContent[index] = updatedBlock
+                                      onChange(newContent)
+                                    }}
+                                    placeholder={`Item ${itemIdx + 1}`}
+                                    minHeight="60px"
+                                  />
+                                </div>
                                 <button
                                   type="button"
                                   onClick={() => {
                                     const nextItems = (editingData?.items || []).filter((_: any, i: number) => i !== itemIdx)
                                     setEditingData({ ...editingData, items: nextItems })
                                   }}
-                                  className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                  className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded mt-1"
                                   title="Delete item"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -1389,23 +1412,33 @@ export default function ContentEditor({
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Title (optional)</label>
-                          <input
-                            type="text"
-                            value={editingData?.title || ''}
-                            onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Title (optional)</label>
+                          <RichTextEditor
+                            content={editingData?.title || ''}
+                            onChange={(html) => {
+                              const updatedBlock = { ...editingData, title: html }
+                              setEditingData(updatedBlock)
+                              const newContent = [...content]
+                              newContent[index] = updatedBlock
+                              onChange(newContent)
+                            }}
                             placeholder="Knowledge Check"
+                            minHeight="60px"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
-                          <input
-                            type="text"
-                            value={editingData?.description || ''}
-                            onChange={(e) => setEditingData({ ...editingData, description: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Description (optional)</label>
+                          <RichTextEditor
+                            content={editingData?.description || ''}
+                            onChange={(html) => {
+                              const updatedBlock = { ...editingData, description: html }
+                              setEditingData(updatedBlock)
+                              const newContent = [...content]
+                              newContent[index] = updatedBlock
+                              onChange(newContent)
+                            }}
                             placeholder="Answer each question to the best of your ability..."
+                            minHeight="80px"
                           />
                         </div>
                         <div>
@@ -1414,17 +1447,22 @@ export default function ContentEditor({
                             {(editingData?.questions || []).map((q: any, qIdx: number) => (
                               <div key={qIdx} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
                                 <div className="flex gap-2 items-start">
-                                  <input
-                                    type="text"
-                                    value={q.text ?? ''}
-                                    onChange={(e) => {
-                                      const newQuestions = [...(editingData?.questions || [])];
-                                      newQuestions[qIdx] = { ...q, text: e.target.value };
-                                      setEditingData({ ...editingData, questions: newQuestions });
-                                    }}
-                                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                                    placeholder="Question text"
-                                  />
+                                  <div className="flex-1">
+                                    <RichTextEditor
+                                      content={q.text ?? ''}
+                                      onChange={(html) => {
+                                        const newQuestions = [...(editingData?.questions || [])];
+                                        newQuestions[qIdx] = { ...q, text: html };
+                                        const updatedBlock = { ...editingData, questions: newQuestions };
+                                        setEditingData(updatedBlock);
+                                        const newContent = [...content];
+                                        newContent[index] = updatedBlock;
+                                        onChange(newContent);
+                                      }}
+                                      placeholder="Question text"
+                                      minHeight="60px"
+                                    />
+                                  </div>
                                   <input
                                     type="text"
                                     value={q.id ?? ''}
@@ -1600,27 +1638,37 @@ export default function ContentEditor({
                           </p>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Question/Label Text
                           </label>
-                          <input
-                            type="text"
-                            value={editingData?.label || ''}
-                            onChange={(e) => setEditingData({ ...editingData, label: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                          <RichTextEditor
+                            content={editingData?.label || ''}
+                            onChange={(html) => {
+                              const updatedBlock = { ...editingData, label: html }
+                              setEditingData(updatedBlock)
+                              const newContent = [...content]
+                              newContent[index] = updatedBlock
+                              onChange(newContent)
+                            }}
                             placeholder="e.g., Describe your situation"
+                            minHeight="60px"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Description (optional)
                           </label>
-                          <textarea
-                            value={editingData?.description || ''}
-                            onChange={(e) => setEditingData({ ...editingData, description: e.target.value })}
-                            rows={2}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                          <RichTextEditor
+                            content={editingData?.description || ''}
+                            onChange={(html) => {
+                              const updatedBlock = { ...editingData, description: html }
+                              setEditingData(updatedBlock)
+                              const newContent = [...content]
+                              newContent[index] = updatedBlock
+                              onChange(newContent)
+                            }}
                             placeholder="Additional helper text shown below the label"
+                            minHeight="80px"
                           />
                         </div>
                         <div>

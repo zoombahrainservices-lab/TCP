@@ -219,6 +219,9 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
   ]
 
   const isActive = (href: string) => {
+    if (href === '/dashboard/progress' && pathname === '/reports') {
+      return true
+    }
     if (href === '/dashboard') {
       return pathname === href
     }

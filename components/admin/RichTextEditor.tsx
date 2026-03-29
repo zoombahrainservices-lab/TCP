@@ -48,6 +48,29 @@ export default function RichTextEditor({
   const [customColor, setCustomColor] = useState('#000000')
   const [customFontSize, setCustomFontSize] = useState('16px')
   const [hasSelection, setHasSelection] = useState(false)
+  const [savedColors, setSavedColors] = useState<string[]>([])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('tiptap-saved-colors')
+      if (saved) {
+        try {
+          setSavedColors(JSON.parse(saved))
+        } catch {
+          // ignore invalid JSON
+        }
+      }
+    }
+  }, [])
+
+  const saveColorToHistory = (color: string) => {
+    if (!/^#[0-9A-Fa-f]{6}$/.test(color)) return
+    const updated = [color, ...savedColors.filter(c => c !== color)].slice(0, 8)
+    setSavedColors(updated)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tiptap-saved-colors', JSON.stringify(updated))
+    }
+  }
 
   // Use shared Tiptap configuration for consistency
   const extensions = getTiptapExtensions({
@@ -95,7 +118,7 @@ export default function RichTextEditor({
     if (!editor.state.selection.empty) {
       editor.chain().focus().setColor(color).run()
       setCustomColor(color)
-      // Don't close picker automatically - let user apply multiple colors
+      saveColorToHistory(color)
     }
   }
 
@@ -103,6 +126,7 @@ export default function RichTextEditor({
     if (!editor.state.selection.empty) {
       editor.chain().focus().setColor(color).run()
       setCustomColor(color)
+      saveColorToHistory(color)
       setShowColorPicker(false)
     }
   }
@@ -134,17 +158,19 @@ export default function RichTextEditor({
     'Default'
 
   return (
-    <div className="border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
-      {/* Selection Warning */}
-      {!hasSelection && (showColorPicker || showSizePicker) && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
-          <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
-            ⚠️ Select text first to apply color or size
-          </p>
-        </div>
-      )}
-      {/* Toolbar */}
-      <div className="border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 p-2 flex flex-wrap items-center gap-1">
+    <div className="border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+      {/* Sticky formatting bar: stays visible while scrolling the admin content column */}
+      <div className="sticky top-0 z-20 rounded-t-lg bg-white dark:bg-gray-800">
+        {/* Selection Warning */}
+        {!hasSelection && (showColorPicker || showSizePicker) && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
+            <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+              ⚠️ Select text first to apply color or size
+            </p>
+          </div>
+        )}
+        {/* Toolbar */}
+        <div className="border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 p-2 flex flex-wrap items-center gap-1 shadow-sm">
         {/* Bold */}
         <button
           type="button"
@@ -210,7 +236,6 @@ export default function RichTextEditor({
           {showSizePicker && (
             <div 
               className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-2 z-10 min-w-[180px]"
-              onMouseDown={(e) => e.preventDefault()} // Prevent editor focus loss
             >
               {fontSizes.map((size) => (
                 <button
@@ -236,6 +261,20 @@ export default function RichTextEditor({
                     type="text"
                     value={customFontSize}
                     onChange={(e) => setCustomFontSize(e.target.value)}
+                    onPaste={(e) => {
+                      e.stopPropagation()
+                      const pastedText = e.clipboardData.getData('text')
+                      setCustomFontSize(pastedText.trim())
+                    }}
+                    onKeyDown={(e) => {
+                      e.stopPropagation()
+                      if (e.key === 'Enter' && hasSelection) {
+                        applyFontSizeAndClose(customFontSize)
+                      }
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
                     placeholder="e.g. 22px"
                     className="flex-1 px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
                   />
@@ -295,7 +334,6 @@ export default function RichTextEditor({
           {showColorPicker && (
             <div 
               className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3 z-10 min-w-[200px]"
-              onMouseDown={(e) => e.preventDefault()} // Prevent editor focus loss
             >
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Pick a color
@@ -304,6 +342,7 @@ export default function RichTextEditor({
                 type="color"
                 value={colorSwatch}
                 onInput={(e) => setColor(e.currentTarget.value)}
+                onMouseDown={(e) => e.stopPropagation()}
                 className="w-full h-10 rounded-lg border-2 border-gray-300 dark:border-gray-600 cursor-pointer bg-white dark:bg-gray-700 mb-2"
                 title="Pick text color"
               />
@@ -312,6 +351,20 @@ export default function RichTextEditor({
                   type="text"
                   value={customColor}
                   onChange={(e) => setCustomColor(e.target.value)}
+                  onPaste={(e) => {
+                    e.stopPropagation()
+                    const pastedText = e.clipboardData.getData('text')
+                    setCustomColor(pastedText.trim())
+                  }}
+                  onKeyDown={(e) => {
+                    e.stopPropagation()
+                    if (e.key === 'Enter' && hasSelection) {
+                      applyColorAndClose(customColor)
+                    }
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onFocus={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   placeholder="#000000"
                   className="flex-1 px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
                 />
@@ -347,6 +400,26 @@ export default function RichTextEditor({
                   </button>
                 ))}
               </div>
+              {/* Saved Colors */}
+              {savedColors.length > 0 && (
+                <>
+                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Recently Used</div>
+                  <div className="grid grid-cols-5 gap-2 mb-2">
+                    {savedColors.map((color, idx) => (
+                      <button
+                        key={`${color}-${idx}`}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setColor(color)}
+                        disabled={!hasSelection}
+                        className="w-8 h-8 rounded border-2 border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -410,6 +483,7 @@ export default function RichTextEditor({
         >
           P
         </button>
+        </div>
       </div>
 
       {/* Editor */}
@@ -421,7 +495,7 @@ export default function RichTextEditor({
       </div>
 
       {/* Helper text */}
-      <div className="border-t border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 px-4 py-2">
+      <div className="border-t border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 px-4 py-2 rounded-b-lg">
         <p className="text-xs text-gray-500 dark:text-gray-400">
           💡 Tip: <strong>Select text first</strong>, then apply color, size, or style. Changes appear instantly in the editor.
         </p>

@@ -2,22 +2,25 @@
 
 import Card from '../ui/Card'
 
-const WEEK_LABELS = ['6w ago', '5w ago', '4w ago', '3w ago', '2w ago', '1w ago', 'This Week']
-
 export default function XPAndScoresCard({
   weeklyXPData,
   xpThisWeek,
   totalImprovement,
   totalXPEarned,
+  chapterCount,
 }: {
   weeklyXPData: number[]
   xpThisWeek: number
   totalImprovement: number
   totalXPEarned: number
+  chapterCount?: number
 }) {
   const maxXP = Math.max(...weeklyXPData, 1)
   const barHeights = weeklyXPData.map((xp) =>
     Math.max((xp / maxXP) * 100, 2)
+  )
+  const weekLabels = weeklyXPData.map((_, i) =>
+    i === weeklyXPData.length - 1 ? 'This Week' : `${weeklyXPData.length - 1 - i}w ago`
   )
 
   // Line chart points (7 points for 7 weeks)
@@ -44,7 +47,7 @@ export default function XPAndScoresCard({
 
         <div className="mt-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-4 ring-1 ring-slate-200/60 dark:ring-slate-600/40">
           <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-400">
-            {WEEK_LABELS.map((label) => (
+            {weekLabels.map((label) => (
               <span key={label}>{label}</span>
             ))}
           </div>
@@ -98,6 +101,11 @@ export default function XPAndScoresCard({
               +{totalImprovement} Overall Score Improvement
             </span>
           </div>
+          {typeof chapterCount === 'number' && chapterCount > 0 && (
+            <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Based on data from {chapterCount} chapter{chapterCount === 1 ? '' : 's'}.
+            </p>
+          )}
         </div>
       </div>
     </Card>

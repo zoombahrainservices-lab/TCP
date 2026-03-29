@@ -44,7 +44,7 @@ export default function ReportsCard({
   }).join(' ')
 
   return (
-    <Card className="overflow-hidden h-full">
+    <Card className="overflow-hidden">
       <div className="relative p-6">
         {/* Subtle gradient wash */}
         <div className="pointer-events-none absolute inset-0">

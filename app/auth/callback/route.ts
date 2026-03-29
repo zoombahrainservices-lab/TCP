@@ -2,9 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isAllowedOAuthCallbackOrigin } from '@/lib/auth/oauth-origins'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
+  const safeSiteUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+    'http://localhost:3000'
+
+  if (!isAllowedOAuthCallbackOrigin(requestUrl.origin)) {
+    return NextResponse.redirect(
+      new URL('/auth/login?error=invalid_callback', safeSiteUrl),
+    )
+  }
+
   const code = requestUrl.searchParams.get('code')
   const error_param = requestUrl.searchParams.get('error')
 

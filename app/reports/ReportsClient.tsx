@@ -12,14 +12,26 @@ interface ReportsClientProps {
 
 export default function ReportsClient({ chapters, promptAnswers }: ReportsClientProps) {
   const [downloading, setDownloading] = useState<string | null>(null)
+  const [showAllChapters, setShowAllChapters] = useState(false)
 
-  const answersByChapter = promptAnswers.reduce((acc: Record<number, any[]>, answer) => {
-    if (!acc[answer.chapter_id]) {
-      acc[answer.chapter_id] = []
+  const chapterScores = promptAnswers.reduce((acc: Record<number, number>, answer) => {
+    const chapterId = Number(answer.chapter_id)
+    const totalScore = answer?.answer?.totalScore
+    if (Number.isFinite(chapterId) && typeof totalScore === 'number') {
+      acc[chapterId] = totalScore
     }
-    acc[answer.chapter_id].push(answer)
     return acc
   }, {})
+
+  const availableChapters = chapters
+    .filter((chapter) => chapter.status === 'available')
+    .sort((a, b) => b.chapterId - a.chapterId)
+
+  const previewCount = 2
+  const hasMoreChapters = availableChapters.length > previewCount
+  const visibleChapters = showAllChapters
+    ? availableChapters
+    : availableChapters.slice(0, previewCount)
 
   const handleDownload = async (url: string, filename: string) => {
     setDownloading(filename)
@@ -87,118 +99,90 @@ export default function ReportsClient({ chapters, promptAnswers }: ReportsClient
           </p>
         </div>
 
-        {/* Reports Grid */}
-        <div className="space-y-6">
-          {chapters.map((chapter) => (
-            <div
-              key={chapter.chapterId}
-              className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg border-2 overflow-hidden transition-all ${
-                chapter.status === 'available'
-                  ? 'border-slate-200 dark:border-slate-700 hover:shadow-xl'
-                  : 'border-slate-100 dark:border-slate-800 opacity-60'
-              }`}
-            >
-              <div className="p-6 sm:p-8">
-                {/* Chapter Header */}
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-sm">
-                        {chapter.chapterId}
-                      </span>
-                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                        Chapter {chapter.chapterId}
-                      </h2>
-                    </div>
-                    <p className="text-slate-600 dark:text-slate-400 ml-[52px]">
-                      {chapter.title}
-                    </p>
+        <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-lg dark:border-slate-700 dark:bg-slate-800/95">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-amber-100 to-amber-200 ring-1 ring-amber-300/40">
+              <FileText className="h-5 w-5 text-amber-700" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Comprehensive Report</h2>
+          </div>
+
+          <div className="space-y-3">
+            {visibleChapters.map((chapter) => (
+              <div
+                key={chapter.chapterId}
+                className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-900/40"
+              >
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                      Chapter {chapter.chapterId}
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{chapter.title}</p>
+                    {typeof chapterScores[chapter.chapterId] === 'number' && (
+                      <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        Score: {chapterScores[chapter.chapterId]}
+                      </p>
+                    )}
                   </div>
-                  {chapter.status === 'available' && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-sm font-semibold">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Completed
-                    </div>
-                  )}
-                  {chapter.status === 'locked' && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-sm font-semibold">
-                      🔒 Locked
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Completed
+                  </div>
                 </div>
 
-                {/* Report Types */}
-                {chapter.status === 'available' ? (
-                  <>
-                  <div className="grid grid-cols-1 gap-4">
-                    {/* Combined Chapter Report */}
-                    <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-                      <div className="flex items-start gap-3 mb-4">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30">
-                          <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-slate-900 dark:text-white mb-1">
-                            Complete Chapter Report
-                          </h3>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">
-                            Download a combined PDF with Self-Check, Resolution, and Proof submissions
-                          </p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <button
-                          onClick={() =>
-                            handleDownload(
-                              `/api/reports/chapter/${chapter.chapterId}?answers=true`,
-                              `chapter-${chapter.chapterId}-complete-report.pdf`
-                            )
-                          }
-                          disabled={
-                            downloading ===
-                              `chapter-${chapter.chapterId}-complete-report.pdf`
-                          }
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white text-sm font-semibold transition-colors disabled:cursor-not-allowed"
-                        >
-                          <Download className="w-4 h-4" />
-                          {downloading ===
-                          `chapter-${chapter.chapterId}-complete-report.pdf`
-                            ? 'Downloading...'
-                            : 'Download Complete Report'}
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleDownload(
-                              `/api/reports/chapter/${chapter.chapterId}?answers=false`,
-                              `chapter-${chapter.chapterId}-blank-form.pdf`
-                            )
-                          }
-                          disabled={
-                            downloading ===
-                              `chapter-${chapter.chapterId}-blank-form.pdf`
-                          }
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:border-slate-300 disabled:text-slate-400 dark:disabled:border-slate-700 dark:disabled:text-slate-600 text-sm font-semibold transition-colors disabled:cursor-not-allowed"
-                        >
-                          <Download className="w-4 h-4" />
-                          {downloading ===
-                          `chapter-${chapter.chapterId}-blank-form.pdf`
-                            ? 'Downloading...'
-                            : 'Download Blank Form'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  </>
-                ) : (
-                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                    <p>
-                      Complete this chapter to unlock reports and track your progress.
-                    </p>
-                  </div>
-                )}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button
+                    onClick={() =>
+                      handleDownload(
+                        `/api/reports/chapter/${chapter.chapterId}?answers=true`,
+                        `chapter-${chapter.chapterId}-complete-report.pdf`
+                      )
+                    }
+                    disabled={downloading === `chapter-${chapter.chapterId}-complete-report.pdf`}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:from-blue-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
+                  >
+                    <Download className="h-4 w-4" />
+                    {downloading === `chapter-${chapter.chapterId}-complete-report.pdf`
+                      ? 'Downloading...'
+                      : 'Download Full Report'}
+                  </button>
+                  <button
+                    onClick={() =>
+                      handleDownload(
+                        `/api/reports/chapter/${chapter.chapterId}?answers=false`,
+                        `chapter-${chapter.chapterId}-blank-form.pdf`
+                      )
+                    }
+                    disabled={downloading === `chapter-${chapter.chapterId}-blank-form.pdf`}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:from-purple-700 hover:to-fuchsia-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
+                  >
+                    <Download className="h-4 w-4" />
+                    {downloading === `chapter-${chapter.chapterId}-blank-form.pdf`
+                      ? 'Downloading...'
+                      : 'Download Blank Report'}
+                  </button>
+                </div>
               </div>
+            ))}
+          </div>
+
+          {availableChapters.length === 0 && (
+            <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
+              No chapter reports available yet. Complete a chapter to unlock downloads.
             </div>
-          ))}
+          )}
+
+          {hasMoreChapters && (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowAllChapters((prev) => !prev)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700/50"
+              >
+                {showAllChapters ? 'Show Less Chapters' : `View More Chapters (${availableChapters.length - previewCount})`}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Info Card */}
