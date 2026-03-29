@@ -105,20 +105,20 @@ export function celebrateSectionCompletion(options: CelebrationOptions) {
   
   const store = useCelebrationStore.getState()
   const payloads: CelebrationPayload[] = []
-  
-  // Priority 1: Level-up (mega)
-  if (xpResult?.leveledUp) {
+
+  // Show first: Section completion (so the user sees what they just finished before being told they levelled up)
+  if (xpResult?.xpAwarded && xpResult.xpAwarded > 0) {
     payloads.push({
-      type: 'levelup',
-      title: 'LEVEL UP!',
-      subtitle: `Level ${xpResult.newLevel}`,
-      newLevel: xpResult.newLevel,
-      intensity: 'mega',
+      type: 'section',
+      sectionKey: deriveSectionKey(title),
+      title: title,
+      xp: xpResult.xpAwarded,
+      intensity: 'micro',
       autoCloseMs: 5000,
     })
   }
-  
-  // Priority 2: Chapter complete (mega)
+
+  // Show second: Chapter complete (mega)
   if (chapterCompleted) {
     payloads.push({
       type: 'chapter',
@@ -129,8 +129,8 @@ export function celebrateSectionCompletion(options: CelebrationOptions) {
       autoCloseMs: 5000,
     })
   }
-  
-  // Priority 3: Streak milestone (big)
+
+  // Show third: Streak milestone (big)
   if (streakResult?.milestoneReached) {
     payloads.push({
       type: 'streak',
@@ -151,21 +151,21 @@ export function celebrateSectionCompletion(options: CelebrationOptions) {
       autoCloseMs: 5000,
     })
   }
-  
-  // Priority 4: Section completion (micro)
-  if (xpResult?.xpAwarded && xpResult.xpAwarded > 0) {
+
+  // Show last: Level-up (shown after section/chapter so the user first sees the context then gets the reward)
+  if (xpResult?.leveledUp) {
     payloads.push({
-      type: 'section',
-      sectionKey: deriveSectionKey(title),
-      title: title,
-      xp: xpResult.xpAwarded,
-      intensity: 'micro',
+      type: 'levelup',
+      title: 'LEVEL UP!',
+      subtitle: `Level ${xpResult.newLevel}`,
+      newLevel: xpResult.newLevel,
+      intensity: 'mega',
       autoCloseMs: 5000,
     })
   }
   
-  // Enqueue all (max 3)
-  payloads.slice(0, 3).forEach(payload => store.enqueue(payload))
+  // Enqueue all payloads in order; section is always first, level-up is always last
+  payloads.forEach(payload => store.enqueue(payload))
   
   // Handle small daily/streak XP with minimal toast (only if no fullscreen celebration)
   if (payloads.length === 0) {
