@@ -12,7 +12,7 @@ import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapt
 import { celebrateSectionCompletion } from '@/lib/celebration/celebrate';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
-import { usePrefetchImage } from '@/lib/hooks/usePrefetchImage';
+import { usePrefetchImages } from '@/lib/hooks/usePrefetchImage';
 
 interface Props {
   chapter: Chapter;
@@ -249,10 +249,11 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     safeChapterThumb ||
     legacyFallback ||
     null;
+  const heroImageStateKey = currentPageData?.id ?? `page-${currentPage}`;
   const [displayHeroImageSrc, setDisplayHeroImageSrc] = useState<string | null>(heroImageSrc);
   useEffect(() => {
     setDisplayHeroImageSrc(heroImageSrc);
-  }, [heroImageSrc]);
+  }, [heroImageSrc, heroImageStateKey]);
 
   const handleHeroImageError = () => {
     // Hard fallback: if the selected image fails, don't keep broken image icon.
@@ -265,10 +266,15 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     currentPageData?.title ||
     chapter.title;
 
-  // Aggressively prefetch next page's hero image
-  const nextPageIndex = currentPage + 1;
-  const nextImageSrc = getHeroImageForPage(nextPageIndex);
-  usePrefetchImage(nextImageSrc);
+  // Warm the next two page images without competing with the current page render.
+  const lookaheadImageSrcs = [
+    getHeroImageForPage(currentPage + 1),
+    getHeroImageForPage(currentPage + 2),
+  ];
+  usePrefetchImages(lookaheadImageSrcs, {
+    priority: 'low',
+    defer: true,
+  });
 
   // Chapter reading PDF download URL
   // Priority:
@@ -312,6 +318,7 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
           <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden order-1">
             {displayHeroImageSrc ? (
               <img
+                key={heroImageStateKey}
                 src={displayHeroImageSrc}
                 alt={heroImageAlt}
                 className="absolute inset-0 h-full w-full object-cover"
@@ -381,22 +388,6 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
                 )}
                 <button
                   onClick={handleNext}
-                  onMouseEnter={() => {
-                    // Preload next image on hover for instant feel
-                    const nextImg = getHeroImageForPage(currentPage + 1);
-                    if (nextImg) {
-                      const img = new window.Image();
-                      img.src = nextImg;
-                    }
-                  }}
-                  onFocus={() => {
-                    // Also preload on focus for keyboard navigation
-                    const nextImg = getHeroImageForPage(currentPage + 1);
-                    if (nextImg) {
-                      const img = new window.Image();
-                      img.src = nextImg;
-                    }
-                  }}
                   disabled={isProcessing}
                   className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-[#FF6B35] hover:bg-[#FF5722] text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
                 >

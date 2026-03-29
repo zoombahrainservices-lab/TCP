@@ -19,7 +19,7 @@ import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
 import { playClickSound } from '@/lib/celebration/sounds';
 import { getSectionImageUrlPrimary, type SectionStepType } from '@/lib/chapterImages';
-import { usePrefetchImage } from '@/lib/hooks/usePrefetchImage';
+import { usePrefetchImages } from '@/lib/hooks/usePrefetchImage';
 
 // Lazy load self-check components (only used on assessment steps)
 const SelfCheckAssessment = dynamic(() => import('@/components/assessment/SelfCheckAssessment'), {
@@ -446,11 +446,12 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       (block) => block && typeof block === 'object' && (block as { type?: string }).type === 'checklist'
     );
 
+  const heroImageStateKey = currentPageData?.id ?? `page-${currentPage}`;
   const [displayHeroImageSrc, setDisplayHeroImageSrc] = useState<string | null>(heroImageSrc);
 
   useEffect(() => {
     setDisplayHeroImageSrc(heroImageSrc);
-  }, [heroImageSrc]);
+  }, [heroImageSrc, heroImageStateKey]);
 
   const handleHeroImageError = () => {
     if (sectionFallbackImage && displayHeroImageSrc !== sectionFallbackImage) {
@@ -460,10 +461,15 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     setDisplayHeroImageSrc(null);
   };
 
-  // Aggressively prefetch next page's hero image using the new hook
-  const nextPageIndex = Math.max(currentPage + 1, 0);
-  const nextImageSrc = getHeroImageSrcForPage(pages[nextPageIndex]);
-  usePrefetchImage(nextImageSrc);
+  // Keep a rolling lookahead window warm as the user advances through pages.
+  const lookaheadImageSrcs = [
+    getHeroImageSrcForPage(pages[Math.max(currentPage + 1, 0)]),
+    getHeroImageSrcForPage(pages[Math.max(currentPage + 2, 1)]),
+  ];
+  usePrefetchImages(lookaheadImageSrcs, {
+    priority: 'low',
+    defer: true,
+  });
 
   // Prefetch next step route as early as possible.
   useEffect(() => {
@@ -1038,6 +1044,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
           <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative overflow-hidden bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
             {displayHeroImageSrc ? (
               <img
+                key={heroImageStateKey}
                 src={displayHeroImageSrc}
                 alt={heroImageAlt}
                 className="absolute inset-0 h-full w-full object-cover"
