@@ -1,5 +1,3 @@
-'use client'
-
 import Image from 'next/image'
 import Card from '../ui/Card'
 
@@ -26,7 +24,9 @@ export default function InProgressCard({
         {/* Left: Full-bleed chapter image */}
         <div className="relative h-[clamp(160px,30vw,200px)] w-full lg:h-auto lg:w-[260px] shrink-0 overflow-hidden">
           <Image
-            src={chapterImage}
+            src={chapterImage.endsWith('.jpeg') || chapterImage.endsWith('.jpg') 
+              ? chapterImage.replace(/\.(jpeg|jpg)$/, '-sm.webp')
+              : chapterImage}
             alt={`Chapter ${chapterNumber}`}
             fill
             className="object-cover"

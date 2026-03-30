@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
-import { usePathname, useRouter } from 'next/navigation'
-import { ThemeToggle } from '@/components/ui/ThemeToggle'
-import Button from '@/components/ui/Button'
-import { getClient } from '@/lib/supabase/client'
+import { usePathname } from 'next/navigation'
+import dynamic from 'next/dynamic'
+import NavLogo from '@/components/ui/NavLogo'
+import DashboardNavSocialIcons from '@/components/ui/DashboardNavSocialIcons'
+
+const DashboardNavSettingsModal = dynamic(() => import('@/components/ui/DashboardNavSettingsModal'), {
+  ssr: false,
+})
 
 const STORAGE_KEY = 'tcpCurrentChapter'
 
@@ -25,7 +28,6 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [storedChapter, setStoredChapter] = useState<number | null>(null)
   const pathname = usePathname()
-  const router = useRouter()
 
   // When on dashboard (or any non-chapter page), use the current chapter from localStorage
   // so Framework, Techniques, Resolution, Follow-through all point to the correct chapter.
@@ -228,40 +230,13 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
     return pathname.startsWith(href)
   }
 
-  const handleSignOut = async () => {
-    try {
-      const supabase = getClient()
-      await supabase.auth.signOut()
-    } finally {
-      // Always navigate to login, even if sign-out request fails
-      router.push('/auth/login')
-    }
-  }
-
   return (
     <>
       {/* Mobile Header - IN FLOW not fixed */}
       <header className="lg:hidden flex-shrink-0 h-16 bg-white dark:bg-[#000000] border-b border-gray-200 dark:border-gray-700 shadow-sm z-50">
         <div className="h-full flex items-center justify-between px-4">
           {/* Logo - Left Side */}
-          <Link href="/dashboard" className="hover:opacity-80 transition-opacity">
-            <div className="relative h-10">
-              <Image 
-                src="/TCP-logo.png" 
-                alt="TCP" 
-                width={175}
-                height={40}
-                className="object-contain h-10 w-auto dark:hidden"
-              />
-              <Image 
-                src="/TCP-logo-white.png" 
-                alt="TCP" 
-                width={175}
-                height={40}
-                className="object-contain h-10 w-auto hidden dark:block"
-              />
-            </div>
-          </Link>
+          <NavLogo height={40} width={175} />
 
           {/* Hamburger Menu - Right Side */}
           <button
@@ -314,24 +289,9 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
       >
         {/* Logo Section */}
         <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-[#000000] px-6 py-4 flex items-center justify-between gap-2">
-          <Link href="/dashboard" className="hover:opacity-80 transition-opacity block flex-1 min-w-0">
-            <div className="relative h-12">
-              <Image 
-                src="/TCP-logo.png" 
-                alt="TCP" 
-                width={210}
-                height={48}
-                className="object-contain h-12 w-auto dark:hidden"
-              />
-              <Image 
-                src="/TCP-logo-white.png" 
-                alt="TCP" 
-                width={210}
-                height={48}
-                className="object-contain h-12 w-auto hidden dark:block"
-              />
-            </div>
-          </Link>
+          <div className="flex-1 min-w-0">
+            <NavLogo height={48} width={210} />
+          </div>
           {collapseSidebarByDefault && (
             <button
               onClick={() => setDesktopSidebarOpen(false)}
@@ -383,22 +343,22 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
 
           {/* Social Media Icons - Left Aligned */}
           <div className="flex justify-start gap-4 py-3 px-3">
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition">
+            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition" aria-label="Instagram">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
               </svg>
             </a>
-            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition">
+            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition" aria-label="YouTube">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
               </svg>
             </a>
-            <a href="https://discord.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition">
+            <a href="https://discord.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition" aria-label="Discord">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
               </svg>
             </a>
-            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition">
+            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition" aria-label="X">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
               </svg>
@@ -434,24 +394,7 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
         {/* Menu Header with Close Button */}
         <div className="flex-shrink-0 h-16 bg-white dark:bg-[#000000] border-b border-gray-200 dark:border-gray-700 shadow-sm">
           <div className="h-full flex items-center justify-between px-4">
-            <Link href="/dashboard" className="hover:opacity-80 transition-opacity" onClick={() => setMobileMenuOpen(false)}>
-              <div className="relative h-10">
-                <Image 
-                  src="/TCP-logo.png" 
-                  alt="TCP" 
-                  width={175}
-                  height={40}
-                  className="object-contain h-10 w-auto dark:hidden"
-                />
-                <Image 
-                  src="/TCP-logo-white.png" 
-                  alt="TCP" 
-                  width={175}
-                  height={40}
-                  className="object-contain h-10 w-auto hidden dark:block"
-                />
-              </div>
-            </Link>
+            <NavLogo height={40} width={175} onClick={() => setMobileMenuOpen(false)} />
 
             <button
               onClick={() => setMobileMenuOpen(false)}
@@ -501,29 +444,7 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
           {/* Spacer */}
           <div className="flex-1"></div>
 
-          {/* Social Media Icons - Left Aligned */}
-          <div className="flex justify-start gap-4 py-3 px-3">
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-              </svg>
-            </a>
-            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-              </svg>
-            </a>
-            <a href="https://discord.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-              </svg>
-            </a>
-            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-[#0073ba] dark:hover:text-[#4bc4dc] transition">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-              </svg>
-            </a>
-          </div>
+          <DashboardNavSocialIcons />
         </nav>
 
         {/* Bottom Actions - Mobile */}
@@ -545,115 +466,12 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
         </div>
       </aside>
 
-      {/* Settings Modal */}
-      {settingsOpen && (
-        <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black/50 z-50"
-            onClick={() => setSettingsOpen(false)}
-          />
-          
-          {/* Modal */}
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100vw-2rem)] max-w-[340px] sm:max-w-md mx-auto">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 max-h-[85vh] overflow-y-auto">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                  Settings
-                </h2>
-                <button
-                  onClick={() => setSettingsOpen(false)}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Modal Content */}
-              <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-                {/* Admin Panel Pages */}
-                <div className="space-y-1 sm:space-y-2">
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2 sm:mb-3">Admin Panel</p>
-                  <Link href="/dashboard/pages" onClick={() => setSettingsOpen(false)} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-300">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="font-semibold">Pages</span>
-                  </Link>
-                  <Link href="/dashboard/branding" onClick={() => setSettingsOpen(false)} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-300">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                    </svg>
-                    <span className="font-semibold">Branding</span>
-                  </Link>
-                  <Link href="/dashboard/components" onClick={() => setSettingsOpen(false)} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-300">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1v-3z" />
-                    </svg>
-                    <span className="font-semibold">Components</span>
-                  </Link>
-                  <Link href="/dashboard/typography" onClick={() => setSettingsOpen(false)} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-300">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                    </svg>
-                    <span className="font-semibold">Typography</span>
-                  </Link>
-                  <Link href="/dashboard/colors" onClick={() => setSettingsOpen(false)} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-300">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                    </svg>
-                    <span className="font-semibold">Colors</span>
-                  </Link>
-                  <Link href="/dashboard/marketing" onClick={() => setSettingsOpen(false)} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-300">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                    </svg>
-                    <span className="font-semibold">Marketing</span>
-                  </Link>
-                  {isAdmin && (
-                    <Link href="/admin" onClick={() => setSettingsOpen(false)} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-700 dark:text-gray-300">
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                      </svg>
-                      <span className="font-semibold">Admin</span>
-                    </Link>
-                  )}
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
-
-                {/* Theme Toggle */}
-                <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                      Theme
-                    </p>
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                      Switch between light and dark mode
-                    </p>
-                  </div>
-                  <ThemeToggle />
-                </div>
-
-                {/* Sign Out Button */}
-                <Button
-                  type="button"
-                  onClick={handleSignOut}
-                  variant="danger"
-                  fullWidth
-                  className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
-                  style={{ fontFamily: "'Open Sans', sans-serif" }}
-                >
-                  Sign Out
-                </Button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      {/* Settings Modal - Lazy Loaded */}
+      <DashboardNavSettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        isAdmin={isAdmin}
+      />
 
       {/* Mobile Overlay */}
       {mobileMenuOpen && (

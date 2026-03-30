@@ -1,5 +1,3 @@
-'use client'
-
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -18,10 +16,11 @@ function LevelAvatar({ level }: { level: number }) {
     <div className="relative h-14 w-14 rounded-full bg-gradient-to-b from-amber-200 to-amber-400 p-[3px] shadow-md flex-shrink-0">
       <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
         <Image
-          src="/slider-work-on-quizz/chapter1/chaper1-1.jpeg"
+          src="/slider-work-on-quizz/chapter1/chaper1-1-sm.webp"
           alt="Avatar"
           width={52}
           height={52}
+          priority
           className="rounded-full object-cover"
         />
       </div>

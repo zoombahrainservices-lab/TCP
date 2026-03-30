@@ -1,17 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Bebas_Neue, JetBrains_Mono, Montserrat, Lexend, Roboto, Open_Sans } from "next/font/google";
+import { Inter, JetBrains_Mono, Open_Sans } from "next/font/google";
 import "./globals.css";
-import CelebrationHost from "@/components/celebration/CelebrationHost";
+import dynamic from "next/dynamic";
+
+const CelebrationHost = dynamic(() => import("@/components/celebration/CelebrationHost"));
 
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["latin"],
-  display: 'swap',
-});
-
-const bebasNeue = Bebas_Neue({
-  variable: "--font-bebas-neue",
-  weight: "400",
   subsets: ["latin"],
   display: 'swap',
 });
@@ -22,31 +17,10 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
-const montserrat = Montserrat({
-  variable: "--font-montserrat",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  display: 'swap',
-});
-
-const lexend = Lexend({
-  variable: "--font-lexend",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  display: 'swap',
-});
-
-const roboto = Roboto({
-  variable: "--font-roboto",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "700"],
-  display: 'swap',
-});
-
 const openSans = Open_Sans({
   variable: "--font-open-sans",
   subsets: ["latin"],
-  weight: ["300", "400", "600", "700"],
+  weight: ["400", "700"],
   display: 'swap',
 });
 
@@ -58,8 +32,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
   viewportFit: 'cover',
 };
 
@@ -76,22 +49,12 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://rqmxrmhgimjjuubahqka.supabase.co" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                const theme = localStorage.getItem('theme');
-                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                if (theme === 'dark' || (!theme && prefersDark)) {
-                  document.documentElement.classList.add('dark');
-                } else {
-                  document.documentElement.classList.remove('dark');
-                }
-              } catch (e) {}
-            `,
+            __html: `try{const t=localStorage.getItem('theme'),d=window.matchMedia('(prefers-color-scheme: dark)').matches;t==='dark'||(!t&&d)?document.documentElement.classList.add('dark'):document.documentElement.classList.remove('dark')}catch(e){}`,
           }}
         />
       </head>
       <body
-        className={`${inter.variable} ${bebasNeue.variable} ${jetbrainsMono.variable} ${montserrat.variable} ${lexend.variable} ${roboto.variable} ${openSans.variable} antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} ${openSans.variable} antialiased`}
       >
         {children}
         <CelebrationHost />

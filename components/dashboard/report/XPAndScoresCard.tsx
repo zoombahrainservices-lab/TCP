@@ -1,5 +1,3 @@
-'use client'
-
 import Card from '../ui/Card'
 
 export default function XPAndScoresCard({
@@ -46,7 +44,7 @@ export default function XPAndScoresCard({
         </h2>
 
         <div className="mt-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-4 ring-1 ring-slate-200/60 dark:ring-slate-600/40">
-          <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-400">
+          <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
             {weekLabels.map((label) => (
               <span key={label}>{label}</span>
             ))}

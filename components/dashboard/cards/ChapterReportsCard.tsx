@@ -1,5 +1,3 @@
-'use client'
-
 import Card from '../ui/Card'
 import Link from 'next/link'
 import { FileText } from 'lucide-react'

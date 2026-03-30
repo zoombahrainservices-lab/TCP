@@ -23,22 +23,31 @@ function scheduleTask(task: () => void, defer: boolean): ScheduledTask {
     };
   }
 
-  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-    const id = window.requestIdleCallback(() => {
+  if (typeof window === 'undefined') {
+    return {
+      run: () => {},
+      cancel: () => {},
+    };
+  }
+
+  // At this point we know window exists
+  if ('requestIdleCallback' in window) {
+    const id = (window as any).requestIdleCallback(() => {
       task();
     });
 
     return {
       run: () => {},
-      cancel: () => window.cancelIdleCallback(id),
+      cancel: () => (window as any).cancelIdleCallback(id),
     };
   }
 
-  const id = window.setTimeout(task, 120);
+  // Fallback to setTimeout
+  const id = (window as any).setTimeout(task, 120);
 
   return {
     run: () => {},
-    cancel: () => window.clearTimeout(id),
+    cancel: () => (window as any).clearTimeout(id),
   };
 }
 

@@ -2,10 +2,14 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import confetti from 'canvas-confetti'
-import LottieIcon from './LottieIcon'
-import { playSound } from '@/lib/celebration/sounds'
+import dynamic from 'next/dynamic'
 import type { CelebrationPayload, SectionKey } from '@/lib/celebration/types'
+
+// Lazy-load LottieIcon component
+const LottieIcon = dynamic(() => import('./LottieIcon'), {
+  loading: () => <div className="w-24 h-24" />,
+  ssr: false
+});
 
 interface FullscreenCelebrationProps {
   payload: CelebrationPayload
@@ -70,30 +74,38 @@ export default function FullscreenCelebration({ payload, onClose }: FullscreenCe
     const startVelocity = payload.intensity === 'mega' ? 30 : 
                          payload.intensity === 'big' ? 25 : 18
 
-    confetti({
-      particleCount,
-      spread,
-      startVelocity,
-      origin: { y: 0.85 },
-      scalar: payload.intensity === 'micro' ? 0.8 : 1,
-    })
+    // Dynamically import confetti only when needed
+    import('canvas-confetti').then((module) => {
+      const confetti = module.default
+      
+      confetti({
+        particleCount,
+        spread,
+        startVelocity,
+        origin: { y: 0.85 },
+        scalar: payload.intensity === 'micro' ? 0.8 : 1,
+      })
 
-    // For mega celebrations, add a second burst
-    if (payload.intensity === 'mega') {
-      setTimeout(() => {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          startVelocity: 25,
-          origin: { y: 0.85 },
-        })
-      }, 250)
-    }
+      // For mega celebrations, add a second burst
+      if (payload.intensity === 'mega') {
+        setTimeout(() => {
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            startVelocity: 25,
+            origin: { y: 0.85 },
+          })
+        }, 250)
+      }
+    })
   }, [payload.intensity, reducedMotion])
 
   // Play sound
   useEffect(() => {
-    playSound(payload.type)
+    // Dynamically import sound library only when needed
+    import('@/lib/celebration/sounds').then((module) => {
+      module.playSound(payload.type)
+    })
   }, [payload.type])
 
   // Auto-close timer

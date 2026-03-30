@@ -1,5 +1,3 @@
-'use client'
-
 import Card from '../ui/Card'
 import type { IdentityResolutionData } from '@/app/actions/identity'
 

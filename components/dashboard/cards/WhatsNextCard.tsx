@@ -1,5 +1,3 @@
-'use client'
-
 export default function WhatsNextCard() {
   return (
     <div className="rounded-[22px] bg-gradient-to-br from-[#e8f4f8] to-[#f0f8ff] dark:bg-[#020617] dark:bg-none shadow-[0_10px_35px_rgba(15,23,42,0.08)] ring-1 ring-sky-200/40 dark:ring-slate-800 overflow-hidden transition-colors duration-300">

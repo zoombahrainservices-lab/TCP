@@ -1,5 +1,3 @@
-'use client'
-
 import Card from '../ui/Card'
 import Link from 'next/link'
 import { FileText } from 'lucide-react'
@@ -62,7 +60,7 @@ export default function ReportsCard({
         {/* Chart area */}
         <div className="reports-light-panel relative mt-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/60">
           {/* Timeline labels */}
-          <div className="mb-3 flex items-center justify-between text-xs font-semibold text-slate-400">
+          <div className="mb-3 flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
             <span>4w ago</span>
             <span>3w ago</span>
             <span>2w</span>
@@ -72,9 +70,9 @@ export default function ReportsCard({
           {/* Chart container */}
           <div className="relative h-32 rounded-xl bg-white ring-1 ring-slate-200/60 overflow-hidden">
             {/* Y-axis labels */}
-            <div className="absolute right-2 top-1 text-[10px] font-semibold text-slate-400">100</div>
-            <div className="absolute right-2 top-1/4 text-[10px] font-semibold text-slate-400">80</div>
-            <div className="absolute right-2 top-1/2 text-[10px] font-semibold text-slate-400">60</div>
+            <div className="absolute right-2 top-1 text-[10px] font-semibold text-slate-600 dark:text-slate-400">100</div>
+            <div className="absolute right-2 top-1/4 text-[10px] font-semibold text-slate-600 dark:text-slate-400">80</div>
+            <div className="absolute right-2 top-1/2 text-[10px] font-semibold text-slate-600 dark:text-slate-400">60</div>
 
             {/* Dynamic Bar chart (orange bars) */}
             <div className="absolute bottom-0 left-0 right-8 h-full flex items-end justify-around px-4 pb-1">

@@ -1,5 +1,3 @@
-'use client'
-
 import Card from '../ui/Card'
 
 export type XPLogRow = {

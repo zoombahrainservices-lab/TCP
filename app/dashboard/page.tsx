@@ -1,28 +1,28 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { requireAuth } from '@/lib/auth/guards'
-import { getCachedChapterReportsData, getDashboardChapters, getCurrentChapterFromReports } from '@/lib/dashboard/cache.server'
+import { getCachedChapterReportsData, getCachedGamificationData, getDashboardChapters, getCurrentChapterFromReports } from '@/lib/dashboard/cache.server'
+import { getLevelThreshold } from '@/lib/gamification/math'
 import CurrentChapterSync from '@/components/dashboard/CurrentChapterSync'
-import { Settings } from 'lucide-react'
+import TopHero from '@/components/dashboard/TopHero'
 
 // Async components (stream in with Suspense)
-import GamificationAsync from '@/components/dashboard/async/GamificationAsync'
 import ChapterProgressAsync from '@/components/dashboard/async/ChapterProgressAsync'
 import ReportsAsync from '@/components/dashboard/async/ReportsAsync'
 
 // Skeleton fallbacks
-import TopHeroSkeleton from '@/components/dashboard/skeletons/TopHeroSkeleton'
 import ChapterCardsSkeleton from '@/components/dashboard/skeletons/ChapterCardsSkeleton'
 import ReportsSkeleton from '@/components/dashboard/skeletons/ReportsSkeleton'
 
 export default async function DashboardPage() {
-  // Only wait for auth + minimal data to render shell instantly
+  // Only wait for auth + critical above-the-fold data to render shell instantly
   const user = await requireAuth()
   
-  // Get minimal data needed for navigation (cached and deduped across layout/page/async children)
-  const [chapterReports, allChapters] = await Promise.all([
+  // Get all critical data in parallel (cached and deduped across layout/page/async children)
+  const [chapterReports, allChapters, gamificationResult] = await Promise.all([
     getCachedChapterReportsData(user.id),
     getDashboardChapters(),
+    getCachedGamificationData(user.id),
   ])
 
   // Format name as "FIRST L." (first name + last initial) like "TOM H."
@@ -43,20 +43,37 @@ export default async function DashboardPage() {
   const continueHref = currentChapterSlug ? `/read/${currentChapterSlug}` : '/dashboard'
   const continueLabel = `Continue Chapter ${currentChapter} →`
 
+  // Extract gamification data
+  const totalXP = gamificationResult.data?.total_xp ?? 0
+  const level = gamificationResult.data?.level ?? 1
+  const levelThreshold = getLevelThreshold(level + 1)
+
   return (
     <div className="min-h-full">
       <div className="mx-auto max-w-[1400px] gap-6 px-6 py-6">
         <CurrentChapterSync currentChapter={currentChapter} />
         
-        {/* Gamification Hero - Streams in with Suspense */}
-        <Suspense fallback={<TopHeroSkeleton />}>
-          <GamificationAsync
-            userId={user.id}
-            userName={displayName}
-            continueHref={continueHref}
-            continueLabel={continueLabel}
-          />
-        </Suspense>
+        {/* Gamification Hero - Now renders immediately with prefetched data */}
+        {gamificationResult.error && (
+          <div className="mb-6 rounded-2xl bg-red-50 border border-red-200 p-5">
+            <p className="font-bold text-red-800">Gamification Error:</p>
+            <p className="mt-1 text-sm text-red-600">
+              {gamificationResult.error.message || JSON.stringify(gamificationResult.error)}
+            </p>
+            <p className="mt-2 text-xs text-red-600">
+              Make sure you&apos;ve run both database migrations in Supabase SQL editor.
+            </p>
+          </div>
+        )}
+        
+        <TopHero
+          userName={displayName}
+          totalXP={totalXP}
+          level={level}
+          levelThreshold={levelThreshold}
+          continueHref={continueHref}
+          continueLabel={continueLabel}
+        />
 
         <div className="mt-6 grid grid-cols-12 gap-6">
           {/* Left column: Chapter progress cards - Streams in independently */}
