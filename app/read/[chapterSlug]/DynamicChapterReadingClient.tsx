@@ -159,6 +159,8 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
   const currentPageData = pages[currentPage >= 0 ? currentPage : 0];
   // Calculate progress (include cover page in calculation)
   const progress = currentPage === -1 ? 0 : Math.round(((currentPage + 1) / pages.length) * 100);
+  const pageLabel = currentPage < 0 ? 'Cover' : `${currentPage + 1}/${pages.length}`;
+  const locationIndicator = `Ch. ${chapter.chapter_number} • Reading • ${pageLabel}`;
 
   const normalizeBlocks = (content: unknown): any[] => {
     if (Array.isArray(content)) return content;
@@ -298,6 +300,7 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     <ReadingLayout
       currentProgress={progress}
       onClose={() => router.push('/dashboard')}
+      locationIndicator={locationIndicator}
       serverCurrentChapter={chapter.chapter_number}
       collapseSidebarByDefault={true}
       isAdmin={isAdmin}

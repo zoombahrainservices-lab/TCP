@@ -10,6 +10,7 @@ interface ReadingLayoutProps {
   children: ReactNode;
   currentProgress: number; // 0-100
   onClose?: () => void;
+  locationIndicator?: string;
   /** Optional: current chapter number for nav highlighting (otherwise inferred from URL) */
   serverCurrentChapter?: number;
   /** When true, sidebar is collapsed by default with hamburger toggle (same as chapters 1–3) */
@@ -25,6 +26,7 @@ export default function ReadingLayout({
   children,
   currentProgress,
   onClose,
+  locationIndicator,
   serverCurrentChapter,
   collapseSidebarByDefault = true,
   showDownloadButton = false,
@@ -81,6 +83,11 @@ export default function ReadingLayout({
             {/* Spacer so progress bar starts after the hamburger toggle (lg only) */}
             <div className="hidden lg:block w-16 flex-shrink-0" aria-hidden="true" />
             <div className="flex-1 min-w-0">
+              {locationIndicator ? (
+                <div className="mb-1 text-xs sm:text-sm font-semibold tracking-wide text-gray-600 dark:text-gray-300">
+                  {locationIndicator}
+                </div>
+              ) : null}
               <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full bg-[#ff6a38] rounded-full"

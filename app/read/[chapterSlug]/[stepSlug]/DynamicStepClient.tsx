@@ -333,6 +333,16 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const totalPages = hasCoverPage ? pages.length + 1 : pages.length;
   const currentPageIndex = hasCoverPage ? currentPage + 1 : currentPage;
   const progress = totalPages ? ((currentPageIndex + 1) / totalPages) * 100 : 0;
+  const sectionLabel =
+    step.step_type === 'read'
+      ? 'Reading'
+      : step.step_type === 'self_check'
+        ? 'Self-Check'
+        : step.step_type === 'follow_through'
+          ? 'Follow-Through'
+          : step.title;
+  const pageLabel = currentPage < 0 ? 'Cover' : `${currentPage + 1}/${pages.length}`;
+  const locationIndicator = `Ch. ${chapter.chapter_number} • ${sectionLabel} • ${pageLabel}`;
 
   // Derive hero image and content blocks so that image is on the LEFT
   // Priority: page.hero_image_url → first image block from current page → step.hero_image_url → chapter images → placeholder
@@ -703,6 +713,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
         <ReadingLayout
           currentProgress={progress}
           onClose={() => router.push('/dashboard')}
+          locationIndicator={locationIndicator}
           serverCurrentChapter={chapter.chapter_number}
           collapseSidebarByDefault={true}
           isAdmin={isAdmin}
@@ -801,6 +812,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
         <ReadingLayout
           currentProgress={progress}
           onClose={() => router.push('/dashboard')}
+          locationIndicator={locationIndicator}
           serverCurrentChapter={chapter.chapter_number}
           collapseSidebarByDefault={true}
           isAdmin={isAdmin}
@@ -882,6 +894,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
         <ReadingLayout
           currentProgress={progress}
           onClose={() => router.push('/dashboard')}
+          locationIndicator={locationIndicator}
           serverCurrentChapter={chapter.chapter_number}
           collapseSidebarByDefault={true}
           isAdmin={isAdmin}
@@ -963,6 +976,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       <ReadingLayout
         currentProgress={progress}
         onClose={() => router.push('/dashboard')}
+        locationIndicator={locationIndicator}
         serverCurrentChapter={chapter.chapter_number}
         collapseSidebarByDefault={true}
         isAdmin={isAdmin}
@@ -985,6 +999,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     <ReadingLayout
       currentProgress={progress}
       onClose={() => router.push('/dashboard')}
+      locationIndicator={locationIndicator}
       serverCurrentChapter={chapter.chapter_number}
       collapseSidebarByDefault={true}
       isAdmin={isAdmin}
@@ -1013,6 +1028,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     <ReadingLayout
       currentProgress={progress}
       onClose={() => router.push('/dashboard')}
+      locationIndicator={locationIndicator}
       serverCurrentChapter={chapter.chapter_number}
       collapseSidebarByDefault={true}
       isAdmin={isAdmin}
@@ -1035,6 +1051,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     <ReadingLayout
       currentProgress={progress}
       onClose={() => router.push('/dashboard')}
+      locationIndicator={locationIndicator}
       serverCurrentChapter={chapter.chapter_number}
       collapseSidebarByDefault={true}
       isAdmin={isAdmin}

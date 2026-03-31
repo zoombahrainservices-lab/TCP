@@ -12,13 +12,22 @@ export default function NavLogo({
 }) {
   return (
     <Link href="/dashboard" className="hover:opacity-80 transition-opacity" onClick={onClick}>
-      <Image 
-        src="/TCP-Logo.svg" 
-        alt="TCP" 
-        width={width}
-        height={height}
-        className="object-contain"
-      />
+      <>
+        <Image
+          src="/TCP-Logo.svg"
+          alt="TCP"
+          width={width}
+          height={height}
+          className="object-contain dark:hidden"
+        />
+        <Image
+          src="/TCP-logo-white.png"
+          alt="TCP"
+          width={width}
+          height={height}
+          className="hidden object-contain dark:block"
+        />
+      </>
     </Link>
   )
 }

@@ -220,15 +220,44 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
     { type: 'social-media' },
   ]
 
-  const isActive = (href: string) => {
-    if (href === '/dashboard/progress' && pathname === '/reports') {
-      return true
+  const getActiveNavId = () => {
+    if (pathname === '/dashboard/map') return 'map'
+    if (pathname === '/dashboard/profile') return 'profile'
+    if (pathname === '/dashboard/progress' || pathname === '/reports') return 'report'
+    if (pathname === '/dashboard/help' || pathname === '/help') return 'help'
+
+    if (pathname === '/read') return 'reading'
+
+    const readMatch = pathname.match(/^\/read\/([^/?#]+)(?:\/([^/?#]+))?/)
+    if (readMatch) {
+      const stepSlug = readMatch[2]
+
+      if (!stepSlug) return 'reading'
+      if (stepSlug === 'assessment') return 'self-check'
+      if (stepSlug === 'framework') return 'framework'
+      if (stepSlug === 'techniques') return 'techniques'
+      if (stepSlug === 'follow-through') return 'follow-through'
+
+      return 'reading'
     }
-    if (href === '/dashboard') {
-      return pathname === href
+
+    const chapterMatch = pathname.match(/^\/chapter\/\d+\/([^/?#]+)/)
+    if (chapterMatch) {
+      const sectionKey = chapterMatch[1]
+
+      if (sectionKey === 'proof') return 'resolution'
+      if (sectionKey === 'follow-through') return 'follow-through'
+      if (sectionKey === 'reading') return 'reading'
+      if (sectionKey === 'assessment') return 'self-check'
+      if (sectionKey === 'framework') return 'framework'
+      if (sectionKey === 'techniques') return 'techniques'
     }
-    return pathname.startsWith(href)
+
+    return null
   }
+
+  const activeNavId = getActiveNavId()
+  const isActive = (itemId?: string) => itemId != null && itemId === activeNavId
 
   return (
     <>
@@ -322,13 +351,13 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
                     href={item.href ?? '/'}
                     onClick={collapseSidebarByDefault ? () => setDesktopSidebarOpen(false) : undefined}
                     className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                      isActive(item.href ?? '')
+                      isActive(item.id)
                         ? 'bg-[#0073ba] text-white dark:bg-[#4bc4dc] dark:text-gray-900'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                     style={{ fontFamily: "'Open Sans', sans-serif" }}
                   >
-                    <span style={{ color: isActive(item.href ?? '') ? 'currentColor' : item.color }}>
+                    <span style={{ color: isActive(item.id) ? 'currentColor' : item.color }}>
                       {item.icon}
                     </span>
                     <span className="font-semibold">{item.label}</span>
@@ -425,13 +454,13 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
                     href={item.href ?? '/'}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                      isActive(item.href ?? '')
+                      isActive(item.id)
                         ? 'bg-[#0073ba] text-white dark:bg-[#4bc4dc] dark:text-gray-900'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                     style={{ fontFamily: "'Open Sans', sans-serif" }}
                   >
-                    <span style={{ color: isActive(item.href ?? '') ? 'currentColor' : item.color }}>
+                    <span style={{ color: isActive(item.id) ? 'currentColor' : item.color }}>
                       {item.icon}
                     </span>
                     <span className="font-semibold">{item.label}</span>
