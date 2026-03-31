@@ -16,6 +16,7 @@ export interface AssessmentQuestion {
 interface SelfCheckAssessmentProps {
   chapterId: number;
   chapterSlug: string;
+  isAdmin?: boolean;
   questions: AssessmentQuestion[];
   nextStepUrl: string;
   questionsStepTitle: string;
@@ -38,6 +39,7 @@ interface ResultBand {
 export default function SelfCheckAssessment({
   chapterId,
   chapterSlug,
+  isAdmin = false,
   questions,
   nextStepUrl,
   questionsStepTitle,
@@ -278,7 +280,7 @@ export default function SelfCheckAssessment({
   if (step === 'intro') {
     return (
       <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300" style={{ height: '100dvh' }}>
-        <DashboardNav />
+        <DashboardNav serverCurrentChapter={chapterId} isAdmin={isAdmin} collapseSidebarByDefault={true} />
         <MainWithBackground>
           <div className="mx-auto max-w-[980px] px-6 py-12 lg:py-16">
             <h1 
@@ -368,7 +370,7 @@ export default function SelfCheckAssessment({
   if (step === 'results') {
     return (
       <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300 overflow-hidden" style={{ height: '100dvh' }}>
-        <DashboardNav />
+        <DashboardNav serverCurrentChapter={chapterId} isAdmin={isAdmin} collapseSidebarByDefault={true} />
         <MainWithBackground>
           <div className="mx-auto flex h-full max-w-[980px] flex-col px-6 py-8 lg:py-10">
             <h1 
@@ -405,7 +407,7 @@ export default function SelfCheckAssessment({
                 {scoreBand.band}
               </div>
 
-              <p className="self-check-result-message mt-6 text-lg">
+              <p className="self-check-result-message mt-6 text-lg dark:!text-black">
                 {scoreBand.message}
               </p>
             </div>
@@ -417,16 +419,16 @@ export default function SelfCheckAssessment({
                 color: copy.resultStyles.explanationTextColor
               }}
             >
-              <h3 className="text-2xl font-black mb-4">
+              <h3 className="text-2xl font-black mb-4 dark:!text-black">
                 {copy.resultScoreBandsTitle}
               </h3>
               <div className="space-y-3">
                 {activeBands.map((band, idx) => (
-                  <div key={idx} className="flex gap-4">
-                    <span className="font-bold w-24">
+                  <div key={idx} className="flex gap-4 dark:!text-black">
+                    <span className="font-bold w-24 dark:!text-black">
                       {band.range}
                     </span>
-                    <span>
+                    <span className="dark:!text-black">
                       {band.explanation}
                     </span>
                   </div>
@@ -469,7 +471,7 @@ export default function SelfCheckAssessment({
   // QUESTIONS SCREEN
   return (
     <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300" style={{ height: '100dvh' }}>
-      <DashboardNav />
+      <DashboardNav serverCurrentChapter={chapterId} isAdmin={isAdmin} collapseSidebarByDefault={true} />
       <MainWithBackground>
         <div className="mx-auto max-w-[980px] px-6 py-6 lg:py-8">
           <div className="mb-5 flex items-start justify-between gap-4">

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signInWithGoogle } from '@/app/actions/auth'
 import Button from '@/components/ui/Button'
+import LoadingButton from '@/components/ui/LoadingButton'
 import Input from '@/components/ui/Input'
 import { validatePassword } from '@/lib/utils/validation'
 
@@ -121,9 +122,9 @@ export default function LoginForm() {
           <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
         )}
 
-        <Button type="submit" variant="calm" fullWidth disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign In'}
-        </Button>
+        <LoadingButton type="submit" variant="calm" fullWidth loading={loading}>
+          Sign In
+        </LoadingButton>
       </form>
 
       <div className="relative">

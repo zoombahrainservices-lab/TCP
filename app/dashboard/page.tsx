@@ -5,6 +5,7 @@ import { getCachedChapterReportsData, getCachedGamificationData, getDashboardCha
 import { getLevelThreshold } from '@/lib/gamification/math'
 import CurrentChapterSync from '@/components/dashboard/CurrentChapterSync'
 import TopHero from '@/components/dashboard/TopHero'
+import PageTransition from '@/components/ui/PageTransition'
 
 // Async components (stream in with Suspense)
 import ChapterProgressAsync from '@/components/dashboard/async/ChapterProgressAsync'
@@ -49,48 +50,50 @@ export default async function DashboardPage() {
   const levelThreshold = getLevelThreshold(level + 1)
 
   return (
-    <div className="min-h-full">
-      <div className="mx-auto max-w-[1400px] gap-6 px-6 py-6">
-        <CurrentChapterSync currentChapter={currentChapter} />
-        
-        {/* Gamification Hero - Now renders immediately with prefetched data */}
-        {gamificationResult.error && (
-          <div className="mb-6 rounded-2xl bg-red-50 border border-red-200 p-5">
-            <p className="font-bold text-red-800">Gamification Error:</p>
-            <p className="mt-1 text-sm text-red-600">
-              {gamificationResult.error.message || JSON.stringify(gamificationResult.error)}
-            </p>
-            <p className="mt-2 text-xs text-red-600">
-              Make sure you&apos;ve run both database migrations in Supabase SQL editor.
-            </p>
-          </div>
-        )}
-        
-        <TopHero
-          userName={displayName}
-          totalXP={totalXP}
-          level={level}
-          levelThreshold={levelThreshold}
-          continueHref={continueHref}
-          continueLabel={continueLabel}
-        />
+    <PageTransition>
+      <div className="min-h-full">
+        <div className="mx-auto max-w-[1400px] gap-6 px-6 py-6">
+          <CurrentChapterSync currentChapter={currentChapter} />
+          
+          {/* Gamification Hero - Now renders immediately with prefetched data */}
+          {gamificationResult.error && (
+            <div className="mb-6 rounded-2xl bg-red-50 border border-red-200 p-5">
+              <p className="font-bold text-red-800">Gamification Error:</p>
+              <p className="mt-1 text-sm text-red-600">
+                {gamificationResult.error.message || JSON.stringify(gamificationResult.error)}
+              </p>
+              <p className="mt-2 text-xs text-red-600">
+                Make sure you&apos;ve run both database migrations in Supabase SQL editor.
+              </p>
+            </div>
+          )}
+          
+          <TopHero
+            userName={displayName}
+            totalXP={totalXP}
+            level={level}
+            levelThreshold={levelThreshold}
+            continueHref={continueHref}
+            continueLabel={continueLabel}
+          />
 
-        <div className="mt-6 grid grid-cols-12 gap-6">
-          {/* Left column: Chapter progress cards - Streams in independently */}
-          <div className="col-span-12 lg:col-span-8">
-            <Suspense fallback={<ChapterCardsSkeleton />}>
-              <ChapterProgressAsync userId={user.id} />
-            </Suspense>
-          </div>
+          <div className="mt-6 grid grid-cols-12 gap-6">
+            {/* Left column: Chapter progress cards - Streams in independently */}
+            <div className="col-span-12 lg:col-span-8">
+              <Suspense fallback={<ChapterCardsSkeleton />}>
+                <ChapterProgressAsync userId={user.id} />
+              </Suspense>
+            </div>
 
-          {/* Right column: Reports - Streams in independently */}
-          <div className="col-span-12 lg:col-span-4">
-            <Suspense fallback={<ReportsSkeleton />}>
-              <ReportsAsync userId={user.id} />
-            </Suspense>
+            {/* Right column: Reports - Streams in independently */}
+            <div className="col-span-12 lg:col-span-4">
+              <Suspense fallback={<ReportsSkeleton />}>
+                <ReportsAsync userId={user.id} />
+              </Suspense>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </PageTransition>
   )
 }

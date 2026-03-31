@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
 import ChapterCoverPage from '@/components/content/ChapterCoverPage';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import AdminEditButton from '@/components/admin/AdminEditButton';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
@@ -320,7 +321,7 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden order-1">
             {displayHeroImageSrc ? (
-              <img
+              <OptimizedImage
                 key={heroImageStateKey}
                 src={displayHeroImageSrc}
                 alt={heroImageAlt}

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { signUp, signInWithGoogle } from '@/app/actions/auth'
 import Button from '@/components/ui/Button'
+import LoadingButton from '@/components/ui/LoadingButton'
 import Input from '@/components/ui/Input'
 import { getOnboardingData, getCategoryName, clearOnboardingData } from '@/lib/onboarding/storage'
 import { validatePassword } from '@/lib/utils/validation'
@@ -223,9 +224,9 @@ export default function RegisterForm() {
           <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
         )}
 
-        <Button type="submit" variant="calm" fullWidth disabled={loading}>
-          {loading ? 'Creating Account...' : 'Create Account'}
-        </Button>
+        <LoadingButton type="submit" variant="calm" fullWidth loading={loading}>
+          Create Account
+        </LoadingButton>
       </form>
 
       <div className="relative">

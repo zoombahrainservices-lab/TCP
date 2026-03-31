@@ -10,6 +10,7 @@ import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
 import ChapterCoverPage from '@/components/content/ChapterCoverPage';
 import FrameworkCoverPage from '@/components/content/FrameworkCoverPage';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import AdminEditButton from '@/components/admin/AdminEditButton';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
@@ -790,6 +791,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       <SelfCheckAssessment
         chapterId={chapter.chapter_number}
         chapterSlug={chapter.slug}
+        isAdmin={isAdmin}
         questions={questions}
         nextStepUrl={nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : '/dashboard'}
         questionsStepTitle={`Chapter ${chapter.chapter_number} Self-Check`}
@@ -872,6 +874,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       <SelfCheckMCQAssessment
         chapterId={chapter.chapter_number}
         chapterSlug={chapter.slug}
+        isAdmin={isAdmin}
         questions={mcqQuestions}
         nextStepUrl={nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : '/dashboard'}
         questionsStepTitle={`Chapter ${chapter.chapter_number} Self-Check`}
@@ -955,6 +958,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       <SelfCheckYesNoAssessment
         chapterId={chapter.chapter_number}
         chapterSlug={chapter.slug}
+        isAdmin={isAdmin}
         questions={yesNoQuestions}
         scoreBands={selfCheckAnalysis.yesNoScoreBands}
         nextStepUrl={nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : '/dashboard'}
@@ -1060,7 +1064,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
         {!isFollowThroughChecklistPage && (
           <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative overflow-hidden bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
             {displayHeroImageSrc ? (
-              <img
+              <OptimizedImage
                 key={heroImageStateKey}
                 src={displayHeroImageSrc}
                 alt={heroImageAlt}

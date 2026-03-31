@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardNav } from '@/components/ui/DashboardNav';
 import { MainWithBackground } from '@/components/dashboard/MainWithBackground';
+import LoadingButton from '@/components/ui/LoadingButton';
 import AdminEditButton from '@/components/admin/AdminEditButton';
 
 export interface YesNoAssessmentQuestion {
@@ -20,6 +21,7 @@ export interface YesNoScoreBand {
 interface SelfCheckYesNoAssessmentProps {
   chapterId: number;
   chapterSlug: string;
+  isAdmin?: boolean;
   questions: YesNoAssessmentQuestion[];
   scoreBands?: YesNoScoreBand[];
   nextStepUrl: string;
@@ -41,6 +43,7 @@ type YesNoValue = 'yes' | 'no' | 'not_sure';
 export default function SelfCheckYesNoAssessment({
   chapterId,
   chapterSlug,
+  isAdmin = false,
   questions,
   scoreBands,
   nextStepUrl,
@@ -283,7 +286,7 @@ export default function SelfCheckYesNoAssessment({
   if (step === 'intro') {
     return (
       <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300" style={{ height: '100dvh' }}>
-        <DashboardNav />
+        <DashboardNav serverCurrentChapter={chapterId} isAdmin={isAdmin} collapseSidebarByDefault={true} />
         <MainWithBackground>
           <div className="mx-auto max-w-[980px] px-6 py-12 lg:py-16">
             <h1 
@@ -373,7 +376,7 @@ export default function SelfCheckYesNoAssessment({
   if (step === 'results') {
     return (
       <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300 overflow-hidden" style={{ height: '100dvh' }}>
-        <DashboardNav />
+        <DashboardNav serverCurrentChapter={chapterId} isAdmin={isAdmin} collapseSidebarByDefault={true} />
         <MainWithBackground>
           <div className="mx-auto flex h-full max-w-[980px] flex-col px-6 py-8 lg:py-10">
             <h1 
@@ -415,7 +418,7 @@ export default function SelfCheckYesNoAssessment({
                       </div>
 
                       {scoreBand.description && (
-                        <p className="self-check-result-message mt-4 text-lg">
+                        <p className="self-check-result-message mt-4 text-lg dark:!text-black">
                           {scoreBand.description}
                         </p>
                       )}
@@ -430,7 +433,7 @@ export default function SelfCheckYesNoAssessment({
                   >
                     {copy.resultTitle}
                   </div>
-                  <p className="self-check-result-message mt-4 text-lg">
+                  <p className="self-check-result-message mt-4 text-lg dark:!text-black">
                     {copy.resultScoreMessage || copy.resultSubtitle}
                   </p>
                 </div>
@@ -445,19 +448,19 @@ export default function SelfCheckYesNoAssessment({
                   color: copy.resultStyles.explanationTextColor
                 }}
               >
-                <h3 className="text-2xl font-black mb-4">
+                <h3 className="text-2xl font-black mb-4 dark:!text-black">
                   {copy.resultScoreBandsTitle}
                 </h3>
                 <div className="space-y-3">
                   {effectiveScoreBands.map((band, idx) => (
-                    <div key={idx} className="flex gap-4">
-                      <span className="font-bold w-24">
+                    <div key={idx} className="flex gap-4 dark:!text-black">
+                      <span className="font-bold w-24 dark:!text-black">
                         {band.range[0]}-{band.range[1]}
                       </span>
                       <div className="flex-1">
-                        <p className="font-semibold">{band.label}</p>
+                        <p className="font-semibold dark:!text-black">{band.label}</p>
                         {band.description && (
-                          <p className="text-sm opacity-80">{band.description}</p>
+                          <p className="text-sm opacity-80 dark:!text-black dark:!opacity-100">{band.description}</p>
                         )}
                       </div>
                     </div>
@@ -501,7 +504,7 @@ export default function SelfCheckYesNoAssessment({
   // QUESTIONS SCREEN
   return (
     <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A] transition-colors duration-300" style={{ height: '100dvh' }}>
-      <DashboardNav />
+      <DashboardNav serverCurrentChapter={chapterId} isAdmin={isAdmin} collapseSidebarByDefault={true} />
       <MainWithBackground>
         <div className="mx-auto max-w-[980px] px-6 py-6 lg:py-8">
           <div className="mb-5 flex items-start justify-between gap-4">
@@ -548,13 +551,14 @@ export default function SelfCheckYesNoAssessment({
             >
               ← Back
             </button>
-            <button
+            <LoadingButton
               onClick={handleNextPage}
-              disabled={!allCurrentAnswered || saving}
-              className="flex-1 rounded-xl bg-[#f7b418] px-8 py-3 text-sm font-bold text-black hover:bg-[#e5a309] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!allCurrentAnswered}
+              loading={saving}
+              className="flex-1 rounded-xl bg-[#f7b418] px-8 py-3 text-sm font-bold text-black hover:bg-[#e5a309]"
             >
-              {currentPage === totalPages - 1 ? (saving ? 'Saving...' : 'Complete Self-Check →') : 'Next →'}
-            </button>
+              {currentPage === totalPages - 1 ? 'Complete Self-Check →' : 'Next →'}
+            </LoadingButton>
             {adminEditChapterId && adminEditPageId ? (
               <AdminEditButton
                 chapterId={adminEditChapterId}

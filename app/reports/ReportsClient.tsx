@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Download, FileText, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
+import LoadingButton from '@/components/ui/LoadingButton'
 import type { ChapterReportMeta } from '@/app/actions/reports'
 
 interface ReportsClientProps {
@@ -132,36 +133,32 @@ export default function ReportsClient({ chapters, promptAnswers }: ReportsClient
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <button
+                  <LoadingButton
                     onClick={() =>
                       handleDownload(
                         `/api/reports/chapter/${chapter.chapterId}?answers=true`,
                         `chapter-${chapter.chapterId}-complete-report.pdf`
                       )
                     }
-                    disabled={downloading === `chapter-${chapter.chapterId}-complete-report.pdf`}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:from-blue-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
+                    loading={downloading === `chapter-${chapter.chapterId}-complete-report.pdf`}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:from-blue-700 hover:to-indigo-700"
                   >
                     <Download className="h-4 w-4" />
-                    {downloading === `chapter-${chapter.chapterId}-complete-report.pdf`
-                      ? 'Downloading...'
-                      : 'Download Full Report'}
-                  </button>
-                  <button
+                    Download Full Report
+                  </LoadingButton>
+                  <LoadingButton
                     onClick={() =>
                       handleDownload(
                         `/api/reports/chapter/${chapter.chapterId}?answers=false`,
                         `chapter-${chapter.chapterId}-blank-form.pdf`
                       )
                     }
-                    disabled={downloading === `chapter-${chapter.chapterId}-blank-form.pdf`}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:from-purple-700 hover:to-fuchsia-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
+                    loading={downloading === `chapter-${chapter.chapterId}-blank-form.pdf`}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:from-purple-700 hover:to-fuchsia-700"
                   >
                     <Download className="h-4 w-4" />
-                    {downloading === `chapter-${chapter.chapterId}-blank-form.pdf`
-                      ? 'Downloading...'
-                      : 'Download Blank Report'}
-                  </button>
+                    Download Blank Report
+                  </LoadingButton>
                 </div>
               </div>
             ))}

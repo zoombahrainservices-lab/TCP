@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardNav } from '@/components/ui/DashboardNav';
 import { MainWithBackground } from '@/components/dashboard/MainWithBackground';
+import LoadingButton from '@/components/ui/LoadingButton';
 import AdminEditButton from '@/components/admin/AdminEditButton';
 
 export interface MCQAssessmentQuestion {
@@ -16,6 +17,7 @@ export interface MCQAssessmentQuestion {
 interface SelfCheckMCQAssessmentProps {
   chapterId: number;
   chapterSlug: string;
+  isAdmin?: boolean;
   questions: MCQAssessmentQuestion[];
   nextStepUrl: string;
   questionsStepTitle: string;
@@ -34,6 +36,7 @@ interface SelfCheckMCQAssessmentProps {
 export default function SelfCheckMCQAssessment({
   chapterId,
   chapterSlug,
+  isAdmin = false,
   questions,
   nextStepUrl,
   questionsStepTitle,
@@ -162,7 +165,7 @@ export default function SelfCheckMCQAssessment({
   if (step === 'results') {
     return (
       <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A]" style={{ height: '100dvh' }}>
-        <DashboardNav />
+        <DashboardNav serverCurrentChapter={chapterId} isAdmin={isAdmin} collapseSidebarByDefault={true} />
         <MainWithBackground>
           <div className="mx-auto max-w-[980px] px-6 py-8 lg:py-10">
             <h1 className="text-4xl font-black text-[#111827] dark:text-white mb-2">Self-Check Complete</h1>
@@ -220,7 +223,7 @@ export default function SelfCheckMCQAssessment({
 
   return (
     <div className="h-screen flex flex-col lg:flex-row bg-gray-50 dark:bg-[#142A4A]" style={{ height: '100dvh' }}>
-      <DashboardNav />
+      <DashboardNav serverCurrentChapter={chapterId} isAdmin={isAdmin} collapseSidebarByDefault={true} />
       <MainWithBackground>
         <div className="mx-auto max-w-[980px] px-6 py-6 lg:py-8">
           <div className="mb-5 flex items-start justify-between gap-4">
@@ -293,13 +296,14 @@ export default function SelfCheckMCQAssessment({
             >
               ← Back
             </button>
-            <button
+            <LoadingButton
               onClick={handleNext}
-              disabled={!currentAnswer || saving}
-              className="flex-1 rounded-xl bg-[#f7b418] px-8 py-3 text-sm font-bold text-black hover:bg-[#e5a309] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!currentAnswer}
+              loading={saving}
+              className="flex-1 rounded-xl bg-[#f7b418] px-8 py-3 text-sm font-bold text-black hover:bg-[#e5a309]"
             >
-              {currentPage === totalPages - 1 ? (saving ? 'Saving...' : 'Complete Self-Check →') : 'Next →'}
-            </button>
+              {currentPage === totalPages - 1 ? 'Complete Self-Check →' : 'Next →'}
+            </LoadingButton>
             {adminEditChapterId && adminEditPageId ? (
               <AdminEditButton
                 chapterId={adminEditChapterId}

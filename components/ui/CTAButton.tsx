@@ -41,17 +41,14 @@ export default function CTAButton({
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? (
-        <>
-          <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-          <span>Loading...</span>
-        </>
-      ) : (
-        <>
-          <span>{children}</span>
-          {icon !== 'none' && iconMap[icon]}
-        </>
+      {loading && (
+        <div
+          className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin flex-shrink-0"
+          aria-hidden="true"
+        />
       )}
+      <span>{children}</span>
+      {!loading && icon !== 'none' && iconMap[icon]}
     </button>
   )
 }

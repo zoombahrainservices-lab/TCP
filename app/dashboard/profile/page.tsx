@@ -12,6 +12,8 @@ import StreakCard from '@/components/dashboard/cards/StreakCard'
 import ChapterProgressProfileCard from '@/components/dashboard/cards/ChapterProgressProfileCard'
 import ReportsCard from '@/components/dashboard/cards/ReportsCard'
 import RecentActivityProfileCard from '@/components/dashboard/cards/RecentActivityProfileCard'
+import ProfilePageSkeleton from '@/components/dashboard/skeletons/ProfilePageSkeleton'
+import PageTransition from '@/components/ui/PageTransition'
 
 export default async function ProfilePage() {
   const user = await requireAuth()
@@ -35,21 +37,7 @@ export default async function ProfilePage() {
   const chapterReports = Array.isArray(chapterReportsResult) ? chapterReportsResult : []
 
   if (!gamificationData) {
-    return (
-      <div className="min-h-full">
-        <div className="mx-auto max-w-[1400px] px-6 py-6">
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">Profile</h1>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
-              Your progress and achievements.
-            </p>
-          </div>
-          <div className="py-16 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-gray-800/50 ring-1 ring-slate-200/60">
-            <p className="text-xl font-semibold text-gray-600 dark:text-gray-400">Loading...</p>
-          </div>
-        </div>
-      </div>
-    )
+    return <ProfilePageSkeleton />
   }
 
   const totalXP = Number(gamificationData.total_xp) || 0
@@ -66,54 +54,56 @@ export default async function ProfilePage() {
   const displayName = `${firstName} ${lastInitial}`.trim()
 
   return (
-    <div className="min-h-full">
-      <div className="mx-auto max-w-[1400px] gap-6 px-6 py-6">
-        {gamificationError && (
-          <div className="mb-6 rounded-2xl bg-red-50 border border-red-200 p-5 ring-1 ring-red-200/50">
-            <p className="font-bold text-red-800">Gamification Error:</p>
-            <p className="mt-1 text-sm text-red-600">
-              {gamificationError.message || JSON.stringify(gamificationError)}
-            </p>
-          </div>
-        )}
-
-        <TopHero
-          userName={displayName}
-          totalXP={totalXP}
-          level={level}
-          levelThreshold={levelThreshold}
-        />
-
-        <div className="mt-6 grid grid-cols-12 gap-[10px]">
-          {/* Left column */}
-          <div className="col-span-12 flex flex-col gap-[10px] lg:col-span-8">
-            <ProfileSummaryCard
-              totalXP={totalXP}
-              level={level}
-              chapterReports={chapterReports}
-            />
-            <div className="px-1 pt-1">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">
-                You&apos;re making progress. Keep going.
-              </h3>
-              <p className="text-slate-500 dark:text-slate-400">Track your journey and growth.</p>
+    <PageTransition>
+      <div className="min-h-full">
+        <div className="mx-auto max-w-[1400px] gap-6 px-6 py-6">
+          {gamificationError && (
+            <div className="mb-6 rounded-2xl bg-red-50 border border-red-200 p-5 ring-1 ring-red-200/50">
+              <p className="font-bold text-red-800">Gamification Error:</p>
+              <p className="mt-1 text-sm text-red-600">
+                {gamificationError.message || JSON.stringify(gamificationError)}
+              </p>
             </div>
-            <ChapterProgressProfileCard chapterReports={chapterReports} />
-            <RecentActivityProfileCard recentXP={recentXP} />
-          </div>
+          )}
 
-          {/* Right column */}
-          <div className="col-span-12 flex flex-col gap-[10px] lg:col-span-4">
-            <StreakCard currentStreak={currentStreak} longestStreak={longestStreak} />
-            <ReportsCard
-              xpThisWeek={reportsData.xpThisWeek}
-              skillImprovement={reportsData.skillImprovement}
-              totalXP={totalXP}
-              weeklyXPData={reportsData.weeklyXPData}
-            />
+          <TopHero
+            userName={displayName}
+            totalXP={totalXP}
+            level={level}
+            levelThreshold={levelThreshold}
+          />
+
+          <div className="mt-6 grid grid-cols-12 gap-[10px]">
+            {/* Left column */}
+            <div className="col-span-12 flex flex-col gap-[10px] lg:col-span-8">
+              <ProfileSummaryCard
+                totalXP={totalXP}
+                level={level}
+                chapterReports={chapterReports}
+              />
+              <div className="px-1 pt-1">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                  You&apos;re making progress. Keep going.
+                </h3>
+                <p className="text-slate-500 dark:text-slate-400">Track your journey and growth.</p>
+              </div>
+              <ChapterProgressProfileCard chapterReports={chapterReports} />
+              <RecentActivityProfileCard recentXP={recentXP} />
+            </div>
+
+            {/* Right column */}
+            <div className="col-span-12 flex flex-col gap-[10px] lg:col-span-4">
+              <StreakCard currentStreak={currentStreak} longestStreak={longestStreak} />
+              <ReportsCard
+                xpThisWeek={reportsData.xpThisWeek}
+                skillImprovement={reportsData.skillImprovement}
+                totalXP={totalXP}
+                weeklyXPData={reportsData.weeklyXPData}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </PageTransition>
   )
 }

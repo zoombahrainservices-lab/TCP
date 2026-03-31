@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import LoadingButton from '@/components/ui/LoadingButton';
 
 interface PageNavigatorProps {
   currentPage: number;
@@ -65,13 +66,13 @@ export default function PageNavigator({
 
       {/* Next/Complete Button */}
       {showNext && (
-        <button
+        <LoadingButton
           onClick={handleNext}
-          disabled={isLoading}
-          className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-[#FF6B35] hover:bg-[#FF5722] text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
+          loading={isLoading}
+          className="px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all bg-[#FF6B35] hover:bg-[#FF5722] text-white shadow-lg hover:shadow-xl min-h-[48px] min-w-[120px] sm:min-w-[140px] touch-manipulation"
         >
-          {isLoading ? 'Loading...' : getNextButtonLabel()}
-        </button>
+          {getNextButtonLabel()}
+        </LoadingButton>
       )}
     </div>
   );

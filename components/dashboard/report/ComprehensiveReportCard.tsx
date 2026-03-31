@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Card from '../ui/Card'
+import LoadingButton from '@/components/ui/LoadingButton'
 import { Download } from 'lucide-react'
 import Link from 'next/link'
 
@@ -106,26 +107,22 @@ export default function ComprehensiveReportCard({
                   </div>
                 </div>
                 <div className="flex gap-2 mt-2">
-                  <button
+                  <LoadingButton
                     onClick={() => handleDownload(ch.chapterId, 'full')}
-                    disabled={downloading === `${ch.chapterId}-full`}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white text-xs font-semibold transition-all disabled:cursor-not-allowed"
+                    loading={downloading === `${ch.chapterId}-full`}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    {downloading === `${ch.chapterId}-full`
-                      ? 'Downloading...'
-                      : 'Full Report'}
-                  </button>
-                  <button
+                    Full Report
+                  </LoadingButton>
+                  <LoadingButton
                     onClick={() => handleDownload(ch.chapterId, 'blank')}
-                    disabled={downloading === `${ch.chapterId}-blank`}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-slate-400 text-white text-xs font-semibold transition-all disabled:cursor-not-allowed"
+                    loading={downloading === `${ch.chapterId}-blank`}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold transition-all"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    {downloading === `${ch.chapterId}-blank`
-                      ? 'Downloading...'
-                      : 'Blank Report'}
-                  </button>
+                    Blank Report
+                  </LoadingButton>
                 </div>
               </div>
             ))

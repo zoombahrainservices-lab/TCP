@@ -8,6 +8,7 @@ import { celebrateSectionCompletion } from '@/lib/celebration/celebrate'
 import { getClient } from '@/lib/supabase/client'
 import { saveIdentityResolutionForChapter1, type IdentityResolutionData } from '@/app/actions/identity'
 import { useClickSound } from '@/lib/hooks/useClickSound'
+import LoadingButton from '@/components/ui/LoadingButton'
 import AdminEditButton from '@/components/admin/AdminEditButton'
 
 type ResolutionType = 'text' | 'image' | 'audio' | 'video'
@@ -778,13 +779,14 @@ export default function ResolutionPage({
                 returnUrl={`/chapter/${chapterId}/proof`}
               />
             ) : null}
-            <button
+            <LoadingButton
               onClick={handleCompleteResolution}
-              disabled={isProcessing || recordingDraftId != null}
-              className="px-8 py-4 bg-[#673067] hover:bg-[#573057] text-white rounded-xl font-bold text-lg transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={recordingDraftId != null}
+              loading={isProcessing}
+              className="px-8 py-4 bg-[#673067] hover:bg-[#573057] text-white rounded-xl font-bold text-lg transition shadow-sm"
             >
-              {isProcessing ? 'Saving...' : 'Save & Continue to Follow-through →'}
-            </button>
+              Save & Continue to Follow-through →
+            </LoadingButton>
           </div>
         </div>
       </div>
