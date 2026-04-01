@@ -34,7 +34,14 @@ export default async function DynamicStepPage({
   
   const { chapter, steps } = result;
 
-  const step = steps.find(s => s.slug === stepSlug);
+  const normalizedStepSlug = stepSlug.trim().toLowerCase();
+  const selfCheckAliases = new Set(['assessment', 'self-check', 'selfcheck']);
+
+  const step =
+    steps.find(s => s.slug === stepSlug) ??
+    (selfCheckAliases.has(normalizedStepSlug)
+      ? steps.find(s => s.step_type === 'self_check')
+      : undefined);
   if (!step) redirect(`/read/${chapterSlug}`);
 
   // Parallelize independent queries after step is known
