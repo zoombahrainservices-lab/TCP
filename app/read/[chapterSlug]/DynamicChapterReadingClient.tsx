@@ -13,7 +13,8 @@ import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapt
 import { celebrateSectionCompletion } from '@/lib/celebration/celebrate';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
-import { usePrefetchImages } from '@/lib/hooks/usePrefetchImage';
+import { usePrefetchImages, usePrefetchImage } from '@/lib/hooks/usePrefetchImage';
+import { getSectionImageUrlPrimary } from '@/lib/chapterImages';
 
 interface Props {
   chapter: Chapter;
@@ -277,6 +278,14 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
   usePrefetchImages(lookaheadImageSrcs, {
     priority: 'low',
     defer: true,
+  });
+
+  // Aggressively prefetch framework section image (next section after reading)
+  const frameworkImageUrl = getSectionImageUrlPrimary(chapter.chapter_number, 'framework');
+  usePrefetchImage(frameworkImageUrl, {
+    priority: 'high',
+    usePreload: true,
+    defer: false,
   });
 
   // Chapter reading PDF download URL

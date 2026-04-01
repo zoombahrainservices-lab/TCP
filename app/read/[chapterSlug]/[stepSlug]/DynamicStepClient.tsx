@@ -20,7 +20,7 @@ import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
 import { playClickSound } from '@/lib/celebration/sounds';
 import { getSectionImageUrlPrimary, type SectionStepType } from '@/lib/chapterImages';
-import { usePrefetchImages } from '@/lib/hooks/usePrefetchImage';
+import { usePrefetchImages, usePrefetchImage } from '@/lib/hooks/usePrefetchImage';
 
 // Lazy load self-check components (only used on assessment steps)
 const SelfCheckAssessment = dynamic(() => import('@/components/assessment/SelfCheckAssessment'), {
@@ -490,11 +490,18 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const lookaheadImageSrcs = [
     getHeroImageSrcForPage(pages[Math.max(currentPage + 1, 0)]),
     getHeroImageSrcForPage(pages[Math.max(currentPage + 2, 1)]),
-    getHeroImageSrcForStep(nextStep),
   ];
   usePrefetchImages(lookaheadImageSrcs, {
     priority: 'low',
     defer: true,
+  });
+
+  // Aggressively prefetch next section image (framework→techniques)
+  const nextSectionImageUrl = getHeroImageSrcForStep(nextStep);
+  usePrefetchImage(nextSectionImageUrl, {
+    priority: 'high',
+    usePreload: true,
+    defer: false,
   });
 
   // Prefetch next step route as early as possible.
