@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 
-interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+interface OptimizedImageProps extends Omit<
+  React.ImgHTMLAttributes<HTMLImageElement>,
+  'onAnimationStart' | 'onAnimationEnd' | 'onAnimationIteration'
+> {
   src: string
   alt: string
   fallbackGradient?: string
@@ -63,15 +65,13 @@ export default function OptimizedImage({
       )}
       
       {/* Image - fades in when loaded */}
-      <motion.img
+      <img
         src={src}
         alt={alt}
-        className={className}
+        className={`${className} transition-opacity duration-300 ease-out`}
         onLoad={handleLoad}
         onError={handleError}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isLoaded ? 1 : 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
+        style={{ opacity: isLoaded ? 1 : 0 }}
         {...props}
       />
     </>
