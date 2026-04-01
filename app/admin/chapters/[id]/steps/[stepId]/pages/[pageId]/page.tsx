@@ -81,7 +81,7 @@ export default function PageEditorPage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-gray-900">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col bg-white dark:bg-gray-900">
       {/* Header */}
       <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-4 lg:p-6">
         <div className="flex items-center justify-between">
@@ -125,7 +125,7 @@ export default function PageEditorPage() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {previewMode ? (
           <div className="h-full overflow-y-auto p-8 bg-gray-50 dark:bg-gray-800">
             <div className="max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8">

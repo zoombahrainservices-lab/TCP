@@ -396,7 +396,7 @@ export default function PageContentEditorPage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-gray-900">
+    <div className="h-full min-h-0 overflow-hidden flex flex-col bg-white dark:bg-gray-900">
       {/* Header - same color/design as Page Title section */}
       <div className="flex-shrink-0 border-b border-amber-200 dark:border-amber-800 p-4 lg:p-6 bg-gradient-to-br from-amber-50/80 to-orange-50/50 dark:from-amber-950/30 dark:to-orange-950/20">
         <div className="flex items-center justify-between">
@@ -507,7 +507,7 @@ export default function PageContentEditorPage() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {previewMode ? (
           <div className="h-full overflow-y-auto p-8 bg-gray-50 dark:bg-gray-800">
             <div className="max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8">
@@ -529,7 +529,7 @@ export default function PageContentEditorPage() {
             </div>
           </div>
         ) : (
-          <div className="h-full flex flex-col">
+          <div className="h-full min-h-0 flex flex-col">
             {/* Page Title Editor - Above Content Blocks */}
             <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-6 bg-gradient-to-br from-amber-50/80 to-orange-50/50 dark:from-amber-950/30 dark:to-orange-950/20">
               <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -605,7 +605,7 @@ export default function PageContentEditorPage() {
             </div>
 
             {/* Content Blocks Editor */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden">
               <ContentEditor 
                 content={content} 
                 onChange={(newContent) => {

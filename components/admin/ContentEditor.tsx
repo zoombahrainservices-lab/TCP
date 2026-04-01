@@ -395,9 +395,9 @@ export default function ContentEditor({
   }
 
   return (
-    <div className="h-full flex overflow-hidden">
+    <div className="h-full min-h-0 flex overflow-hidden">
       {/* Left Sidebar: Hero Image + Block Palette */}
-      <div className="w-64 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+      <div className="w-64 min-h-0 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
         {/* Hero Image Section - Compact */}
         <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50 overflow-y-auto max-h-[50vh]">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Hero Image</h3>
@@ -491,7 +491,7 @@ export default function ContentEditor({
       </div>
 
       {/* Right: Content Area */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto space-y-4">
           {content.length === 0 ? (
             <div className="text-center py-12">
