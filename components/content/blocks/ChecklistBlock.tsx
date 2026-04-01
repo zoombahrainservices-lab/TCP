@@ -55,7 +55,7 @@ export default function ChecklistBlock({
     >
       {title && (
         <h3
-          className="text-2xl font-bold text-[#2a2416] dark:text-white mb-4"
+          className="text-2xl font-bold text-[#2a2416] dark:!text-white mb-4"
           style={appearance?.titleColor ? { color: appearance.titleColor } : undefined}
         >
           {title}
@@ -92,8 +92,8 @@ export default function ChecklistBlock({
             </div>
             <span className={`flex-1 text-base ${
               localChecked.includes(item.id)
-                ? 'line-through text-gray-500 dark:!text-black'
-                : 'text-[#2a2416] dark:!text-black'
+                ? 'line-through text-gray-500 dark:!text-white'
+                : 'text-[#2a2416] dark:!text-white'
             }`}
             style={
               !isDarkMode && !localChecked.includes(item.id) && appearance?.textColor

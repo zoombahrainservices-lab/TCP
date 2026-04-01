@@ -267,10 +267,10 @@ export default function SelfCheckMCQAssessment({
                       key={opt.id}
                       type="button"
                       onClick={() => handleSelect(currentQuestion.id, opt.id)}
-                      className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
+                      className={`w-full text-left rounded-xl border px-4 py-3 transition-colors dark:!text-black ${
                         selected
-                          ? 'border-[#f7b418] bg-[#fef3c7] text-[#111827]'
-                          : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                          ? 'border-[#f7b418] bg-[#fef3c7] text-[#111827] dark:!text-black'
+                          : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:!text-black'
                       }`}
                     >
                       <span className="inline-flex items-center gap-3">
@@ -279,7 +279,7 @@ export default function SelfCheckMCQAssessment({
                             selected ? 'border-[#f7b418] bg-[#f7b418]' : 'border-gray-400'
                           }`}
                         />
-                        <span>{opt.text}</span>
+                        <span className="dark:!text-black">{opt.text}</span>
                       </span>
                     </button>
                   );

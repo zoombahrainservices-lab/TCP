@@ -124,8 +124,8 @@ export default function ReportsCard({
           {/* Total XP box */}
           <div className="mt-4 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100/50 px-4 py-3 ring-1 ring-blue-200/50">
             <div className="text-center">
-              <span className="text-xl font-black text-slate-800">{totalXP}</span>
-              <span className="ml-2 text-sm font-semibold text-slate-500">XP Total Earned</span>
+              <span className="text-xl font-black text-slate-800 dark:!text-black">{totalXP}</span>
+              <span className="ml-2 text-sm font-semibold text-slate-500 dark:!text-black">XP Total Earned</span>
             </div>
           </div>
 

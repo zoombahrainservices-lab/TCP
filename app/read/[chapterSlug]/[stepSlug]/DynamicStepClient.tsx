@@ -402,6 +402,20 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     );
   };
 
+  const getHeroImageSrcForStep = (stepData: Step | null | undefined): string | null => {
+    if (!stepData) return null;
+
+    const stepLevelImage = getSafeImageSrc(stepData.hero_image_url);
+    if (stepLevelImage) return stepLevelImage;
+
+    const nextStepTypeForImage = stepData.step_type as SectionStepType;
+    if (chapter.chapter_number && nextStepTypeForImage) {
+      return getSectionImageUrlPrimary(chapter.chapter_number, nextStepTypeForImage);
+    }
+
+    return null;
+  };
+
   let heroImageSrc: string | null =
     getSafeImageSrc(currentPageData?.hero_image_url) ??
     getSafeImageSrc(step.hero_image_url) ??
@@ -476,6 +490,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const lookaheadImageSrcs = [
     getHeroImageSrcForPage(pages[Math.max(currentPage + 1, 0)]),
     getHeroImageSrcForPage(pages[Math.max(currentPage + 2, 1)]),
+    getHeroImageSrcForStep(nextStep),
   ];
   usePrefetchImages(lookaheadImageSrcs, {
     priority: 'low',

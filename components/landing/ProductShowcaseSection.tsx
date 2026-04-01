@@ -151,7 +151,7 @@ export function ProductShowcaseSection() {
             <h2 className="neuro-heading text-4xl md:text-5xl lg:text-6xl font-black text-[#ff6a38] leading-tight uppercase">
               BACKED BY NEUROSCIENCE
             </h2>
-            <p className="neuro-copy text-lg md:text-xl text-[var(--color-charcoal)] leading-relaxed">
+            <p className="neuro-copy text-lg md:text-xl text-[var(--color-charcoal)] dark:!text-black leading-relaxed">
               Built by doctors, psychologists, public speakers, and successful business owners. 
               Neuroscience-backed. Story-driven. It just works.
             </p>
