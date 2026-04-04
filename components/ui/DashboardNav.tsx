@@ -108,7 +108,7 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
       ),
       color: '#0073ba', // BLUE
     },
-    { type: 'divider' },
+    { type: 'section-divider', label: 'Learn' },
     // Reading
     {
       id: 'reading',
@@ -121,8 +121,7 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
       ),
       color: '#ff3d3d', // RED
     },
-    { type: 'divider' },
-    // Self-Check alone
+    // Self-Check
     {
       id: 'self-check',
       label: 'Self-Check',
@@ -134,7 +133,7 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
       ),
       color: '#10b981', // GREEN
     },
-    { type: 'divider' },
+    { type: 'section-divider', label: 'Practice' },
     // Framework + Techniques
     {
       id: 'framework',
@@ -158,7 +157,6 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
       ),
       color: '#d97706', // ORANGE DARK
     },
-    { type: 'divider' },
     // Resolution + Follow-Through
     {
       id: 'resolution',
@@ -182,8 +180,7 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
       ),
       color: '#6b21a8', // PURPLE DARK EPIC
     },
-    { type: 'divider' },
-    // Bottom Section - CHECK/USER (Profile, Report, Help - all BLACK)
+    { type: 'section-divider', label: 'Account' },
     {
       id: 'profile',
       label: 'Profile',
@@ -346,6 +343,15 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
           {/* All Menu Items with Dividers */}
           <ul className="space-y-2">
             {menuItems.map((item, index) => {
+              if (item.type === 'section-divider') {
+                return (
+                  <li key={`section-${index}`} className="pt-4 pb-1">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3">
+                      {item.label}
+                    </div>
+                  </li>
+                )
+              }
               if (item.type === 'divider') {
                 return <li key={`divider-${index}`} className="my-3 border-t border-gray-200 dark:border-gray-700"></li>
               }
@@ -436,6 +442,15 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
           {/* All Menu Items with Dividers */}
           <ul className="space-y-2">
             {menuItems.map((item, index) => {
+              if (item.type === 'section-divider') {
+                return (
+                  <li key={`section-mobile-${index}`} className="pt-4 pb-1">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3">
+                      {item.label}
+                    </div>
+                  </li>
+                )
+              }
               if (item.type === 'divider') {
                 return <li key={`divider-mobile-${index}`} className="my-3 border-t border-gray-200 dark:border-gray-700"></li>
               }

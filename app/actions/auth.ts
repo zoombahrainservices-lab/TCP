@@ -87,9 +87,8 @@ export async function signUp(email: string, password: string, fullName: string) 
     return { error: passwordValidation.message }
   }
 
-  if (!fullName || fullName.trim().length < 2) {
-    return { error: 'Please provide a valid name' }
-  }
+  // Allow empty fullName - will be collected during onboarding
+  const displayName = fullName && fullName.trim().length >= 2 ? fullName.trim() : email.split('@')[0] || 'User'
 
   const supabase = await createClient()
 
@@ -98,7 +97,7 @@ export async function signUp(email: string, password: string, fullName: string) 
     password,
     options: {
       data: {
-        full_name: fullName,
+        full_name: displayName,
       },
     },
   })
@@ -112,11 +111,14 @@ export async function signUp(email: string, password: string, fullName: string) 
     const adminClient = createAdminClient()
     const { error: profileError } = await adminClient
       .from('profiles')
-      .upsert({
-        id: data.user.id,
-        email: data.user.email,
-        full_name: fullName,
-      }, { onConflict: 'id' })
+      .upsert(
+        {
+          id: data.user.id,
+          email: data.user.email,
+          full_name: displayName,
+        },
+        { onConflict: 'id' }
+      )
 
     if (profileError) {
       if (process.env.NODE_ENV === 'development') {

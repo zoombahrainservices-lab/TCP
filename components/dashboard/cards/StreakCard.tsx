@@ -1,4 +1,8 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import Card from '../ui/Card'
+import StreakCelebration from '../StreakCelebration'
 
 export default function StreakCard({
   currentStreak = 0,
@@ -7,45 +11,74 @@ export default function StreakCard({
   currentStreak?: number
   longestStreak?: number
 }) {
+  const [showCelebration, setShowCelebration] = useState(false)
+  const [previousStreak, setPreviousStreak] = useState<number | null>(null)
+
+  useEffect(() => {
+    // Check if streak increased (new streak achieved)
+    if (previousStreak !== null && currentStreak > previousStreak && currentStreak > 0) {
+      setShowCelebration(true)
+    }
+    setPreviousStreak(currentStreak)
+  }, [currentStreak, previousStreak])
+
+  // Also show celebration on mount if user has an active streak (first time seeing it today)
+  useEffect(() => {
+    const hasSeenCelebrationToday = sessionStorage.getItem('streak-celebration-shown')
+    if (!hasSeenCelebrationToday && currentStreak > 0) {
+      setShowCelebration(true)
+      sessionStorage.setItem('streak-celebration-shown', 'true')
+    }
+  }, [currentStreak])
+
   return (
-    <Card className="relative overflow-hidden">
-      {/* Subtle gradient wash */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-amber-100/50 blur-2xl" />
-      </div>
+    <>
+      <Card className="relative overflow-hidden">
+        {/* Subtle gradient wash */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-amber-100/50 dark:bg-amber-900/20 blur-2xl" />
+        </div>
 
-      {/* Large faded fire emoji in background */}
-      <div className="pointer-events-none absolute right-4 top-4 text-6xl opacity-20">
-        🔥
-      </div>
+        {/* Large faded fire emoji in background */}
+        <div className="pointer-events-none absolute right-4 top-4 text-6xl opacity-20 dark:opacity-10">
+          🔥
+        </div>
 
-      <div className="relative p-6">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-amber-100 to-amber-200 ring-1 ring-amber-300/30">
-            <span className="text-2xl">🔥</span>
+        <div className="relative p-6">
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/40 dark:to-amber-800/40 ring-1 ring-amber-300/30 dark:ring-amber-700/30">
+              <span className="text-2xl">🔥</span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Streak</h2>
+              <div className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-slate-500 dark:text-slate-300">
+                <span>🔥</span>
+                <span>Day {currentStreak} Streak</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Streak</h2>
-            <div className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-slate-500 dark:text-slate-300">
-              <span>🔥</span>
-              <span>Day {currentStreak} Streak</span>
+
+          {/* Stats boxes */}
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-slate-50/80 dark:bg-slate-900/70 p-4 ring-1 ring-slate-200/60 dark:ring-slate-800">
+              <div className="text-lg mb-1">🔥</div>
+              <div className="text-xl font-black text-slate-800 dark:text-slate-100">{currentStreak} Days</div>
+            </div>
+            <div className="rounded-2xl bg-slate-50/80 dark:bg-slate-900/70 p-4 ring-1 ring-slate-200/60 dark:ring-slate-800">
+              <div className="text-lg mb-1">🔥</div>
+              <div className="text-xl font-black text-slate-800 dark:text-slate-100">{longestStreak} Days</div>
             </div>
           </div>
         </div>
+      </Card>
 
-        {/* Stats boxes */}
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl bg-slate-50/80 dark:bg-slate-900/70 p-4 ring-1 ring-slate-200/60 dark:ring-slate-800">
-            <div className="text-lg mb-1">🔥</div>
-            <div className="text-xl font-black text-slate-800 dark:text-slate-100">{currentStreak} Days</div>
-          </div>
-          <div className="rounded-2xl bg-slate-50/80 dark:bg-slate-900/70 p-4 ring-1 ring-slate-200/60 dark:ring-slate-800">
-            <div className="text-lg mb-1">🔥</div>
-            <div className="text-xl font-black text-slate-800 dark:text-slate-100">{longestStreak} Days</div>
-          </div>
-        </div>
-      </div>
-    </Card>
+      {/* Celebration overlay */}
+      <StreakCelebration
+        show={showCelebration}
+        streakDays={currentStreak}
+        onComplete={() => setShowCelebration(false)}
+      />
+    </>
   )
 }

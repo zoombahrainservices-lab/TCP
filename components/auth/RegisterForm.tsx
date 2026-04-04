@@ -1,3 +1,8 @@
+/**
+ * @deprecated This component has been replaced by TwoStepRegisterForm
+ * which implements age-gating and improved UX. Kept for reference only.
+ */
+
 'use client'
 
 import { useState, useEffect } from 'react'

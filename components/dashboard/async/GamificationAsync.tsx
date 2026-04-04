@@ -5,18 +5,11 @@ import TopHero from '@/components/dashboard/TopHero'
 interface Props {
   userId: string
   userName: string
-  continueHref: string
-  continueLabel: string
 }
 
-export default async function GamificationAsync({ 
-  userId, 
-  userName, 
-  continueHref, 
-  continueLabel 
-}: Props) {
+export default async function GamificationAsync({ userId, userName }: Props) {
   const { data: gamificationData, error: gamificationError } = await getCachedGamificationData(userId)
-  
+
   const totalXP = gamificationData?.total_xp ?? 0
   const level = gamificationData?.level ?? 1
   const levelThreshold = getLevelThreshold(level + 1)
@@ -36,14 +29,8 @@ export default async function GamificationAsync({
         </div>
       )}
 
-      <TopHero
-        userName={userName}
-        totalXP={totalXP}
-        level={level}
-        levelThreshold={levelThreshold}
-        continueHref={continueHref}
-        continueLabel={continueLabel}
-      />
+      <TopHero userName={userName} totalXP={totalXP} level={level} levelThreshold={levelThreshold} />
     </>
   )
 }
+

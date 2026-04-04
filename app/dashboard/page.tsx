@@ -1,5 +1,4 @@
 import { Suspense } from 'react'
-import Link from 'next/link'
 import { requireAuth } from '@/lib/auth/guards'
 import { getCachedChapterReportsData, getCachedGamificationData, getDashboardChapters, getCurrentChapterFromReports } from '@/lib/dashboard/cache.server'
 import { getLevelThreshold } from '@/lib/gamification/math'
@@ -15,6 +14,7 @@ import ReportsAsync from '@/components/dashboard/async/ReportsAsync'
 // Skeleton fallbacks
 import ChapterCardsSkeleton from '@/components/dashboard/skeletons/ChapterCardsSkeleton'
 import ReportsSkeleton from '@/components/dashboard/skeletons/ReportsSkeleton'
+import StreakCelebrationTrigger from '@/components/dashboard/StreakCelebrationTrigger'
 
 export default async function DashboardPage() {
   // Only wait for auth + critical above-the-fold data to render shell instantly
@@ -40,10 +40,6 @@ export default async function DashboardPage() {
 
   const currentChapter = getCurrentChapterFromReports(publishedChapters, progressList)
   const currentChapterMeta = publishedChapters.find(c => c.chapter_number === currentChapter) ?? publishedChapters[0]
-  const currentChapterSlug = currentChapterMeta?.slug ?? publishedChapters[0]?.slug
-
-  const continueHref = currentChapterSlug ? `/read/${currentChapterSlug}` : '/dashboard'
-  const continueLabel = `Continue Chapter ${currentChapter} →`
 
   // Extract gamification data
   const totalXP = gamificationResult.data?.total_xp ?? 0
@@ -52,6 +48,9 @@ export default async function DashboardPage() {
 
   return (
     <PageTransition>
+      <Suspense fallback={null}>
+        <StreakCelebrationTrigger />
+      </Suspense>
       <div className="min-h-full">
         <div className="mx-auto max-w-[1400px] gap-6 px-6 py-6">
           <CurrentChapterSync currentChapter={currentChapter} />
@@ -75,8 +74,6 @@ export default async function DashboardPage() {
             totalXP={totalXP}
             level={level}
             levelThreshold={levelThreshold}
-            continueHref={continueHref}
-            continueLabel={continueLabel}
           />
 
           <div className="mt-6 grid grid-cols-12 gap-6">

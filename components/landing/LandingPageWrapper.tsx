@@ -13,6 +13,7 @@ import { HowItWorksSection } from '@/components/landing/HowItWorksSection'
 import { FeaturesSection } from '@/components/landing/FeaturesSection'
 import { ForWhomSection } from '@/components/landing/ForWhomSection'
 import { CTASection } from '@/components/landing/CTASection'
+import { WhatStudentsSaySection } from '@/components/landing/WhatStudentsSaySection'
 
 export function LandingPageWrapper() {
   const buttonsRef = useRef<HTMLDivElement>(null)
@@ -42,12 +43,13 @@ export function LandingPageWrapper() {
 
       {/* Page Content */}
       <HeroSection buttonsRef={buttonsRef} />
-      <ProductShowcaseSection />
       <WhatIsTcpSection />
+      <ProductShowcaseSection />
       <ProblemSection />
       <HowItWorksSection />
       <FeaturesSection />
       <ForWhomSection />
+      <WhatStudentsSaySection />
       <CTASection />
 
       {/* FAQ preview above footer */}

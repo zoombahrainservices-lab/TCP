@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import RegisterForm from '@/components/auth/RegisterForm'
+import TwoStepRegisterForm from '@/components/auth/TwoStepRegisterForm'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 export default function RegisterPage() {
@@ -16,17 +16,17 @@ export default function RegisterPage() {
           <div className="flex justify-center mb-8">
             <div className="relative h-28">
               {/* Light mode logo */}
-              <Image 
-                src="/TCP-logo.png" 
-                alt="TCP" 
+              <Image
+                src="/TCP-logo.png"
+                alt="TCP"
                 width={400}
                 height={112}
                 className="object-contain h-28 w-auto dark:hidden"
               />
               {/* Dark mode logo */}
-              <Image 
-                src="/TCP-logo-white.png" 
-                alt="TCP" 
+              <Image
+                src="/TCP-logo-white.png"
+                alt="TCP"
                 width={400}
                 height={112}
                 className="object-contain h-28 w-auto hidden dark:block"
@@ -34,12 +34,10 @@ export default function RegisterPage() {
             </div>
           </div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Create Account</h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            Sign up to get started
-          </p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">Sign up to get started</p>
         </div>
 
-        <RegisterForm />
+        <TwoStepRegisterForm />
 
         <div className="text-center text-sm">
           <span className="text-gray-600 dark:text-gray-400">Already have an account? </span>
@@ -49,7 +47,10 @@ export default function RegisterPage() {
         </div>
 
         <div className="text-center">
-          <Link href="/" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+          <Link
+            href="/"
+            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+          >
             ← Back to home
           </Link>
         </div>
