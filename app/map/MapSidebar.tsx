@@ -20,6 +20,7 @@ import {
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { signOut } from '@/app/actions/auth'
 import Button from '@/components/ui/Button'
+import { getGuidedSectionUrl, getChapterSlug } from '@/lib/guided-book/navigation'
 
 interface MapSidebarProps {
   currentChapterSlug: string
@@ -30,14 +31,20 @@ export default function MapSidebar({ currentChapterSlug, isAdmin }: MapSidebarPr
   const pathname = usePathname()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
+  // Infer chapter number from slug
+  const chapterNumber = currentChapterSlug === 'stage-star-silent-struggles' ? 1 
+    : currentChapterSlug === 'genius-who-couldnt-speak' ? 2
+    : parseInt(currentChapterSlug.replace('chapter-', ''), 10) || 1
+
+  // Use canonical URLs from shared helper
   const navItems = [
     { href: '/map', icon: MapIcon, label: 'Map', exact: true },
     { href: '/read', icon: BookOpen, label: 'Reading' },
-    { href: `/read/${currentChapterSlug}/assessment`, icon: CheckSquare, label: 'Self-Check' },
-    { href: `/read/${currentChapterSlug}/framework`, icon: Layers, label: 'Framework' },
-    { href: `/read/${currentChapterSlug}/techniques`, icon: Lightbulb, label: 'Techniques' },
-    { href: `/read/${currentChapterSlug}/proof`, icon: Target, label: 'Resolution' },
-    { href: `/read/${currentChapterSlug}/follow-through`, icon: TrendingUp, label: 'Follow-Through' },
+    { href: getGuidedSectionUrl(chapterNumber, 'self_check'), icon: CheckSquare, label: 'Self-Check' },
+    { href: getGuidedSectionUrl(chapterNumber, 'framework'), icon: Layers, label: 'Framework' },
+    { href: getGuidedSectionUrl(chapterNumber, 'techniques'), icon: Lightbulb, label: 'Techniques' },
+    { href: getGuidedSectionUrl(chapterNumber, 'resolution'), icon: Target, label: 'Resolution' },
+    { href: getGuidedSectionUrl(chapterNumber, 'follow_through'), icon: TrendingUp, label: 'Follow-Through' },
     { href: '/dashboard', icon: User, label: 'Profile' },
     { href: '/reports', icon: BarChart3, label: 'Report' },
     { href: '/help', icon: HelpCircle, label: 'Help' },

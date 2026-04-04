@@ -6,7 +6,7 @@ import { NeuralNetworkBackground } from '@/components/ui/NeuralNetworkBackground
 
 export function ProductShowcaseSection() {
   return (
-    <section className="landing-light-band py-20 md:py-32 bg-[var(--color-offwhite)] relative overflow-hidden">
+    <section id="about" className="landing-light-band py-20 md:py-32 bg-[var(--color-offwhite)] relative overflow-hidden">
       {/* Neural Network Background */}
       <NeuralNetworkBackground />
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-20">
@@ -149,12 +149,15 @@ export function ProductShowcaseSection() {
             className="space-y-6"
           >
             <h2 className="neuro-heading text-4xl md:text-5xl lg:text-6xl font-black text-[#ff6a38] leading-tight uppercase">
-              BACKED BY NEUROSCIENCE
+              Built for real life communication
             </h2>
-            <p className="neuro-copy text-lg md:text-xl text-[var(--color-charcoal)] dark:!text-black leading-relaxed">
-              Built by doctors, psychologists, public speakers, and successful business owners. 
-              Neuroscience-backed. Story-driven. It just works.
-            </p>
+            <div className="neuro-copy space-y-4 text-lg md:text-xl text-black leading-relaxed">
+              <p>
+                Learn how to handle conversations, express yourself clearly, and avoid saying the wrong thing when
+                it matters most.
+              </p>
+              <p>Based on real-world experience and proven communication frameworks.</p>
+            </div>
           </motion.div>
         </div>
       </div>

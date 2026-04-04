@@ -4,8 +4,12 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { validatePassword } from '@/lib/utils/validation'
 
+const REMEMBER_ME_MAX_AGE_SEC = 60 * 60 * 24 * 30 // 30 days
+const DEFAULT_SESSION_MAX_AGE_SEC = 60 * 60 * 24 * 2 // shorter when not “keep me signed in” (shared devices)
+
 export async function POST(request: NextRequest) {
-  const { email, password } = await request.json()
+  const { email, password, rememberMe } = await request.json()
+  const persistSession = rememberMe === true
 
   const passwordValidation = validatePassword(password, { email })
   if (!passwordValidation.valid) {
@@ -27,7 +31,11 @@ export async function POST(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options)
+            const maxAge = persistSession ? REMEMBER_ME_MAX_AGE_SEC : DEFAULT_SESSION_MAX_AGE_SEC
+            cookieStore.set(name, value, {
+              ...options,
+              maxAge,
+            })
           })
         },
       },
@@ -39,7 +47,10 @@ export async function POST(request: NextRequest) {
   if (error) {
     console.log('Signin - signInWithPassword error:', error.message)
     return NextResponse.json(
-      { error: 'Password is incorrect. Please try again.' },
+      {
+        error:
+          "We couldn't sign you in. Check your email and password and try again.",
+      },
       { status: 400 }
     )
   }
@@ -50,7 +61,13 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     console.log('Signin - No user returned after signInWithPassword')
-    return NextResponse.json({ error: 'Login failed' }, { status: 400 })
+    return NextResponse.json(
+      {
+        error:
+          "We couldn't sign you in. Check your email and password and try again.",
+      },
+      { status: 400 }
+    )
   }
 
   const adminClient = createAdminClient()

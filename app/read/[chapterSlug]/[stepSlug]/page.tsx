@@ -3,13 +3,14 @@ import { getCachedChapterBundle, getCachedChapterBundleAdmin } from '@/lib/conte
 import { getStepPages, getNextStepWithContentV2 } from '@/lib/content/queries';
 import { getChapterPromptAnswers } from '@/app/actions/prompts';
 import { getYourTurnResponses } from '@/app/actions/yourTurn';
+import { getLastCompletedPageIndex } from '@/app/actions/chapters';
 import { getSession } from '@/lib/auth/guards';
 import DynamicStepClient from './DynamicStepClient';
 import ReadingErrorBoundary from '@/components/error/ReadingErrorBoundary';
 import ContentNotAvailable from '@/components/error/ContentNotAvailable';
 
-// ISR: Cache this page for 1 hour (instant subsequent loads)
-export const revalidate = 3600;
+// Force dynamic rendering for user-specific data
+export const dynamic = 'force-dynamic';
 
 // Force Node runtime (required for service role caching)
 export const runtime = 'nodejs';
@@ -45,11 +46,14 @@ export default async function DynamicStepPage({
   if (!step) redirect(`/read/${chapterSlug}`);
 
   // Parallelize independent queries after step is known
-  const [pages, nextStep, { data: savedAnswers }, yourTurnByPrompt] = await Promise.all([
+  const [pages, nextStep, { data: savedAnswers }, yourTurnByPrompt, resumePageIndex] = await Promise.all([
     getStepPages(step.id),
     getNextStepWithContentV2(chapter.id, step.order_index),
     getChapterPromptAnswers(chapter.chapter_number),
     getYourTurnResponses(chapter.chapter_number),
+    getStepPages(step.id).then(stepPages => 
+      getLastCompletedPageIndex(step.id, stepPages.map(p => p.id))
+    ),
   ]);
   
   // Enhanced error handling: Show user-friendly message instead of crashing
@@ -103,6 +107,7 @@ export default async function DynamicStepPage({
         nextStepSlug={nextStepSlug}
         nextStep={nextStep}
         initialAnswers={mergedAnswers}
+        resumePageIndex={resumePageIndex}
         isAdmin={isAdmin}
       />
     </ReadingErrorBoundary>

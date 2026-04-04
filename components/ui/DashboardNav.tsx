@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import NavLogo from '@/components/ui/NavLogo'
 import DashboardNavSocialIcons from '@/components/ui/DashboardNavSocialIcons'
+import { getGuidedSectionUrl } from '@/lib/guided-book/navigation'
 
 const DashboardNavSettingsModal = dynamic(() => import('@/components/ui/DashboardNavSettingsModal'), {
   ssr: false,
@@ -86,14 +87,13 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
     return chapterSlugByNumber[chapterNum] || `chapter-${chapterNum}`
   }
 
-  const currentChapterSlug = getChapterSlug(activeChapter)
-  
+  // Use canonical URLs from shared helper
   const readingHref = `/read`
-  const selfCheckHref = `/read/${currentChapterSlug}/assessment`
-  const frameworkHref = `/read/${currentChapterSlug}/framework`
-  const techniquesHref = `/read/${currentChapterSlug}/techniques`
-  const followThroughHref = `/read/${currentChapterSlug}/follow-through`
-  const resolutionHref = `/chapter/${activeChapter}/proof`
+  const selfCheckHref = getGuidedSectionUrl(activeChapter, 'self_check')
+  const frameworkHref = getGuidedSectionUrl(activeChapter, 'framework')
+  const techniquesHref = getGuidedSectionUrl(activeChapter, 'techniques')
+  const followThroughHref = getGuidedSectionUrl(activeChapter, 'follow_through')
+  const resolutionHref = getGuidedSectionUrl(activeChapter, 'resolution')
 
   const menuItems = [
     // Map - Main Navigation (at the very top)
@@ -258,6 +258,13 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
 
   const activeNavId = getActiveNavId()
   const isActive = (itemId?: string) => itemId != null && itemId === activeNavId
+  const getInactiveIconClassName = (itemId?: string) => {
+    if (itemId === 'map') return '!text-[#0073ba] dark:!text-[#0073ba]'
+    if (itemId === 'profile' || itemId === 'report' || itemId === 'help') {
+      return '!text-black dark:!text-white'
+    }
+    return ''
+  }
 
   return (
     <>
@@ -357,7 +364,16 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
                     }`}
                     style={{ fontFamily: "'Open Sans', sans-serif" }}
                   >
-                    <span style={{ color: isActive(item.id) ? 'currentColor' : item.color }}>
+                    <span
+                      className={getInactiveIconClassName(item.id)}
+                      style={{
+                        color: isActive(item.id)
+                          ? 'currentColor'
+                          : getInactiveIconClassName(item.id)
+                            ? undefined
+                            : item.color
+                      }}
+                    >
                       {item.icon}
                     </span>
                     <span className="font-semibold">{item.label}</span>
@@ -438,7 +454,16 @@ export function DashboardNav({ serverCurrentChapter, isAdmin = false, collapseSi
                     }`}
                     style={{ fontFamily: "'Open Sans', sans-serif" }}
                   >
-                    <span style={{ color: isActive(item.id) ? 'currentColor' : item.color }}>
+                    <span
+                      className={getInactiveIconClassName(item.id)}
+                      style={{
+                        color: isActive(item.id)
+                          ? 'currentColor'
+                          : getInactiveIconClassName(item.id)
+                            ? undefined
+                            : item.color
+                      }}
+                    >
                       {item.icon}
                     </span>
                     <span className="font-semibold">{item.label}</span>

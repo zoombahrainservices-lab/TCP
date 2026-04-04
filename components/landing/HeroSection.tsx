@@ -89,7 +89,7 @@ export function HeroSection({ buttonsRef }: HeroSectionProps) {
               {/* Hero image - MASSIVE and touches bottom */}
               <Image
                 src="/hero.png"
-                alt="Hero"
+                alt="Young man using phone and pointing, representing learning communication skills with TCP"
                 width={1800}
                 height={1350}
                 priority
@@ -162,15 +162,26 @@ export function HeroSection({ buttonsRef }: HeroSectionProps) {
             </p>
 
             <div ref={buttonsRef} className="flex flex-col gap-4 items-center lg:items-start pt-2 sm:pt-4">
-              <Link href="/onboarding">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="px-6 py-3 bg-[#ff6a38] hover:bg-[#ff5520] text-white rounded-2xl font-bold text-sm shadow-md hover:shadow-lg transition-all uppercase tracking-wide"
-                >
-                  GET STARTED
-                </motion.button>
-              </Link>
+              <div className="flex flex-col items-center lg:items-start gap-2">
+                <Link href="/onboarding">
+                  <motion.button
+                    animate={{
+                      scale: [1, 1.06, 1]
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: 'easeInOut'
+                    }}
+                    className="px-6 py-3 bg-[#ff6a38] text-white rounded-2xl font-bold text-sm uppercase tracking-wide"
+                  >
+                    GET STARTED
+                  </motion.button>
+                </Link>
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center lg:text-left max-w-[280px] lg:max-w-none">
+                  Free to start. No credit card required.
+                </p>
+              </div>
               <Link href="/auth/login">
                 <motion.button
                   whileHover={{ scale: 1.02 }}

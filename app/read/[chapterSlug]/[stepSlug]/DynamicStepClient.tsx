@@ -10,7 +10,7 @@ import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
 import ChapterCoverPage from '@/components/content/ChapterCoverPage';
 import FrameworkCoverPage from '@/components/content/FrameworkCoverPage';
-import OptimizedImage from '@/components/ui/OptimizedImage';
+import GuidedHeroImage from '@/components/content/GuidedHeroImage';
 import AdminEditButton from '@/components/admin/AdminEditButton';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
@@ -20,7 +20,9 @@ import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
 import { playClickSound } from '@/lib/celebration/sounds';
 import { getSectionImageUrlPrimary, type SectionStepType } from '@/lib/chapterImages';
-import { usePrefetchImages, usePrefetchImage } from '@/lib/hooks/usePrefetchImage';
+import { usePrefetchImages } from '@/lib/hooks/usePrefetchImage';
+import { useGuidedFlowPrefetch } from '@/lib/hooks/useGuidedFlowPrefetch';
+import { getNextStepUrl } from '@/lib/guided-book/navigation';
 
 // Lazy load self-check components (only used on assessment steps)
 const SelfCheckAssessment = dynamic(() => import('@/components/assessment/SelfCheckAssessment'), {
@@ -44,10 +46,11 @@ interface Props {
   nextStepSlug: string | null;
   nextStep: Step | null;
   initialAnswers?: Record<string, any>;
+  resumePageIndex: number;
   isAdmin?: boolean;
 }
 
-export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, nextStep, initialAnswers = {}, isAdmin = false }: Props) {
+export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, nextStep, initialAnswers = {}, resumePageIndex, isAdmin = false }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -69,20 +72,37 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const hasFrameworkCover = step.step_type === 'framework' && pages[0]?.content?.some(
     (block: any) => block && block.type === 'framework_cover'
   );
-  const [currentPage, setCurrentPage] = useState(
-    step.step_type === 'read' || hasFrameworkCover ? -1 : 0
-  );
+  
+  const defaultPage = step.step_type === 'read' || hasFrameworkCover ? -1 : 0;
+  const [currentPage, setCurrentPage] = useState(defaultPage);
   const [userResponses, setUserResponses] = useState<Record<string, any>>(initialAnswers);
   const [isProcessing, setIsProcessing] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
   const continueButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Build next URL - handle special case for Resolution step
-  const nextUrl = nextStepSlug 
-    ? nextStep?.step_type === 'resolution'
-      ? `/chapter/${chapter.chapter_number}/proof`
-      : `/read/${chapter.slug}/${nextStepSlug}`
-    : null;
+  // Resume progress on mount (unless URL param overrides it)
+  useEffect(() => {
+    const pageParam = searchParams.get('page');
+    
+    if (pageParam) {
+      const pageNumber = Number(pageParam);
+      if (Number.isFinite(pageNumber) && pageNumber >= 0 && pageNumber < pages.length) {
+        setCurrentPage(pageNumber);
+        return;
+      }
+    }
+    
+    // No URL param - resume at last completed page + 1 (skip cover)
+    if (resumePageIndex >= 0) {
+      const nextPage = resumePageIndex + 1;
+      if (nextPage < pages.length) {
+        setCurrentPage(nextPage);
+      }
+    }
+  }, [searchParams, pages.length, resumePageIndex]);
+
+  // Build next URL using canonical helper - handles resolution redirect
+  const nextUrl = getNextStepUrl(chapter.chapter_number, nextStep?.step_type);
 
   // Chapter reading PDF download URL
   // Priority:
@@ -130,13 +150,17 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     return () => clearTimeout(t);
   }, [searchParams]);
 
-  // Aggressive prefetching for instant navigation (route code only). Use canonical URL so we never trigger server redirect → MPA → #310.
-  useEffect(() => {
-    if (currentPage >= pages.length - 2) {
-      if (nextUrl) router.prefetch(nextUrl);
-      router.prefetch('/dashboard');
-    }
-  }, [currentPage, pages.length, router, nextUrl]);
+  // Unified prefetch for next section
+  const isNearEnd = currentPage >= pages.length - 2;
+  const nextSectionImageUrl = getHeroImageSrcForStep(nextStep);
+  
+  useGuidedFlowPrefetch({
+    chapterNumber: chapter.chapter_number,
+    nextUrl,
+    nextHeroImage: nextSectionImageUrl,
+    prefetchDashboard: true,
+    isNearEnd,
+  });
 
   const handleResponseChange = (promptId: string, value: any) => {
     setUserResponses(prev => ({ ...prev, [promptId]: value }));
@@ -348,7 +372,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   // Derive hero image and content blocks so that image is on the LEFT
   // Priority: page.hero_image_url → first image block from current page → step.hero_image_url → chapter images → placeholder
   // CRITICAL: Remove ALL image blocks from content so they never appear on the right
-  const normalizePageBlocks = (content: unknown): any[] => {
+  function normalizePageBlocks(content: unknown): any[] {
     if (Array.isArray(content)) return content;
     if (typeof content === 'string') {
       try {
@@ -359,7 +383,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       }
     }
     return [];
-  };
+  }
 
   const rawBlocks = normalizePageBlocks(currentPageData?.content);
   
@@ -367,7 +391,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const pageMetaBlock = rawBlocks[0]?.type === 'page_meta' ? rawBlocks[0] : null;
   const titleStyleResolved = (pageMetaBlock as any)?.title_style || currentPageData?.title_style || null;
 
-  const getSafeImageSrc = (value: unknown): string | null => {
+  function getSafeImageSrc(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
     if (!trimmed) return null;
@@ -380,9 +404,9 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       return null;
     }
     return trimmed;
-  };
+  }
 
-  const getHeroImageSrcForPage = (pageData: Page | undefined): string | null => {
+  function getHeroImageSrcForPage(pageData: Page | undefined): string | null {
     if (!pageData) return null;
 
     const pageLevelImage = getSafeImageSrc(pageData.hero_image_url);
@@ -400,9 +424,9 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       getSafeImageSrc(chapter.hero_image_url) ??
       getSafeImageSrc(chapter.thumbnail_url)
     );
-  };
+  }
 
-  const getHeroImageSrcForStep = (stepData: Step | null | undefined): string | null => {
+  function getHeroImageSrcForStep(stepData: Step | null | undefined): string | null {
     if (!stepData) return null;
 
     const stepLevelImage = getSafeImageSrc(stepData.hero_image_url);
@@ -414,7 +438,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     }
 
     return null;
-  };
+  }
 
   let heroImageSrc: string | null =
     getSafeImageSrc(currentPageData?.hero_image_url) ??
@@ -495,21 +519,6 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     priority: 'low',
     defer: true,
   });
-
-  // Aggressively prefetch next section image (framework→techniques)
-  const nextSectionImageUrl = getHeroImageSrcForStep(nextStep);
-  usePrefetchImage(nextSectionImageUrl, {
-    priority: 'high',
-    usePreload: true,
-    defer: false,
-  });
-
-  // Prefetch next step route as early as possible.
-  useEffect(() => {
-    if (nextUrl) {
-      router.prefetch(nextUrl);
-    }
-  }, [router, nextUrl]);
 
   // ============================================================================
   // FRAMEWORK PROGRESS STRIP (SPARK / VOICE / any framework)
@@ -1085,19 +1094,12 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {!isFollowThroughChecklistPage && (
           <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative overflow-hidden bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
-            {displayHeroImageSrc ? (
-              <OptimizedImage
-                key={heroImageStateKey}
-                src={displayHeroImageSrc}
-                alt={heroImageAlt}
-                className="absolute inset-0 h-full w-full object-cover"
-                loading="eager"
-                decoding="async"
-                onError={handleHeroImageError}
-              />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#F2E9D8] to-[#E8DBC0] dark:from-[#0f1b2d] dark:to-[#13233a]" />
-            )}
+            <GuidedHeroImage
+              src={displayHeroImageSrc}
+              alt={heroImageAlt}
+              priority={false}
+              onError={handleHeroImageError}
+            />
           </div>
         )}
 

@@ -6,15 +6,17 @@ import { motion } from 'framer-motion';
 import ReadingLayout from '@/components/content/ReadingLayout';
 import BlockRenderer from '@/components/content/BlockRenderer';
 import ChapterCoverPage from '@/components/content/ChapterCoverPage';
-import OptimizedImage from '@/components/ui/OptimizedImage';
+import GuidedHeroImage from '@/components/content/GuidedHeroImage';
 import AdminEditButton from '@/components/admin/AdminEditButton';
 import type { Chapter, Step, Page } from '@/lib/content/types';
 import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapters';
 import { celebrateSectionCompletion } from '@/lib/celebration/celebrate';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
-import { usePrefetchImages, usePrefetchImage } from '@/lib/hooks/usePrefetchImage';
+import { usePrefetchImages } from '@/lib/hooks/usePrefetchImage';
+import { useGuidedFlowPrefetch } from '@/lib/hooks/useGuidedFlowPrefetch';
 import { getSectionImageUrlPrimary } from '@/lib/chapterImages';
+import { getNextStepUrl } from '@/lib/guided-book/navigation';
 
 interface Props {
   chapter: Chapter;
@@ -22,41 +24,53 @@ interface Props {
   pages: Page[];
   nextStepSlug: string | null;
   initialAnswers?: Record<string, any>;
+  resumePageIndex: number;
   isAdmin?: boolean;
 }
 
-export default function DynamicChapterReadingClient({ chapter, readingStep, pages, nextStepSlug, initialAnswers = {}, isAdmin = false }: Props) {
+export default function DynamicChapterReadingClient({ chapter, readingStep, pages, nextStepSlug, initialAnswers = {}, resumePageIndex, isAdmin = false }: Props) {
   const router = useRouter();
-  // Start at -1 to show cover page first
+  // Start at -1 to show cover page first (or resume if progress exists and no URL param)
   const [currentPage, setCurrentPage] = useState(-1);
   const [userResponses, setUserResponses] = useState<Record<string, any>>(initialAnswers);
   const [isProcessing, setIsProcessing] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
   const readingContentRef = useRef<HTMLDivElement>(null);
 
-  const canonicalNextUrl = nextStepSlug ? `/read/${chapter.slug}/${nextStepSlug}` : null;
+  const canonicalNextUrl = getNextStepUrl(chapter.chapter_number, readingStep ? 'self_check' : null);
 
-  useEffect(() => {
-    if (currentPage >= pages.length - 2) {
-      if (canonicalNextUrl) router.prefetch(canonicalNextUrl);
-      router.prefetch('/dashboard');
-    }
-  }, [currentPage, pages.length, router, chapter.slug, canonicalNextUrl]);
+  const isNearEnd = currentPage >= pages.length - 2;
+  const frameworkImageUrl = getSectionImageUrlPrimary(chapter.chapter_number, 'framework');
 
-  // Jump to specific page from URL query param (?page=3)
+  useGuidedFlowPrefetch({
+    chapterNumber: chapter.chapter_number,
+    nextUrl: canonicalNextUrl,
+    nextHeroImage: frameworkImageUrl,
+    prefetchDashboard: true,
+    isNearEnd,
+  });
+
+  // Jump to specific page from URL query param (?page=3) or resume where left off
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const pageParam = params.get('page');
-    if (!pageParam || pages.length === 0) return;
-
-    const pageNumber = Number(pageParam);
-    if (!Number.isFinite(pageNumber) || pageNumber < 0) return;
-
-    // Page param is the actual array index
-    if (pageNumber >= 0 && pageNumber < pages.length && pageNumber !== currentPage) {
-      setCurrentPage(pageNumber);
+    
+    if (pageParam) {
+      const pageNumber = Number(pageParam);
+      if (Number.isFinite(pageNumber) && pageNumber >= 0 && pageNumber < pages.length) {
+        setCurrentPage(pageNumber);
+        return;
+      }
     }
-  }, [pages.length]); // Only run when pages load, not on currentPage change
+    
+    // No URL param - resume at last completed page + 1
+    if (resumePageIndex >= 0) {
+      const nextPage = resumePageIndex + 1;
+      if (nextPage < pages.length) {
+        setCurrentPage(nextPage);
+      }
+    }
+  }, [pages.length, resumePageIndex]);
 
   // Scroll to top when changing pages
   useEffect(() => {
@@ -280,14 +294,6 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     defer: true,
   });
 
-  // Aggressively prefetch framework section image (next section after reading)
-  const frameworkImageUrl = getSectionImageUrlPrimary(chapter.chapter_number, 'framework');
-  usePrefetchImage(frameworkImageUrl, {
-    priority: 'high',
-    usePreload: true,
-    defer: false,
-  });
-
   // Chapter reading PDF download URL
   // Priority:
   // 1) admin-configured chapter.pdf_url
@@ -329,19 +335,12 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
         // CONTENT SLIDES - Image left, Text right (mobile: stacked)
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden order-1">
-            {displayHeroImageSrc ? (
-              <OptimizedImage
-                key={heroImageStateKey}
-                src={displayHeroImageSrc}
-                alt={heroImageAlt}
-                className="absolute inset-0 h-full w-full object-cover"
-                loading="eager"
-                decoding="async"
-                onError={handleHeroImageError}
-              />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#F2E9D8] to-[#E8DBC0] dark:from-[#0f1b2d] dark:to-[#13233a]" />
-            )}
+            <GuidedHeroImage
+              src={displayHeroImageSrc}
+              alt={heroImageAlt}
+              priority={false}
+              onError={handleHeroImageError}
+            />
           </div>
           <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col flex-1 min-h-0 overflow-hidden order-2">
             <div ref={readingContentRef} className="flex-1 p-6 sm:p-8 lg:p-12 min-h-0 reading-scroll">

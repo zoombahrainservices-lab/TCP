@@ -93,7 +93,6 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Always redirect to dashboard
     return NextResponse.redirect(new URL('/dashboard', requestUrl.origin))
   } catch (_err) {
     return NextResponse.redirect(

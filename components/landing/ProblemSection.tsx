@@ -8,22 +8,22 @@ const problems = [
   {
     icon: '🔄',
     title: 'React instead of respond',
-    description: 'You know you should pause, but in the moment, you don\'t.',
+    description: "You know you should pause, but in the moment, you don't.",
   },
   {
     icon: '😶',
-    title: 'Avoid the hard conversations',
-    description: 'You know what to say, but anxiety stops you from saying it.',
+    title: 'Avoid saying what matters',
+    description: 'You know what you want to say — but you hold back when it counts.',
   },
   {
     icon: '😤',
-    title: 'Overexplain or shut down',
-    description: 'You either say too much or nothing at all. No middle ground.',
+    title: 'Say too much or nothing at all',
+    description: "You either over-explain or go quiet. There's no middle ground.",
   },
   {
     icon: '🤯',
-    title: 'Feel misunderstood',
-    description: 'You\'re smart and capable, but somehow people don\'t see it.',
+    title: 'Struggle to get your point across',
+    description: "What makes sense in your head doesn't come out clearly.",
   },
 ]
 
@@ -41,8 +41,10 @@ export function ProblemSection() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#142A4A] dark:text-white mb-4">
-            You know <span className="italic">what</span> to do.
-            <span className="block mt-2">You just don't do it.</span>
+            <span className="text-[#ff6a38]">You know</span> what to say.
+            <span className="block mt-2">
+              You just don&apos;t <span className="text-[#ff6a38]">say it right.</span>
+            </span>
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto mt-6">
             TCP doesn't teach theory. It changes behavior.

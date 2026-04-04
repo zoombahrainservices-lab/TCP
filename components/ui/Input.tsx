@@ -17,7 +17,7 @@ export default function Input({
   ...props
 }: InputProps) {
   const generatedId = useId()
-  const inputId = id || generatedId
+  const inputId = id ?? generatedId
   
   return (
     <div className="w-full">

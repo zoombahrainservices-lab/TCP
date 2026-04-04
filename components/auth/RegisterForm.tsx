@@ -122,6 +122,7 @@ export default function RegisterForm() {
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
+          id="register-full-name"
           label="Full Name"
           type="text"
           value={fullName}
@@ -132,6 +133,7 @@ export default function RegisterForm() {
         />
         
         <Input
+          id="register-email"
           label="Email"
           type="email"
           value={email}

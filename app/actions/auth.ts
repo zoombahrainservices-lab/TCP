@@ -7,6 +7,33 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { validateEmail, validatePassword } from '@/lib/utils/validation'
 import { resolveOAuthRedirectBaseUrl } from '@/lib/auth/oauth-origins'
 
+/**
+ * Sends Supabase password recovery email. Ensure redirect allow list includes your site origin +
+ * `/auth/callback` (query params may be appended by Supabase after the code exchange).
+ */
+export async function requestPasswordReset(email: string) {
+  const trimmed = email.trim()
+  if (!validateEmail(trimmed)) {
+    return { error: 'Please enter a valid email address.', success: false as const }
+  }
+
+  const base = await resolveOAuthRedirectBaseUrl()
+  if (!base) {
+    return { error: 'Unable to send a reset email right now. Please try again later.', success: false as const }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+    redirectTo: `${base}/auth/recovery`,
+  })
+
+  if (error) {
+    return { error: error.message, success: false as const }
+  }
+
+  return { success: true as const, error: null as null }
+}
+
 export async function signInWithEmail(email: string, password: string) {
   if (!validateEmail(email)) {
     return { error: 'Invalid email format' }

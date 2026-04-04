@@ -92,8 +92,8 @@ export default function ChecklistBlock({
             </div>
             <span className={`flex-1 text-base ${
               localChecked.includes(item.id)
-                ? 'line-through text-gray-500 dark:!text-white'
-                : 'text-[#2a2416] dark:!text-white'
+                ? 'line-through text-gray-500 dark:!text-black'
+                : 'text-[#2a2416] dark:!text-black'
             }`}
             style={
               !isDarkMode && !localChecked.includes(item.id) && appearance?.textColor

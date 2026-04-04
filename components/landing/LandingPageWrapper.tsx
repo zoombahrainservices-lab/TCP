@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
+import { LandingHeader } from '@/components/landing/LandingHeader'
+import { FooterFaqPreview } from '@/components/landing/FooterFaqPreview'
 import { HeroSection } from '@/components/landing/HeroSection'
 import { ProductShowcaseSection } from '@/components/landing/ProductShowcaseSection'
+import { WhatIsTcpSection } from '@/components/landing/WhatIsTcpSection'
 import { ProblemSection } from '@/components/landing/ProblemSection'
 import { HowItWorksSection } from '@/components/landing/HowItWorksSection'
 import { FeaturesSection } from '@/components/landing/FeaturesSection'
@@ -12,117 +15,210 @@ import { ForWhomSection } from '@/components/landing/ForWhomSection'
 import { CTASection } from '@/components/landing/CTASection'
 
 export function LandingPageWrapper() {
-  const [showNav, setShowNav] = useState(false)
   const buttonsRef = useRef<HTMLDivElement>(null)
+  const [showNav, setShowNav] = useState(false)
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (buttonsRef.current) {
-        const buttonsRect = buttonsRef.current.getBoundingClientRect()
-        // Show nav when buttons scroll past top of viewport
-        setShowNav(buttonsRect.bottom < 0)
-      }
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  useEffect(() => {
-    // Smooth scrolling for the whole page
     document.documentElement.style.scrollBehavior = 'smooth'
     return () => {
       document.documentElement.style.scrollBehavior = 'auto'
     }
   }, [])
 
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!buttonsRef.current) return
+      const rect = buttonsRef.current.getBoundingClientRect()
+      setShowNav(rect.bottom < 0)
+    }
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
   return (
     <div className="min-h-screen bg-white dark:bg-[#142A4A] transition-colors duration-300" style={{ scrollBehavior: 'smooth' }}>
-      {/* Header - appears after scroll */}
-      <header
-        className={`fixed top-0 left-0 right-0 z-50 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-[#142A4A]/95 backdrop-blur-lg transition-transform duration-300 ${
-          showNav ? 'translate-y-0' : '-translate-y-full'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-3">
-          <div className="flex justify-between items-center">
-            <Link href="/" className="hover:opacity-80 transition-opacity">
-              <div className="relative h-10 sm:h-14 w-auto">
-                {/* Light mode logo */}
-                <Image
-                  src="/TCP-logo.png"
-                  alt="The Communication Protocol"
-                  width={200}
-                  height={40}
-                  className="object-contain h-10 sm:h-14 w-auto dark:hidden"
-                  priority
-                />
-                {/* Dark mode logo */}
-                <Image
-                  src="/TCP-logo-white.png"
-                  alt="The Communication Protocol"
-                  width={200}
-                  height={40}
-                  className="object-contain h-10 sm:h-14 w-auto hidden dark:block"
-                  priority
-                />
-              </div>
-            </Link>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Link href="/auth/login">
-                <button className="px-4 py-[8px] sm:px-6 sm:py-[10px] bg-white dark:bg-transparent border-2 border-[#0073ba] dark:border-[#4bc4dc] text-[#0073ba] dark:text-[#4bc4dc] rounded-2xl font-bold text-xs sm:text-sm hover:bg-[#0073ba] hover:text-white dark:hover:bg-[#4bc4dc] dark:hover:text-gray-900 transition-all uppercase tracking-wide">
-                  <span className="hidden sm:inline">I already have an account</span>
-                  <span className="sm:hidden">Login</span>
-                </button>
-              </Link>
-              <Link href="/onboarding">
-                <button className="px-4 py-2.5 sm:px-6 sm:py-3 bg-[#ff6a38] hover:bg-[#ff5520] text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all uppercase tracking-wide">
-                  GET STARTED
-                </button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+      <LandingHeader revealOnScroll revealed={showNav} />
 
       {/* Page Content */}
       <HeroSection buttonsRef={buttonsRef} />
       <ProductShowcaseSection />
+      <WhatIsTcpSection />
       <ProblemSection />
       <HowItWorksSection />
       <FeaturesSection />
       <ForWhomSection />
       <CTASection />
 
+      {/* FAQ preview above footer */}
+      <section
+        className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-[#142A4A] transition-colors duration-300"
+        aria-labelledby="footer-faq-heading"
+      >
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
+          <h2
+            id="footer-faq-heading"
+            className="text-2xl sm:text-3xl font-bold text-[#142A4A] dark:text-white mb-2"
+          >
+            Questions &amp; answers
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+            Straight answers about TCP — open a question for more detail, or view the full FAQ.
+          </p>
+          <FooterFaqPreview />
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-[#142A4A] transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex flex-col items-center gap-6">
-            <div className="relative h-20">
-              {/* Light mode logo */}
-              <Image
-                src="/TCP-logo.png"
-                alt="TCP Logo"
-                width={340}
-                height={80}
-                className="object-contain h-20 w-auto dark:hidden"
-              />
-              {/* Dark mode logo */}
-              <Image
-                src="/TCP-logo-white.png"
-                alt="TCP Logo"
-                width={340}
-                height={80}
-                className="object-contain h-20 w-auto hidden dark:block"
-              />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
+            <div className="flex flex-col items-center sm:items-start text-center sm:text-left sm:col-span-2 lg:col-span-1">
+              <div className="relative h-16 sm:h-20 w-auto mb-4">
+                <Image
+                  src="/TCP-logo.png"
+                  alt="TCP Logo"
+                  width={280}
+                  height={64}
+                  className="object-contain h-16 sm:h-20 w-auto dark:hidden"
+                />
+                <Image
+                  src="/TCP-logo-white.png"
+                  alt="TCP Logo"
+                  width={280}
+                  height={64}
+                  className="object-contain h-16 sm:h-20 w-auto hidden dark:block"
+                />
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed max-w-xs">
+                Applied Communication Training
+              </p>
             </div>
-            <p className="text-gray-600 dark:text-gray-400 text-center">
-              Applied Communication Training
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-500">
-              &copy; 2026 TCP. All rights reserved.
-            </p>
+
+            <div className="text-center sm:text-left">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-[#142A4A] dark:text-white mb-4">
+                Quick links
+              </h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link
+                    href="/"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    Home
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/how-it-works"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    How it works
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/about"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    About
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/faq"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    FAQ
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div className="text-center sm:text-left">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-[#142A4A] dark:text-white mb-4">
+                Get started
+              </h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link
+                    href="/onboarding"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#ff6a38] transition-colors font-medium"
+                  >
+                    Get started
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/auth/login"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    Log in
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/auth/register"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    Create account
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div className="text-center sm:text-left sm:col-span-2 lg:col-span-1">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-[#142A4A] dark:text-white mb-4">
+                Trust &amp; safety
+              </h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link
+                    href="/privacy"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/terms"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    Terms of Service
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/safety"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    Safety &amp; safeguarding
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/contact"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    Contact
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/families"
+                    className="text-gray-600 dark:text-gray-300 hover:text-[#0770C4] dark:hover:text-[#51BFE3] transition-colors"
+                  >
+                    For families
+                  </Link>
+                </li>
+              </ul>
+            </div>
           </div>
+
+          <p className="text-sm text-gray-500 dark:text-gray-500 text-center mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+            &copy; 2026 TCP. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>

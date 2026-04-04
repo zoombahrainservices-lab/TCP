@@ -4,8 +4,9 @@ import { useCallback } from 'react';
 import { Block } from '@/lib/blocks/types';
 import { debounce } from '@/lib/utils/debounce';
 import { savePromptAnswer } from '@/app/actions/prompts';
+import dynamic from 'next/dynamic';
 
-// Import all block components
+// Import lightweight blocks (static)
 import HeadingBlock from './blocks/HeadingBlock';
 import ParagraphBlock from './blocks/ParagraphBlock';
 import StoryBlock from './blocks/StoryBlock';
@@ -15,24 +16,52 @@ import ImageBlock from './blocks/ImageBlock';
 import InlineImageBlock from './blocks/InlineImageBlock';
 import CalloutBlock from './blocks/CalloutBlock';
 import ListBlock from './blocks/ListBlock';
-import PromptBlock from './blocks/PromptBlock';
-import ScaleQuestionsBlock from './blocks/ScaleQuestionsBlock';
-import YesNoCheckBlock from './blocks/YesNoCheckBlock';
-import MCQBlock from './blocks/MCQBlock';
-import TaskPlanBlock from './blocks/TaskPlanBlock';
-import ChecklistBlock from './blocks/ChecklistBlock';
-import ScriptsBlock from './blocks/ScriptsBlock';
-import CTABlock from './blocks/CTABlock';
 import ButtonBlock from './blocks/ButtonBlock';
-import ConditionalBlock from './blocks/ConditionalBlock';
 import VariableBlock from './blocks/VariableBlock';
 import FrameworkCoverBlock from './blocks/FrameworkCoverBlock';
 import FrameworkIntroBlock from './blocks/FrameworkIntroBlock';
 import FrameworkLetterBlock from './blocks/FrameworkLetterBlock';
 import IdentityResolutionGuidanceBlock from './blocks/IdentityResolutionGuidanceBlock';
-import ResolutionProofBlock from './blocks/ResolutionProofBlock';
 import SelfCheckIntroBlock from './blocks/SelfCheckIntroBlock';
 import SelfCheckResultBlock from './blocks/SelfCheckResultBlock';
+
+// Lazy load heavier interactive blocks
+const PromptBlock = dynamic(() => import('./blocks/PromptBlock'), {
+  loading: () => (
+    <div className="p-6 bg-white/50 dark:bg-gray-800/50 rounded-xl animate-pulse">
+      <div className="h-5 w-48 bg-gray-300 dark:bg-gray-700 rounded mb-4"></div>
+      <div className="h-32 w-full bg-gray-200 dark:bg-gray-600 rounded-lg"></div>
+    </div>
+  ),
+});
+
+const ChecklistBlock = dynamic(() => import('./blocks/ChecklistBlock'), {
+  loading: () => (
+    <div className="p-6 bg-white/50 dark:bg-gray-800/50 rounded-xl animate-pulse">
+      <div className="h-6 w-32 bg-gray-300 dark:bg-gray-700 rounded mb-4"></div>
+      <div className="space-y-2">
+        <div className="h-4 w-full bg-gray-200 dark:bg-gray-600 rounded"></div>
+        <div className="h-4 w-full bg-gray-200 dark:bg-gray-600 rounded"></div>
+      </div>
+    </div>
+  ),
+});
+
+const ScaleQuestionsBlock = dynamic(() => import('./blocks/ScaleQuestionsBlock'));
+const YesNoCheckBlock = dynamic(() => import('./blocks/YesNoCheckBlock'));
+const MCQBlock = dynamic(() => import('./blocks/MCQBlock'));
+const TaskPlanBlock = dynamic(() => import('./blocks/TaskPlanBlock'));
+const ScriptsBlock = dynamic(() => import('./blocks/ScriptsBlock'));
+const CTABlock = dynamic(() => import('./blocks/CTABlock'));
+const ConditionalBlock = dynamic(() => import('./blocks/ConditionalBlock'));
+const ResolutionProofBlock = dynamic(() => import('./blocks/ResolutionProofBlock'), {
+  loading: () => (
+    <div className="p-6 bg-white/50 dark:bg-gray-800/50 rounded-xl animate-pulse">
+      <div className="h-5 w-48 bg-gray-300 dark:bg-gray-700 rounded mb-4"></div>
+      <div className="h-32 w-full bg-gray-200 dark:bg-gray-600 rounded-lg"></div>
+    </div>
+  ),
+});
 
 interface BlockRendererProps {
   block: Block;

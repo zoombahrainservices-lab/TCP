@@ -48,6 +48,8 @@ export default async function AdminPreviewPage({
         pages={pages}
         nextStep={nextStep || null}
         nextStepSlug={nextStep?.slug || null}
+        resumePageIndex={-1}
+        isAdmin
       />
     </div>
   )

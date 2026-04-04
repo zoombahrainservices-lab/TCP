@@ -25,26 +25,29 @@ export function CTASection() {
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
             Ready to Change How You Communicate?
           </h2>
-          <p className="text-xl mb-4 text-white/90 max-w-2xl mx-auto">
+          <p className="text-xl mb-3 text-white/90 max-w-2xl mx-auto leading-snug">
             Stop collecting advice. Start building systems.
           </p>
-          <p className="text-lg mb-10 text-white/80 max-w-2xl mx-auto">
-            Join others who are turning self-awareness into repeatable behaviors.
+          <p className="text-lg mb-10 text-white/85 max-w-2xl mx-auto leading-relaxed">
+            Learn tools you can actually use in real conversations.
           </p>
-          
-          <Link href="/auth/register">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="px-12 py-5 bg-[#ff6a38] hover:bg-[#ff5520] text-white rounded-2xl font-bold text-xl shadow-2xl hover:shadow-3xl transition-all uppercase tracking-wide"
-            >
-              GET STARTED
-            </motion.button>
-          </Link>
 
-          <p className="mt-8 text-white/70 text-sm">
-            Free to start. No credit card required.
-          </p>
+          <div className="flex flex-col items-center gap-3">
+            <Link href="/onboarding">
+              <motion.button
+                animate={{ scale: [1, 1.06, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-8 py-3.5 sm:px-12 sm:py-5 bg-[#ff6a38] hover:bg-[#ff5520] text-white rounded-2xl font-bold text-lg sm:text-xl shadow-2xl hover:shadow-3xl transition-all"
+              >
+                Get Started
+              </motion.button>
+            </Link>
+            <p className="text-white/75 text-sm">
+              Free to start. No credit card required.
+            </p>
+          </div>
         </motion.div>
       </div>
     </section>

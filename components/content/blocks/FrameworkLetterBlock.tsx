@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import type { FrameworkLetterBlock as Props } from '@/lib/blocks/types';
 import { processHTMLContent } from '@/lib/utils/htmlDecode';
 
@@ -13,11 +14,15 @@ export default function FrameworkLetterBlock({
   return (
     <div className="framework-letter mt-2 mb-6">
       {image && (
-        <img
-          src={image}
-          alt={`${letter} illustration`}
-          className="w-full h-64 object-cover rounded-lg mb-6"
-        />
+        <div className="relative w-full h-64 rounded-lg mb-6 overflow-hidden">
+          <Image
+            src={image}
+            alt={`${letter} illustration`}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+          />
+        </div>
       )}
 
       {/* Body copy only – page title above supplies the heading */}

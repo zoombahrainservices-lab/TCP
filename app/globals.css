@@ -253,14 +253,19 @@ h4[style*="color"] {
 
 /* Landing section with white background should keep black text in dark mode */
 .dark .landing-light-band .neuro-heading {
-  color: #111111 !important;
+  color: #ff6a38 !important;
 }
 .dark .landing-light-band .neuro-copy {
-  color: #111111 !important;
+  color: #000000 !important;
+}
+/* Paragraphs inside neuro-copy: global .dark p { light gray } must lose to black here */
+.dark .landing-light-band .neuro-copy p,
+.dark .landing-light-band .neuro-copy span {
+  color: #000000 !important;
 }
 .dark .landing-light-band strong,
 .dark .landing-light-band b {
-  color: #111111 !important;
+  color: #000000 !important;
 }
 
 /* Override any component-level dark colors that might be too dark */

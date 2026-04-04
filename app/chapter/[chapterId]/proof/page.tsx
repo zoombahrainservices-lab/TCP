@@ -10,6 +10,7 @@ import { saveIdentityResolutionForChapter1, type IdentityResolutionData } from '
 import { useClickSound } from '@/lib/hooks/useClickSound'
 import LoadingButton from '@/components/ui/LoadingButton'
 import AdminEditButton from '@/components/admin/AdminEditButton'
+import { getFollowThroughUrl } from '@/lib/guided-book/navigation'
 
 type ResolutionType = 'text' | 'image' | 'audio' | 'video'
 
@@ -47,13 +48,6 @@ function extForMime(mimeType: string): string {
   if (t.includes('ogg')) return 'ogg'
   if (t.includes('mp4')) return 'm4a'
   return 'dat'
-}
-
-/** Map chapter number → follow-through URL */
-function getFollowThroughUrl(chapterId: number): string {
-  if (chapterId === 1) return '/chapter/1/follow-through'
-  if (chapterId === 2) return '/read/genius-who-couldnt-speak/follow-through'
-  return `/read/chapter-${chapterId}/follow-through`
 }
 
 export default function ResolutionPage({

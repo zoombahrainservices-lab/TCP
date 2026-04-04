@@ -682,6 +682,56 @@ export async function completeDynamicPage({
 }
 
 /**
+ * Get last completed page index for a step.
+ * Returns the highest page index that's been completed, or -1 if none.
+ */
+export async function getLastCompletedPageIndex(
+  stepId: string,
+  pageIds: string[]
+): Promise<number> {
+  if (pageIds.length === 0) return -1;
+
+  const supabase = createAdminClient();
+  const userSupabase = await createClient();
+  
+  const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+  if (authError || !user) {
+    return -1;
+  }
+
+  try {
+    // Query all completions for pages in this step
+    const syntheticStepIds = pageIds.map(id => `page:${id}`);
+    const { data, error } = await supabase
+      .from('step_completions')
+      .select('step_id')
+      .eq('user_id', user.id)
+      .in('step_id', syntheticStepIds);
+
+    if (error || !data) {
+      return -1;
+    }
+
+    // Find highest completed page index
+    let maxIndex = -1;
+    const completedPageIds = new Set(
+      data.map(row => row.step_id.replace('page:', ''))
+    );
+
+    for (let i = 0; i < pageIds.length; i++) {
+      if (completedPageIds.has(pageIds[i])) {
+        maxIndex = i;
+      }
+    }
+
+    return maxIndex;
+  } catch (error) {
+    console.error('Error in getLastCompletedPageIndex:', error);
+    return -1;
+  }
+}
+
+/**
  * Complete a step in the dynamic reader (optional, for step-level tracking).
  * Uses synthetic step_id = `step:${stepId}`.
  */
