@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import ReadingLayout from '@/components/content/ReadingLayout';
@@ -237,52 +237,53 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
   }, [pages, chapter, readingStep]);
 
   // Hero image (only for content pages, not cover)
-  const rawContent = normalizeBlocks(currentPageData?.content);
-  const firstImageBlock = rawContent.find(
-    (b: any) => b && b.type === 'image' && b.src && typeof b.src === 'string'
-  ) as any | undefined;
+  // Memoize to prevent unnecessary recalculations but ensure it updates with currentPage
+  const heroImageSrc = useMemo(() => {
+    const rawContent = normalizeBlocks(currentPageData?.content);
+    const firstImageBlock = rawContent.find(
+      (b: any) => b && b.type === 'image' && b.src && typeof b.src === 'string'
+    ) as any | undefined;
 
-  // Legacy local fallbacks only if no DB-driven hero exists
-  let legacyFallback: string | null = null;
-  const safeChapterHero = getSafeImageSrc(chapter.hero_image_url);
-  const safeChapterThumb = getSafeImageSrc(chapter.thumbnail_url);
-  const safeStepHero = getSafeImageSrc(readingStep.hero_image_url);
-  const safePageHero = getSafeImageSrc((currentPageData as any)?.hero_image_url);
-  const safeBlockHero = getSafeImageSrc(firstImageBlock?.src);
+    const safeChapterHero = getSafeImageSrc(chapter.hero_image_url);
+    const safeChapterThumb = getSafeImageSrc(chapter.thumbnail_url);
+    const safeStepHero = getSafeImageSrc(readingStep.hero_image_url);
+    const safePageHero = getSafeImageSrc((currentPageData as any)?.hero_image_url);
+    const safeBlockHero = getSafeImageSrc(firstImageBlock?.src);
 
-  if (!safeChapterHero && !safeChapterThumb && !safeStepHero && !safePageHero && !safeBlockHero) {
-    if (chapter.chapter_number === 1) {
-      legacyFallback = '/slider-work-on-quizz/chapter1/chaper1-1.jpeg';
-    } else if (chapter.chapter_number === 2) {
-      legacyFallback = '/chapter/chapter 2/Nightmare.png';
+    // Legacy local fallbacks only if no DB-driven hero exists
+    let legacyFallback: string | null = null;
+    if (!safeChapterHero && !safeChapterThumb && !safeStepHero && !safePageHero && !safeBlockHero) {
+      if (chapter.chapter_number === 1) {
+        legacyFallback = '/slider-work-on-quizz/chapter1/chaper1-1.jpeg';
+      } else if (chapter.chapter_number === 2) {
+        legacyFallback = '/chapter/chapter 2/Nightmare.png';
+      }
     }
-  }
 
-  // Reading should use page image first, then chapter-level fallbacks.
-  const heroImageSrc =
-    safePageHero ||
-    safeBlockHero ||
-    safeStepHero ||
-    safeChapterHero ||
-    safeChapterThumb ||
-    legacyFallback ||
-    null;
-  const heroImageStateKey = currentPageData?.id ?? `page-${currentPage}`;
-  const [displayHeroImageSrc, setDisplayHeroImageSrc] = useState<string | null>(heroImageSrc);
-  useEffect(() => {
-    setDisplayHeroImageSrc(heroImageSrc);
-  }, [heroImageSrc, heroImageStateKey]);
+    // Reading should use page image first, then chapter-level fallbacks.
+    return (
+      safePageHero ||
+      safeBlockHero ||
+      safeStepHero ||
+      safeChapterHero ||
+      safeChapterThumb ||
+      legacyFallback ||
+      null
+    );
+  }, [currentPage, currentPageData, chapter.hero_image_url, chapter.thumbnail_url, chapter.chapter_number, readingStep.hero_image_url]);
 
-  const handleHeroImageError = () => {
-    // Hard fallback: if the selected image fails, don't keep broken image icon.
-    setDisplayHeroImageSrc(null);
-  };
-
-
-  const heroImageAlt =
-    (firstImageBlock?.alt as string | undefined) ||
-    currentPageData?.title ||
-    chapter.title;
+  const heroImageAlt = useMemo(() => {
+    const rawContent = normalizeBlocks(currentPageData?.content);
+    const firstImageBlock = rawContent.find(
+      (b: any) => b && b.type === 'image' && b.src && typeof b.src === 'string'
+    ) as any | undefined;
+    
+    return (
+      (firstImageBlock?.alt as string | undefined) ||
+      currentPageData?.title ||
+      chapter.title
+    );
+  }, [currentPage, currentPageData, chapter.title]);
 
   // Warm the next two page images without competing with the current page render.
   const lookaheadImageSrcs = [
@@ -336,10 +337,10 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative bg-[var(--color-offwhite)] dark:bg-[#0a1628] overflow-hidden order-1">
             <GuidedHeroImage
-              src={displayHeroImageSrc}
+              key={`page-${currentPage}-${currentPageData?.id || ''}`}
+              src={heroImageSrc}
               alt={heroImageAlt}
               priority={false}
-              onError={handleHeroImageError}
             />
           </div>
           <div className="w-full lg:w-1/2 bg-[#FFF8E7] dark:bg-[#2A2416] flex flex-col flex-1 min-h-0 overflow-hidden order-2">

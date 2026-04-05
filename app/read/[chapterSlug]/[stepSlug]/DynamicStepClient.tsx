@@ -440,45 +440,65 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     return null;
   }
 
-  let heroImageSrc: string | null =
-    getSafeImageSrc(currentPageData?.hero_image_url) ??
-    getSafeImageSrc(step.hero_image_url) ??
-    getSafeImageSrc(chapter.hero_image_url) ??
-    getSafeImageSrc(chapter.thumbnail_url);
-  let heroImageAlt: string = currentPageData?.title || step.title;
-  let contentBlocks: any[] = rawBlocks;
+  // Compute hero image for current page - memoized to update with currentPage
+  const { heroImageSrc, heroImageAlt, contentBlocks } = useMemo(() => {
+    let imgSrc: string | null =
+      getSafeImageSrc(currentPageData?.hero_image_url) ??
+      getSafeImageSrc(step.hero_image_url) ??
+      getSafeImageSrc(chapter.hero_image_url) ??
+      getSafeImageSrc(chapter.thumbnail_url);
+    let imgAlt: string = currentPageData?.title || step.title;
+    let blocks: any[] = rawBlocks;
+
+    const stepTypeForImage = step.step_type as SectionStepType;
+    const sectionFallback =
+      chapter.chapter_number && stepTypeForImage
+        ? getSectionImageUrlPrimary(chapter.chapter_number, stepTypeForImage)
+        : '';
+
+    // Find first image block in current page (fallback if page.hero_image_url is not set)
+    const firstImgBlock = rawBlocks.find(
+      (block) => block && typeof block === 'object' && block.type === 'image' && block.src
+    );
+
+    // If no hero_image_url is set on the page, use the first image block as fallback
+    if (!getSafeImageSrc(currentPageData?.hero_image_url) && firstImgBlock) {
+      // Use the first image found in page content as hero
+      imgSrc = getSafeImageSrc(firstImgBlock.src) ?? imgSrc;
+      imgAlt = firstImgBlock.alt || currentPageData?.title || step.title;
+      // Remove this image block from content
+      blocks = rawBlocks.filter(block => block !== firstImgBlock);
+    } else {
+      // Keep all blocks (since we're using the dedicated hero_image_url)
+      blocks = rawBlocks;
+    }
+
+    // Remove ALL framework_cover blocks from content (they're shown as full-page cover, never on right)
+    blocks = blocks.filter(
+      (block) => !(block && typeof block === 'object' && block.type === 'framework_cover')
+    );
+    // Remove page_meta blocks (they only hold title_style; not rendered)
+    blocks = blocks.filter(
+      (block) => !(block && typeof block === 'object' && block.type === 'page_meta')
+    );
+
+    // If still no image, use section fallback
+    if (!imgSrc && sectionFallback) {
+      imgSrc = sectionFallback;
+    }
+
+    return {
+      heroImageSrc: imgSrc,
+      heroImageAlt: imgAlt,
+      contentBlocks: blocks
+    };
+  }, [currentPage, currentPageData, step.hero_image_url, chapter.hero_image_url, chapter.thumbnail_url, step.title, chapter.chapter_number, step.step_type, rawBlocks]);
 
   const stepTypeForImage = step.step_type as SectionStepType;
   const sectionFallbackImage =
     chapter.chapter_number && stepTypeForImage
       ? getSectionImageUrlPrimary(chapter.chapter_number, stepTypeForImage)
       : '';
-
-  // Find first image block in current page (fallback if page.hero_image_url is not set)
-  const firstImageBlock = rawBlocks.find(
-    (block) => block && typeof block === 'object' && block.type === 'image' && block.src
-  );
-
-  // If no hero_image_url is set on the page, use the first image block as fallback
-  if (!getSafeImageSrc(currentPageData?.hero_image_url) && firstImageBlock) {
-    // Use the first image found in page content as hero
-    heroImageSrc = getSafeImageSrc(firstImageBlock.src) ?? heroImageSrc;
-    heroImageAlt = firstImageBlock.alt || currentPageData?.title || step.title;
-    // Remove this image block from content
-    contentBlocks = rawBlocks.filter(block => block !== firstImageBlock);
-  } else {
-    // Keep all blocks (since we're using the dedicated hero_image_url)
-    contentBlocks = rawBlocks;
-  }
-
-  // Remove ALL framework_cover blocks from content (they're shown as full-page cover, never on right)
-  contentBlocks = contentBlocks.filter(
-    (block) => !(block && typeof block === 'object' && block.type === 'framework_cover')
-  );
-  // Remove page_meta blocks (they only hold title_style; not rendered)
-  contentBlocks = contentBlocks.filter(
-    (block) => !(block && typeof block === 'object' && block.type === 'page_meta')
-  );
 
   // Avoid duplicate heading: if the first content block is already a heading, don't render page title as h1 (content will show it once).
   const firstContentBlock = contentBlocks[0];
@@ -494,21 +514,6 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     contentBlocks.some(
       (block) => block && typeof block === 'object' && (block as { type?: string }).type === 'checklist'
     );
-
-  const heroImageStateKey = currentPageData?.id ?? `page-${currentPage}`;
-  const [displayHeroImageSrc, setDisplayHeroImageSrc] = useState<string | null>(heroImageSrc);
-
-  useEffect(() => {
-    setDisplayHeroImageSrc(heroImageSrc);
-  }, [heroImageSrc, heroImageStateKey]);
-
-  const handleHeroImageError = () => {
-    if (sectionFallbackImage && displayHeroImageSrc !== sectionFallbackImage) {
-      setDisplayHeroImageSrc(sectionFallbackImage);
-      return;
-    }
-    setDisplayHeroImageSrc(null);
-  };
 
   // Keep a rolling lookahead window warm as the user advances through pages.
   const lookaheadImageSrcs = [
@@ -1095,10 +1100,10 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
         {!isFollowThroughChecklistPage && (
           <div className="w-full lg:w-1/2 h-48 sm:h-64 lg:h-full lg:min-h-[400px] flex-shrink-0 relative overflow-hidden bg-[var(--color-offwhite)] dark:bg-[#0a1628]">
             <GuidedHeroImage
-              src={displayHeroImageSrc}
+              key={`page-${currentPage}-${currentPageData?.id || ''}`}
+              src={heroImageSrc}
               alt={heroImageAlt}
               priority={false}
-              onError={handleHeroImageError}
             />
           </div>
         )}
