@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { use } from 'react'
 import { completeSectionBlock, hasProofForChapter } from '@/app/actions/chapters'
+import { getResolutionCopy, type ResolutionCopyData } from '@/app/actions/resolution'
 import { celebrateSectionCompletion } from '@/lib/celebration/celebrate'
 import { getClient } from '@/lib/supabase/client'
 import { saveIdentityResolutionForChapter1, type IdentityResolutionData } from '@/app/actions/identity'
@@ -11,6 +12,7 @@ import { useClickSound } from '@/lib/hooks/useClickSound'
 import LoadingButton from '@/components/ui/LoadingButton'
 import AdminEditButton from '@/components/admin/AdminEditButton'
 import { getFollowThroughUrl } from '@/lib/guided-book/navigation'
+import { usePrefetchGuidedStep } from '@/lib/hooks/useGuidedFlowPreload'
 
 type ResolutionType = 'text' | 'image' | 'audio' | 'video'
 
@@ -97,131 +99,44 @@ export default function ResolutionPage({
     }
   }, [])
 
+  // Prefetch follow-through step
+  usePrefetchGuidedStep(chapterId, 'follow_through', null)
+
   // ---------------------------------------------------------------------------
   // Dynamic Resolution Copy (chapter-specific)
   // ---------------------------------------------------------------------------
   /**
-   * We want the identity example + proof instructions on this page
-   * to match whatever the admin has configured for the chapter's
-   * Resolution step (identity_resolution_guidance + resolution_proof blocks).
-   *
-   * For backward compatibility, we start with the original Chapter 1
-   * hard-coded copy as defaults, then override from the DB if we find
-   * a Resolution step + page for this chapter.
+   * Server-seeded resolution copy to avoid post-hydration loading flash.
+   * Fetches chapter-specific guidance from server action immediately.
    */
-  const [resolutionCopy, setResolutionCopy] = useState(() => ({
+  const [resolutionCopy, setResolutionCopy] = useState<ResolutionCopyData>({
     headingTitle: 'Identity Resolution',
     headingSubtitle: `This is your anchor statement for Chapter ${chapterId}. Use it as inspiration for one of your proof entries below.`,
-    exampleText: 'Loading your chapter-specific guidance...',
+    exampleText: '',
     proofTitle: 'Write Your Response',
     proofSubtitle: 'Use this space to document your progress and proof.',
     proofLabel: 'Proof',
     proofPlaceholder: 'Write your proof here...',
-  }))
+  })
 
   useEffect(() => {
     let cancelled = false
 
-    async function loadResolutionCopyForChapter() {
-      try {
-        const res = await fetch(`/api/chapter/${chapterId}/resolution-copy`);
-
-        if (!res.ok) {
-          console.error('[Resolution] Failed to fetch resolution copy via API:', res.status);
-          return;
-        }
-
-        const json = await res.json();
-
-        if (!json?.success) {
-          console.warn('[Resolution] Resolution copy API returned error or unsuccessful response:', json?.error);
-          return;
-        }
-
-        if (cancelled) return;
-
-        const guidance = json.guidance as
-          | {
-              title?: string;
-              subtitle?: string;
-              exampleText?: string;
-            }
-          | null;
-
-        const proofBlock = json.proof as
-          | {
-              title?: string;
-              subtitle?: string;
-              label?: string;
-              placeholder?: string;
-            }
-          | null;
-
-        setResolutionCopy((prev) => ({
-          headingTitle: guidance?.title || prev.headingTitle,
-          headingSubtitle: guidance?.subtitle || prev.headingSubtitle,
-          exampleText: guidance?.exampleText || prev.exampleText,
-          proofTitle: proofBlock?.title || prev.proofTitle,
-          proofSubtitle: proofBlock?.subtitle || prev.proofSubtitle,
-          proofLabel: proofBlock?.label || prev.proofLabel,
-          proofPlaceholder: proofBlock?.placeholder || prev.proofPlaceholder,
-        }));
-
-        // Resolve IDs for admin edit button (same editor flow used by reading pages).
-        const { data: chapterRow } = await supabase
-          .from('chapters')
-          .select('id')
-          .eq('chapter_number', chapterId)
-          .maybeSingle();
-        if (!chapterRow?.id) return;
-
-        const { data: resolutionStep } = await supabase
-          .from('chapter_steps')
-          .select('id')
-          .eq('chapter_id', chapterRow.id)
-          .eq('step_type', 'resolution')
-          .order('step_order', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (!resolutionStep?.id) return;
-
-        const { data: resolutionPage } = await supabase
-          .from('chapter_pages')
-          .select('id')
-          .eq('step_id', resolutionStep.id)
-          .order('page_order', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (!resolutionPage?.id) return;
-
-        if (!cancelled) {
-          setAdminEditMeta({
-            chapterId: chapterRow.id as string,
-            stepId: resolutionStep.id as string,
-            pageId: resolutionPage.id as string,
-          });
-        }
-      } catch (err) {
-        console.error('[Resolution] Failed to load chapter-specific copy:', err)
+    getResolutionCopy(chapterId).then(copy => {
+      if (!cancelled) {
+        setResolutionCopy(copy)
       }
-    }
-
-    loadResolutionCopyForChapter()
+    })
 
     return () => {
       cancelled = true
     }
-  }, [chapterId, supabase])
+  }, [chapterId])
 
   // One-time per chapter: if proof already submitted, show completed view
   useEffect(() => {
     hasProofForChapter(chapterId).then(setAlreadyCompleted)
   }, [chapterId])
-
-  // Prefetch next page (follow-through)
-  useEffect(() => {
-    router.prefetch(getFollowThroughUrl(chapterId))
-  }, [router, chapterId])
 
   const handleTypeChange = (id: number, type: ResolutionType) => {
     setDrafts(prev =>
@@ -518,11 +433,9 @@ export default function ResolutionPage({
           title: 'Resolution Complete!',
         })
 
-        // Small delay to ensure celebration starts, THEN navigate
-        setTimeout(() => {
-          router.push(followThroughUrl)
-          if (mountedRef.current) setIsProcessing(false)
-        }, 500)
+        // Navigate immediately - celebration will overlay during transition
+        router.push(followThroughUrl)
+        if (mountedRef.current) setIsProcessing(false)
       } else {
         // If completion failed, still navigate
         router.push(followThroughUrl)

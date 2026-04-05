@@ -17,12 +17,6 @@
   --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   
-  /* TCP Brand Fonts */
-  --font-montserrat: var(--font-montserrat), sans-serif;
-  --font-lexend: var(--font-lexend), sans-serif;
-  --font-roboto: var(--font-roboto), sans-serif;
-  --font-open-sans: var(--font-open-sans), sans-serif;
-  
   /* Usage rule: ~70% Off-White + Gray, 20% Charcoal, 10% Accent */
   --background: var(--color-offwhite);
   --foreground: var(--color-charcoal);

@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Typed from 'typed.js'
 
 interface HeroSectionProps {
@@ -12,6 +12,18 @@ interface HeroSectionProps {
 
 export function HeroSection({ buttonsRef }: HeroSectionProps) {
   const typedElement = useRef<HTMLSpanElement>(null)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+
+  useEffect(() => {
+    // Check for reduced motion preference
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setPrefersReducedMotion(mediaQuery.matches)
+    
+    const handleChange = () => setPrefersReducedMotion(mediaQuery.matches)
+    mediaQuery.addEventListener('change', handleChange)
+    
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [])
 
   useEffect(() => {
     if (!typedElement.current) return
@@ -72,19 +84,23 @@ export function HeroSection({ buttonsRef }: HeroSectionProps) {
             className="lg:col-span-7 relative -mx-4 sm:-mx-8 lg:-ml-16 xl:-ml-24 -mb-16 sm:-mb-20 md:-mb-24 lg:-mb-32"
           >
             <div className="relative w-full">
-              {/* Two animated spinning circles - brand colors */}
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                className="absolute inset-0 border-[3px] sm:border-[4px] border-[#0073ba]/35 rounded-full"
-                style={{ transform: 'scale(0.9)' }}
-              />
-              <motion.div
-                animate={{ rotate: -360 }}
-                transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-                className="absolute inset-0 border-[3px] sm:border-[4px] border-[#ff6a38]/30 rounded-full"
-                style={{ transform: 'scale(1.05)' }}
-              />
+              {/* Two animated spinning circles - only if motion not reduced */}
+              {!prefersReducedMotion && (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+                    className="absolute inset-0 border-[3px] sm:border-[4px] border-[#0073ba]/35 rounded-full"
+                    style={{ transform: 'scale(0.9)' }}
+                  />
+                  <motion.div
+                    animate={{ rotate: -360 }}
+                    transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
+                    className="absolute inset-0 border-[3px] sm:border-[4px] border-[#ff6a38]/30 rounded-full"
+                    style={{ transform: 'scale(1.05)' }}
+                  />
+                </>
+              )}
               
               {/* Hero image - MASSIVE and touches bottom */}
               <Image
@@ -118,17 +134,7 @@ export function HeroSection({ buttonsRef }: HeroSectionProps) {
               }}
               className="flex justify-center lg:justify-start mb-6"
             >
-              <motion.div
-                animate={{ 
-                  y: [0, -8, 0],
-                }}
-                transition={{
-                  duration: 2.5,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                className="w-32 sm:w-40 md:w-48"
-              >
+              <div className="w-32 sm:w-40 md:w-48">
                 <div className="relative w-full">
                   <Image
                     src="/TCP-logo.png"
@@ -136,7 +142,6 @@ export function HeroSection({ buttonsRef }: HeroSectionProps) {
                     width={200}
                     height={60}
                     className="w-full h-auto dark:hidden"
-                    priority
                   />
                   <Image
                     src="/TCP-logo-white.png"
@@ -144,10 +149,9 @@ export function HeroSection({ buttonsRef }: HeroSectionProps) {
                     width={200}
                     height={60}
                     className="w-full h-auto hidden dark:block"
-                    priority
                   />
                 </div>
-              </motion.div>
+              </div>
             </motion.div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-gray-900 dark:text-white leading-tight">
@@ -172,9 +176,9 @@ export function HeroSection({ buttonsRef }: HeroSectionProps) {
               <div className="flex flex-col items-center lg:items-start gap-2">
                 <Link href="/onboarding">
                   <motion.button
-                    animate={{
+                    animate={!prefersReducedMotion ? {
                       scale: [1, 1.06, 1]
-                    }}
+                    } : {}}
                     transition={{
                       duration: 2,
                       repeat: Infinity,

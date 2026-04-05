@@ -1,9 +1,7 @@
 import { redirect } from 'next/navigation';
-import { getCachedChapterBundle, getCachedChapterBundleAdmin } from '@/lib/content/cache.server';
-import { getStepPages, getNextStepWithContentV2 } from '@/lib/content/queries';
-import { getChapterPromptAnswers } from '@/app/actions/prompts';
-import { getYourTurnResponses } from '@/app/actions/yourTurn';
-import { getLastCompletedPageIndex } from '@/app/actions/chapters';
+import { getCachedChapterBundle, getCachedChapterBundleAdmin, getCachedStepPages } from '@/lib/content/cache.server';
+import { getNextStepWithContentV2 } from '@/lib/content/queries';
+import { getCachedGuidedFlowUserState, getCachedResumePosition } from '@/lib/content/guided-flow-loader.server';
 import { getSession } from '@/lib/auth/guards';
 import DynamicStepClient from './DynamicStepClient';
 import ReadingErrorBoundary from '@/components/error/ReadingErrorBoundary';
@@ -22,7 +20,6 @@ export default async function DynamicStepPage({
 }) {
   const { chapterSlug, stepSlug } = await params;
 
-  // Check if user is admin so they can access unpublished chapters
   const session = await getSession();
   const isAdmin = session?.role === 'admin';
 
@@ -46,15 +43,17 @@ export default async function DynamicStepPage({
   if (!step) redirect(`/read/${chapterSlug}`);
 
   // Parallelize independent queries after step is known
-  const [pages, nextStep, { data: savedAnswers }, yourTurnByPrompt, resumePageIndex] = await Promise.all([
-    getStepPages(step.id),
+  // Use cached step pages and request-scoped user state loader
+  const [pages, nextStep, userState] = await Promise.all([
+    getCachedStepPages(step.id),
     getNextStepWithContentV2(chapter.id, step.order_index),
-    getChapterPromptAnswers(chapter.chapter_number),
-    getYourTurnResponses(chapter.chapter_number),
-    getStepPages(step.id).then(stepPages => 
-      getLastCompletedPageIndex(step.id, stepPages.map(p => p.id))
-    ),
+    getCachedGuidedFlowUserState(chapter.chapter_number),
   ]);
+
+  // Get resume position using already-loaded pages
+  const resumePageIndex = await getCachedResumePosition(step.id, pages.map(p => p.id));
+
+  const { savedAnswers, yourTurnByPrompt } = userState;
   
   // Enhanced error handling: Show user-friendly message instead of crashing
   if (!pages.length) {

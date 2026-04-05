@@ -12,8 +12,8 @@ interface SectionImagePrefetchProps {
 }
 
 /**
- * Aggressively prefetches the reading section image and route when dashboard loads.
- * Uses high-priority, non-deferred prefetch so image and route are ready before user clicks "Continue".
+ * Aggressively prefetches the reading section when dashboard loads.
+ * Uses high-priority image preload and route prefetch.
  */
 export default function SectionImagePrefetch({ currentChapter, continueHref }: SectionImagePrefetchProps) {
   const router = useRouter();
@@ -26,10 +26,10 @@ export default function SectionImagePrefetch({ currentChapter, continueHref }: S
     defer: false,
   });
 
-  // Prefetch the reading route bundle
+  // Prefetch the reading route using the actual continueHref
   useEffect(() => {
     if (continueHref) {
-      tryPrefetch(continueHref, () => {
+      tryPrefetch(`route:${continueHref}`, () => {
         router.prefetch(continueHref);
       });
     }

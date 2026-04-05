@@ -3,7 +3,6 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { X, Download } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
 import { DashboardNav } from '@/components/ui/DashboardNav';
 
 interface ReadingLayoutProps {
@@ -89,11 +88,9 @@ export default function ReadingLayout({
                 </div>
               ) : null}
               <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-[#ff6a38] rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${currentProgress}%` }}
-                  transition={{ duration: 0.3 }}
+                <div
+                  className="h-full bg-[#ff6a38] rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${currentProgress}%` }}
                 />
               </div>
             </div>

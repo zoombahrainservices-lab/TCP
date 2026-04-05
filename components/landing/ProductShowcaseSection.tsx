@@ -3,12 +3,25 @@
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { NeuralNetworkBackground } from '@/components/ui/NeuralNetworkBackground'
+import { useEffect, useState } from 'react'
 
 export function ProductShowcaseSection() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setPrefersReducedMotion(mediaQuery.matches)
+    
+    const handleChange = () => setPrefersReducedMotion(mediaQuery.matches)
+    mediaQuery.addEventListener('change', handleChange)
+    
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [])
+  
   return (
     <section id="about" className="landing-light-band py-20 md:py-32 bg-[var(--color-offwhite)] relative overflow-hidden">
-      {/* Neural Network Background */}
-      <NeuralNetworkBackground />
+      {/* Neural Network Background - only if motion not reduced */}
+      {!prefersReducedMotion && <NeuralNetworkBackground />}
       <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-20">
         
         {/* Section: Backed by neuroscience */}
@@ -21,7 +34,8 @@ export function ProductShowcaseSection() {
             transition={{ duration: 0.6 }}
             className="relative w-full h-[500px] z-10"
           >
-            {/* Neuroscience Particle Animation */}
+            {/* Neuroscience Particle Animation - only if motion not reduced */}
+            {!prefersReducedMotion && (
             <div className="absolute inset-0 -left-12 -right-12 -top-12 -bottom-12 z-10">
                 {/* Central brain-like node */}
                 <motion.div
@@ -138,6 +152,7 @@ export function ProductShowcaseSection() {
                   className="absolute bottom-1/4 left-1/3 w-3 h-3 rounded-full bg-[#0073ba]"
                 ></motion.div>
             </div>
+            )}
           </motion.div>
 
           {/* Right: Text content */}

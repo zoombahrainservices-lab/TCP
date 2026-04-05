@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
 import { Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
@@ -20,9 +19,13 @@ import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
 import { playClickSound } from '@/lib/celebration/sounds';
 import { getSectionImageUrlPrimary, type SectionStepType } from '@/lib/chapterImages';
-import { usePrefetchImages } from '@/lib/hooks/usePrefetchImage';
-import { useGuidedFlowPrefetch } from '@/lib/hooks/useGuidedFlowPrefetch';
-import { getNextStepUrl } from '@/lib/guided-book/navigation';
+import { useGuidedFlowPreload } from '@/lib/hooks/useGuidedFlowPreload';
+
+// Helper to check if a string is a valid SectionStepType
+function isValidSectionStepType(slug: string): boolean {
+  const validTypes: SectionStepType[] = ['read', 'self_check', 'framework', 'techniques', 'resolution'];
+  return validTypes.includes(slug as SectionStepType);
+}
 
 // Lazy load self-check components (only used on assessment steps)
 const SelfCheckAssessment = dynamic(() => import('@/components/assessment/SelfCheckAssessment'), {
@@ -79,30 +82,65 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
   const [isProcessing, setIsProcessing] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
   const continueButtonRef = useRef<HTMLButtonElement>(null);
+  /** Ensures server resume runs only once per step visit; avoids re-applying resume when ?page= is cleared after in-step navigation. */
+  const initialPageHydrationDoneRef = useRef(false);
 
-  // Resume progress on mount (unless URL param overrides it)
+  // Initial page from ?page= or one-time resume (must not re-run resume on every searchParams change)
   useEffect(() => {
+    if (pages.length === 0) return;
+
     const pageParam = searchParams.get('page');
-    
-    if (pageParam) {
+
+    if (pageParam !== null && pageParam !== '') {
       const pageNumber = Number(pageParam);
       if (Number.isFinite(pageNumber) && pageNumber >= 0 && pageNumber < pages.length) {
         setCurrentPage(pageNumber);
-        return;
       }
+      initialPageHydrationDoneRef.current = true;
+      return;
     }
-    
-    // No URL param - resume at last completed page + 1 (skip cover)
-    if (resumePageIndex >= 0) {
-      const nextPage = resumePageIndex + 1;
-      if (nextPage < pages.length) {
-        setCurrentPage(nextPage);
+
+    if (!initialPageHydrationDoneRef.current) {
+      if (resumePageIndex >= 0) {
+        const nextPage = resumePageIndex + 1;
+        if (nextPage < pages.length) {
+          setCurrentPage(nextPage);
+        }
       }
+      initialPageHydrationDoneRef.current = true;
     }
   }, [searchParams, pages.length, resumePageIndex]);
 
-  // Build next URL using canonical helper - handles resolution redirect
-  const nextUrl = getNextStepUrl(chapter.chapter_number, nextStep?.step_type);
+  // Canonical URLs use chapter slug (not /read/chapter-N/...).
+  const nextUrl = nextStepSlug
+    ? nextStepSlug === 'resolution'
+      ? `/chapter/${chapter.chapter_number}/proof`
+      : `/read/${chapter.slug}/${nextStepSlug}`
+    : null;
+
+  // Determine next step info for prefetching (with safe type conversion)
+  const nextStepHeroImage = nextStepSlug && isValidSectionStepType(nextStepSlug)
+    ? getSectionImageUrlPrimary(chapter.chapter_number, nextStepSlug as SectionStepType) 
+    : null;
+  
+  // Get next page hero image (for n+1 preloading within step)
+  const nextPageIndex = currentPage + 1;
+  const nextPageHeroImage = nextPageIndex >= 0 && nextPageIndex < pages.length 
+    ? pages[nextPageIndex]?.hero_image_url || null
+    : null;
+
+  // Use unified guided-flow preload
+  useGuidedFlowPreload({
+    chapterNumber: chapter.chapter_number,
+    chapterSlug: chapter.slug,
+    currentStepSlug: step.slug,
+    nextStepSlug: nextStepSlug,
+    nextStepHeroImage: nextStepHeroImage,
+    currentPageIndex: currentPage,
+    totalPages: pages.length,
+    nextPageHeroImage: nextPageHeroImage,
+    prefetchDashboard: true,
+  });
 
   // Chapter reading PDF download URL
   // Priority:
@@ -124,21 +162,6 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
 
   const handleDownloadChapter = useClickSound(handleDownloadChapterCore);
 
-  // Jump to specific page from URL query param (?page=3)
-  // Note: page param is the array index (0-based in state, but passed as 1-based in URL for readability)
-  useEffect(() => {
-    const pageParam = searchParams.get('page');
-    if (!pageParam || pages.length === 0) return;
-
-    const pageNumber = Number(pageParam);
-    if (!Number.isFinite(pageNumber) || pageNumber < 0) return;
-
-    // Page param is the actual array index
-    if (pageNumber >= 0 && pageNumber < pages.length && pageNumber !== currentPage) {
-      setCurrentPage(pageNumber);
-    }
-  }, [searchParams, pages.length]); // Removed currentPage from deps to avoid loops
-
   // When returning from edit (?page= in URL): focus Continue button so first tap activates it (fixes double-tap)
   useEffect(() => {
     const pageParam = searchParams.get('page');
@@ -149,18 +172,6 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     }, 100);
     return () => clearTimeout(t);
   }, [searchParams]);
-
-  // Unified prefetch for next section
-  const isNearEnd = currentPage >= pages.length - 2;
-  const nextSectionImageUrl = getHeroImageSrcForStep(nextStep);
-  
-  useGuidedFlowPrefetch({
-    chapterNumber: chapter.chapter_number,
-    nextUrl,
-    nextHeroImage: nextSectionImageUrl,
-    prefetchDashboard: true,
-    isNearEnd,
-  });
 
   const handleResponseChange = (promptId: string, value: any) => {
     setUserResponses(prev => ({ ...prev, [promptId]: value }));
@@ -322,15 +333,13 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
           title: `${sectionName} Complete!`,
         });
 
-        // Small delay to ensure celebration starts rendering, THEN navigate
-        setTimeout(() => {
-          if (nextUrl) {
-            router.push(nextUrl);
-          } else {
-            router.push('/dashboard');
-          }
-          setIsProcessing(false);
-        }, 500);
+        // Navigate immediately - celebration will overlay during transition
+        if (nextUrl) {
+          router.push(nextUrl);
+        } else {
+          router.push('/dashboard');
+        }
+        setIsProcessing(false);
       } else {
         // If section completion failed, still navigate
         if (nextUrl) {
@@ -514,16 +523,6 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     contentBlocks.some(
       (block) => block && typeof block === 'object' && (block as { type?: string }).type === 'checklist'
     );
-
-  // Keep a rolling lookahead window warm as the user advances through pages.
-  const lookaheadImageSrcs = [
-    getHeroImageSrcForPage(pages[Math.max(currentPage + 1, 0)]),
-    getHeroImageSrcForPage(pages[Math.max(currentPage + 2, 1)]),
-  ];
-  usePrefetchImages(lookaheadImageSrcs, {
-    priority: 'low',
-    defer: true,
-  });
 
   // ============================================================================
   // FRAMEWORK PROGRESS STRIP (SPARK / VOICE / any framework)

@@ -10,10 +10,14 @@
  * - Service-role queries are safe to cache (no user-specific data, no cookies())
  * - Short TTL (5 minutes) to balance performance and freshness
  * - Tagged for manual invalidation when content is updated
+ * 
+ * DEVELOPMENT INSTRUMENTATION:
+ * - Cache hits/misses are logged in dev mode for performance verification
  */
 
 import { createClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
+import { perfLog } from '@/lib/performance/debug'
 
 // Verify this is server-only
 if (typeof window !== 'undefined') {
@@ -87,6 +91,7 @@ function isMissingColumnSupabaseError(error: unknown, columnName: string): boole
  */
 export const getCachedChapterBundle = unstable_cache(
   async (chapterSlug: string) => {
+    perfLog.cache(`Fetching chapter bundle: ${chapterSlug}`)
     const supabase = createServiceClient()
 
     // Primary path: use the RPC for best performance
@@ -151,6 +156,7 @@ export const getCachedChapterBundle = unstable_cache(
  */
 export const getCachedStepPages = unstable_cache(
   async (stepId: string) => {
+    perfLog.cache(`Fetching step pages: ${stepId}`)
     const supabase = createServiceClient()
 
     const { data, error } = await supabase
@@ -332,66 +338,112 @@ export async function getCachedChapterByNumber(chapterNumber: number) {
 
 /**
  * Get chapter bundle for admin preview (includes unpublished chapters).
+ *
+ * IMPORTANT: The DB function `get_chapter_bundle` filters `is_published = true`, so it
+ * cannot load drafts. Admins must load via direct table queries first.
  */
 export async function getCachedChapterBundleAdmin(chapterSlug: string) {
   const supabase = createServiceClient()
+  const normalizedSlug = chapterSlug.trim()
 
-  // Primary path: use RPC (ignores is_published so drafts can be previewed)
-  const { data, error } = await supabase.rpc('get_chapter_bundle', {
-    chapter_slug: chapterSlug,
-  })
+  if (!normalizedSlug) {
+    return null
+  }
 
-  const hasValidData = Array.isArray(data) && data.length > 0 && data[0]?.chapter_data
-  const hasRealError = !!error
+  // Primary: direct chapter row (published or not) — matches how admins preview drafts.
+  let { data: chapterRows, error: chapterError } = await supabase
+    .from('chapters')
+    .select('*')
+    .eq('slug', normalizedSlug)
+    .limit(1)
 
-  if (hasValidData) {
-    const chapter = data[0].chapter_data as any
-    const steps = data[0].steps_data as any[]
+  // Case-insensitive slug match only when safe: ILIKE treats `_` and `%` as wildcards.
+  if (
+    !chapterError &&
+    (!chapterRows || chapterRows.length === 0) &&
+    !normalizedSlug.includes('_') &&
+    !normalizedSlug.includes('%')
+  ) {
+    const { data: ilikeRows, error: ilikeError } = await supabase
+      .from('chapters')
+      .select('*')
+      .ilike('slug', normalizedSlug)
+      .limit(1)
+    if (!ilikeError && ilikeRows && ilikeRows.length > 0) {
+      chapterRows = ilikeRows
+      chapterError = null
+    }
+  }
+
+  if (chapterRows && chapterRows.length > 0) {
+    const chapter = chapterRows[0] as any
+
+    const { data: stepsRows, error: stepsError } = await supabase
+      .from('chapter_steps')
+      .select('*')
+      .eq('chapter_id', chapter.id)
+      .order('order_index', { ascending: true })
+
+    if (stepsError) {
+      console.error('getCachedChapterBundleAdmin: error fetching steps', stepsError)
+    }
 
     return {
       chapter,
-      steps,
+      steps: (stepsRows as any[]) || [],
+      error: stepsError || chapterError || null,
+    }
+  }
+
+  // Last resort: RPC only returns published chapters; still useful if slug matched RPC expectations but direct query failed unexpectedly.
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_chapter_bundle', {
+    chapter_slug: normalizedSlug,
+  })
+  const hasValidData =
+    Array.isArray(rpcData) && rpcData.length > 0 && rpcData[0]?.chapter_data
+
+  if (hasValidData) {
+    return {
+      chapter: rpcData[0].chapter_data as any,
+      steps: rpcData[0].steps_data as any[],
       error: null,
     }
   }
 
-  // Fallback path for admin preview if RPC is missing/misconfigured
-  if (hasRealError) {
-    console.error(
-      'getCachedChapterBundleAdmin: RPC get_chapter_bundle failed or returned no data, falling back to direct queries',
-      error
-    )
-  }
-
-  const { data: chapterRows, error: chapterError } = await supabase
-    .from('chapters')
-    .select('*')
-    .eq('slug', chapterSlug)
-    .limit(1)
-
-  if (chapterError || !chapterRows || chapterRows.length === 0) {
-    console.error('getCachedChapterBundleAdmin: failed to fetch chapter via fallback', chapterError || error)
-    return null
-  }
-
-  const chapter = chapterRows[0] as any
-
-  const { data: stepsRows, error: stepsError } = await supabase
-    .from('chapter_steps')
-    .select('*')
-    .eq('chapter_id', chapter.id)
-    .order('order_index', { ascending: true })
-
-  if (stepsError) {
-    console.error('getCachedChapterBundleAdmin: error fetching steps in fallback', stepsError)
-  }
-
-  return {
-    chapter,
-    steps: (stepsRows as any[]) || [],
-    error: stepsError || chapterError || error || null,
-  }
+  console.error(
+    'getCachedChapterBundleAdmin: no chapter found for slug',
+    JSON.stringify({ slug: normalizedSlug, chapterError, rpcError })
+  )
+  return null
 }
+
+/**
+ * Get a single step by ID (cached).
+ * Useful for prefetching next step metadata.
+ */
+export const getCachedStepById = unstable_cache(
+  async (stepId: string) => {
+    const supabase = createServiceClient()
+
+    const { data, error } = await supabase
+      .from('chapter_steps')
+      .select('*')
+      .eq('id', stepId)
+      .single()
+
+    if (error) {
+      console.error('Error fetching step by ID:', error)
+      return null
+    }
+
+    return data
+  },
+  ['step-by-id'],
+  {
+    revalidate: 300,
+    tags: ['steps', 'content'],
+  }
+)
 
 /**
  * Invalidate content caches after admin updates.

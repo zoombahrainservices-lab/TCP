@@ -1,0 +1,178 @@
+# Performance Baseline Results
+
+## Test Session Information
+- **Date**: [Record date of baseline measurement]
+- **Git Commit**: [Record commit hash]
+- **Branch**: [Record branch name]
+- **Tester**: [Your name]
+- **Environment**: Dev / Preview / Production
+- **Device**: Desktop / Mobile (specify model)
+- **Network**: Fast 3G / 4G / WiFi
+
+---
+
+## Baseline Metrics
+
+### Landing Page (/)
+- TTFB: _______ ms
+- FCP: _______ ms
+- LCP: _______ ms
+- INP: _______ ms
+- CLS: _______
+- Lighthouse: _______ / 100
+- Image payload: _______ MB
+- JS bundle: _______ KB
+- Notes: _______________
+
+### Dashboard (/dashboard)
+- TTFB: _______ ms
+- FCP: _______ ms
+- LCP: _______ ms
+- INP: _______ ms
+- CLS: _______
+- Lighthouse: _______ / 100
+- Supabase auth calls: _______
+- Notes: _______________
+
+### Chapter 1 - Reading (/read/stage-star-silent-struggles)
+- TTFB: _______ ms
+- FCP: _______ ms
+- LCP: _______ ms
+- INP: _______ ms
+- CLS: _______
+- Lighthouse: _______ / 100
+- Image payload: _______ MB
+- JS bundle: _______ KB
+- Notes: _______________
+
+### Chapter 1 - Self-Check (/read/stage-star-silent-struggles/assessment)
+- TTFB: _______ ms
+- FCP: _______ ms
+- LCP: _______ ms
+- INP: _______ ms
+- Post-mount copy fetch: _______ ms
+- Notes: _______________
+
+### Chapter 1 - Framework (/read/stage-star-silent-struggles/framework)
+- TTFB: _______ ms
+- FCP: _______ ms
+- LCP: _______ ms
+- INP: _______ ms
+- Image payload: _______ MB
+- Notes: _______________
+
+### Chapter 1 - Resolution (/chapter/1/proof)
+- TTFB: _______ ms
+- FCP: _______ ms
+- LCP: _______ ms
+- INP: _______ ms
+- JS bundle: _______ KB
+- Notes: _______________
+
+### Chapter 2 - Reading (/read/genius-who-couldnt-speak)
+- TTFB: _______ ms
+- FCP: _______ ms
+- LCP: _______ ms
+- Cache behavior: Hit / Miss
+- Notes: _______________
+
+### Map (/map)
+- TTFB: _______ ms
+- FCP: _______ ms
+- LCP: _______ ms
+- INP: _______ ms
+- Query count: _______
+- Notes: _______________
+
+---
+
+## Route Transition Timings (Perceived Speed)
+
+### Dashboard → Chapter 1 Reading
+- Click to interactive: _______ ms
+- Feels: Instant / Fast / Moderate / Slow
+
+### Reading → Self-Check
+- Click to interactive: _______ ms
+- Feels: Instant / Fast / Moderate / Slow
+
+### Self-Check → Framework
+- Click to interactive: _______ ms
+- Feels: Instant / Fast / Moderate / Slow
+
+### Framework → Techniques
+- Click to interactive: _______ ms
+- Feels: Instant / Fast / Moderate / Slow
+
+### Techniques → Resolution
+- Click to interactive: _______ ms
+- Feels: Instant / Fast / Moderate / Slow
+
+### Resolution → Follow-Through
+- Click to interactive: _______ ms
+- Feels: Instant / Fast / Moderate / Slow
+
+---
+
+## Network Analysis
+
+### Supabase Calls (Chapter 1 Reading load)
+- Total requests: _______
+- `auth.getUser()` calls: _______
+- `chapters` queries: _______
+- `chapter_steps` queries: _______
+- `step_pages` queries: _______
+- Duplicate requests: _______ (list them)
+
+### Image Loading
+- Priority images requested: _______
+- Total image payload: _______ MB
+- Largest image: _______ KB
+- Images above fold: _______
+- Images preloaded: _______
+
+---
+
+## Bundle Size Analysis
+
+### Landing Page
+- Total JS: _______ KB
+- Unused JS: _______ % (from Coverage tab)
+- Largest chunks: _______________
+
+### Chapter Reading
+- Total JS: _______ KB
+- Unused JS: _______ %
+- Largest chunks: _______________
+
+### Framework/Techniques
+- Total JS: _______ KB
+- Unused JS: _______ %
+- Largest chunks: _______________
+
+---
+
+## Known Issues (Before Optimization)
+1. _______________
+2. _______________
+3. _______________
+
+---
+
+## Post-Optimization Comparison
+(Fill this out after implementing changes)
+
+### Key Improvements
+- Metric 1: Before _______ → After _______
+- Metric 2: Before _______ → After _______
+- Metric 3: Before _______ → After _______
+
+### Regressions (if any)
+- Issue 1: _______________
+- Issue 2: _______________
+
+### Overall Assessment
+☐ Significant improvement - safe to ship
+☐ Moderate improvement - monitor in production
+☐ No improvement - rollback and re-analyze
+☐ Regression detected - rollback immediately

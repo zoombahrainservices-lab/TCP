@@ -13,10 +13,14 @@ import { completeDynamicPage, completeDynamicSection } from '@/app/actions/chapt
 import { celebrateSectionCompletion } from '@/lib/celebration/celebrate';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
-import { usePrefetchImages } from '@/lib/hooks/usePrefetchImage';
-import { useGuidedFlowPrefetch } from '@/lib/hooks/useGuidedFlowPrefetch';
-import { getSectionImageUrlPrimary } from '@/lib/chapterImages';
-import { getNextStepUrl } from '@/lib/guided-book/navigation';
+import { useGuidedFlowPreload } from '@/lib/hooks/useGuidedFlowPreload';
+import { getSectionImageUrlPrimary, type SectionStepType } from '@/lib/chapterImages';
+
+// Helper to check if a string is a valid SectionStepType
+function isValidSectionStepType(slug: string): boolean {
+  const validTypes: SectionStepType[] = ['read', 'self_check', 'framework', 'techniques', 'resolution'];
+  return validTypes.includes(slug as SectionStepType);
+}
 
 interface Props {
   chapter: Chapter;
@@ -36,39 +40,56 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
   const [isProcessing, setIsProcessing] = useState(false);
   const completedPagesRef = useRef<Set<string>>(new Set());
   const readingContentRef = useRef<HTMLDivElement>(null);
+  const initialPageHydrationDoneRef = useRef(false);
 
-  const canonicalNextUrl = getNextStepUrl(chapter.chapter_number, readingStep ? 'self_check' : null);
+  // Get next step hero image for prefetching (with safe type conversion)
+  const nextStepHeroImage = nextStepSlug && isValidSectionStepType(nextStepSlug)
+    ? getSectionImageUrlPrimary(chapter.chapter_number, nextStepSlug as SectionStepType) 
+    : null;
+  
+  // Get next page hero image (for n+1 preloading within reading)
+  const nextPageIndex = currentPage + 1;
+  const nextPageHeroImage = nextPageIndex >= 0 && nextPageIndex < pages.length 
+    ? pages[nextPageIndex]?.hero_image_url || null
+    : null;
 
-  const isNearEnd = currentPage >= pages.length - 2;
-  const frameworkImageUrl = getSectionImageUrlPrimary(chapter.chapter_number, 'framework');
-
-  useGuidedFlowPrefetch({
+  // Use unified guided-flow preload
+  useGuidedFlowPreload({
     chapterNumber: chapter.chapter_number,
-    nextUrl: canonicalNextUrl,
-    nextHeroImage: frameworkImageUrl,
+    chapterSlug: chapter.slug,
+    currentStepSlug: 'read',
+    nextStepSlug: nextStepSlug,
+    nextStepHeroImage: nextStepHeroImage,
+    currentPageIndex: currentPage,
+    totalPages: pages.length,
+    nextPageHeroImage: nextPageHeroImage,
     prefetchDashboard: true,
-    isNearEnd,
   });
 
-  // Jump to specific page from URL query param (?page=3) or resume where left off
+  // Initial page from ?page= or one-time resume (do not re-apply resume when URL is cleared after navigation)
   useEffect(() => {
+    if (pages.length === 0) return;
+
     const params = new URLSearchParams(window.location.search);
     const pageParam = params.get('page');
-    
-    if (pageParam) {
+
+    if (pageParam !== null && pageParam !== '') {
       const pageNumber = Number(pageParam);
       if (Number.isFinite(pageNumber) && pageNumber >= 0 && pageNumber < pages.length) {
         setCurrentPage(pageNumber);
-        return;
       }
+      initialPageHydrationDoneRef.current = true;
+      return;
     }
-    
-    // No URL param - resume at last completed page + 1
-    if (resumePageIndex >= 0) {
-      const nextPage = resumePageIndex + 1;
-      if (nextPage < pages.length) {
-        setCurrentPage(nextPage);
+
+    if (!initialPageHydrationDoneRef.current) {
+      if (resumePageIndex >= 0) {
+        const nextPage = resumePageIndex + 1;
+        if (nextPage < pages.length) {
+          setCurrentPage(nextPage);
+        }
       }
+      initialPageHydrationDoneRef.current = true;
     }
   }, [pages.length, resumePageIndex]);
 
@@ -116,6 +137,13 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
           stepType: readingStep.step_type,
         });
         
+        // Canonical URLs use chapter slug (not /read/chapter-N/...).
+        const nextUrl = nextStepSlug
+          ? nextStepSlug === 'resolution'
+            ? `/chapter/${chapter.chapter_number}/proof`
+            : `/read/${chapter.slug}/${nextStepSlug}`
+          : '/dashboard';
+        
         if (sectionResult.success) {
           // Trigger celebration FIRST
           celebrateSectionCompletion({
@@ -126,32 +154,23 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
             title: 'Reading Complete!',
           });
 
-          // Small delay to ensure celebration starts, THEN navigate
-          setTimeout(() => {
-            if (canonicalNextUrl) {
-              router.push(canonicalNextUrl);
-            } else {
-              router.push('/dashboard');
-            }
-            setIsProcessing(false);
-          }, 500);
+          // Navigate immediately - celebration will overlay during transition
+          router.push(nextUrl);
+          setIsProcessing(false);
         } else {
           // If completion failed, still navigate
-          if (canonicalNextUrl) {
-            router.push(canonicalNextUrl);
-          } else {
-            router.push('/dashboard');
-          }
+          router.push(nextUrl);
           setIsProcessing(false);
         }
       } catch (error) {
         console.error('Error completing section:', error);
         // Still navigate on error
-        if (canonicalNextUrl) {
-          router.push(canonicalNextUrl);
-        } else {
-          router.push('/dashboard');
-        }
+        const nextUrl = nextStepSlug
+          ? nextStepSlug === 'resolution'
+            ? `/chapter/${chapter.chapter_number}/proof`
+            : `/read/${chapter.slug}/${nextStepSlug}`
+          : '/dashboard';
+        router.push(nextUrl);
         setIsProcessing(false);
       }
     } else {
@@ -284,16 +303,6 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
       chapter.title
     );
   }, [currentPage, currentPageData, chapter.title]);
-
-  // Warm the next two page images without competing with the current page render.
-  const lookaheadImageSrcs = [
-    getHeroImageForPage(currentPage + 1),
-    getHeroImageForPage(currentPage + 2),
-  ];
-  usePrefetchImages(lookaheadImageSrcs, {
-    priority: 'low',
-    defer: true,
-  });
 
   // Chapter reading PDF download URL
   // Priority:

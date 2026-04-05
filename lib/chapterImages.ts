@@ -80,6 +80,13 @@ export function getSectionImageUrl(
   }
   const base = getChapterImageBase(chapterNumber)
   const names = SECTION_FILE_NAMES[stepType]
+  
+  // Safety check: if stepType is not in SECTION_FILE_NAMES, return empty string
+  if (!names || names.length === 0) {
+    console.warn(`[chapterImages] No image names found for stepType: ${stepType}`)
+    return ''
+  }
+  
   const ext = preferWebp ? 'webp' : 'png'
   const name = names[0]
   return `${base}/${name}.${ext}`
@@ -101,6 +108,13 @@ export function getSectionImageCandidates(
   }
   const base = getChapterImageBase(chapterNumber)
   const names = SECTION_FILE_NAMES[stepType]
+  
+  // Safety check: if stepType is not in SECTION_FILE_NAMES, return empty strings
+  if (!names || names.length === 0) {
+    console.warn(`[chapterImages] No image names found for stepType: ${stepType}`)
+    return ['', '']
+  }
+  
   const name = names[0]
   return [`${base}/${name}.webp`, `${base}/${name}.png`]
 }

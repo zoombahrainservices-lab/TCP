@@ -1,10 +1,7 @@
 import { redirect } from 'next/navigation';
-import { getCachedChapterBundle } from '@/lib/content/cache.server';
-import { getStepPages, getNextStep } from '@/lib/content/queries';
-import { getChapterPromptAnswers } from '@/app/actions/prompts';
-import { getYourTurnResponses } from '@/app/actions/yourTurn';
-import { getLastCompletedPageIndex } from '@/app/actions/chapters';
-import { getSession } from '@/lib/auth/guards';
+import { getCachedChapterBundle, getCachedStepPages } from '@/lib/content/cache.server';
+import { getNextStep } from '@/lib/content/queries';
+import { getCachedGuidedFlowUserState, getCachedResumePosition } from '@/lib/content/guided-flow-loader.server';
 import DynamicChapterReadingClient from './DynamicChapterReadingClient';
 import ReadingErrorBoundary from '@/components/error/ReadingErrorBoundary';
 import ContentNotAvailable from '@/components/error/ContentNotAvailable';
@@ -22,7 +19,7 @@ export default async function DynamicChapterReadingPage({
 }) {
   const { chapterSlug } = await params;
 
-  // Use cached bundle (single query + 1hr cache)
+  // Use cached bundle (single query + 5min cache)
   const { chapter, steps } = await getCachedChapterBundle(chapterSlug);
   if (!chapter) redirect('/dashboard');
 
@@ -39,23 +36,22 @@ export default async function DynamicChapterReadingPage({
   }
 
   // Parallelize independent queries after chapter/step is known
-  const [pages, nextStep, { data: savedAnswers }, yourTurnByPrompt, session, resumePageIndex] = await Promise.all([
-    getStepPages(readStep.id),
+  // Use cached step pages instead of uncached getStepPages
+  const [pages, nextStep, userState] = await Promise.all([
+    getCachedStepPages(readStep.id),
     getNextStep(chapter.id, readStep.order_index),
-    getChapterPromptAnswers(chapter.chapter_number),
-    getYourTurnResponses(chapter.chapter_number),
-    getSession(),
-    getStepPages(readStep.id).then(stepPages => 
-      getLastCompletedPageIndex(readStep.id, stepPages.map(p => p.id))
-    ),
+    getCachedGuidedFlowUserState(chapter.chapter_number),
   ]);
 
-  const isAdmin = session?.role === 'admin';
+  // Get resume position using already-loaded pages
+  const resumePageIndex = await getCachedResumePosition(readStep.id, pages.map(p => p.id));
+
+  const { isAdmin, savedAnswers, yourTurnByPrompt } = userState;
 
   // Merge saved answers with yourTurn responses
   const mergedAnswers = {
-    ...(savedAnswers || {}),
-    ...(yourTurnByPrompt || {}),
+    ...savedAnswers,
+    ...yourTurnByPrompt,
   };
 
   if (!pages.length) {

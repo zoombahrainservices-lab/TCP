@@ -1,12 +1,13 @@
 import Link from 'next/link'
 import Card from '../ui/Card'
+import { getChapterSlug } from '@/lib/guided-book/navigation'
 
 export default function TodaysFocusCard({
   chapterNumber = 1,
   readTime = 7,
   progress = 55,
   xpAward = 70,
-  continueHref = `/read/chapter-${chapterNumber}`,
+  continueHref,
 }: {
   chapterNumber?: number
   readTime?: number
@@ -14,6 +15,7 @@ export default function TodaysFocusCard({
   xpAward?: number
   continueHref?: string
 }) {
+  const href = continueHref ?? `/read/${getChapterSlug(chapterNumber)}`
   return (
     <Card className="relative overflow-hidden">
       {/* Subtle gradient wash */}
@@ -63,7 +65,7 @@ export default function TodaysFocusCard({
         {/* Right: CTA + XP */}
         <div className="flex flex-col items-start sm:items-end gap-2 shrink-0 w-full sm:w-auto">
           <Link
-            href={continueHref}
+            href={href}
             className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-400 px-[clamp(16px,3vw,24px)] py-[clamp(10px,2vh,12px)] text-[clamp(12px,2vw,14px)] font-black text-white shadow-md hover:shadow-lg hover:brightness-105 transition-all whitespace-nowrap w-full sm:w-auto text-center"
           >
             Continue Chapter {chapterNumber} →

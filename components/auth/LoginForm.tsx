@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button'
 import LoadingButton from '@/components/ui/LoadingButton'
 import Input from '@/components/ui/Input'
 import { validatePassword } from '@/lib/utils/validation'
+import { usePrefetchReadingHub } from '@/lib/hooks/useGuidedFlowPreload'
 
 const SIGN_IN_ERROR =
   "We couldn't sign you in. Check your email and password and try again."
@@ -20,6 +21,9 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Prefetch reading hub to warm TCP entry point
+  usePrefetchReadingHub()
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,8 +60,6 @@ export default function LoginForm() {
       }
 
       router.push(data.redirectTo || '/dashboard')
-      // Prefetch reading hub route bundle for faster navigation
-      router.prefetch('/read')
     } catch {
       setError(SIGN_IN_ERROR)
       setLoading(false)

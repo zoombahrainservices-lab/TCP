@@ -38,7 +38,6 @@ export function LandingHeader({ revealOnScroll = false, revealed = true }: Landi
                 width={200}
                 height={40}
                 className="object-contain h-12 sm:h-16 w-auto dark:hidden"
-                priority
               />
               <Image
                 src="/TCP-logo-white.png"
@@ -46,7 +45,6 @@ export function LandingHeader({ revealOnScroll = false, revealed = true }: Landi
                 width={200}
                 height={40}
                 className="object-contain h-12 sm:h-16 w-auto hidden dark:block"
-                priority
               />
             </div>
           </Link>
