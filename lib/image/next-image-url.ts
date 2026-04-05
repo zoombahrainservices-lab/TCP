@@ -17,13 +17,13 @@
  * 
  * @param src - Source image URL (from Supabase or local)
  * @param width - Desired width (should match next/image's selection)
- * @param quality - Image quality (default: 75, matches Next.js default)
+ * @param quality - Image quality (default: 80, matches GuidedHeroImage)
  * @returns The actual URL that next/image will fetch
  */
 export function buildNextImageUrl(
   src: string,
   width: number = 1080,
-  quality: number = 75
+  quality: number = 80
 ): string {
   // For local images (starts with /), Next.js serves directly
   if (src.startsWith('/')) {
@@ -86,5 +86,5 @@ export function buildHeroImagePreloadUrl(src: string | null | undefined): string
   const cleanSrc = src.trim()
   const optimalWidth = getOptimalImageWidth()
 
-  return buildNextImageUrl(cleanSrc, optimalWidth, 75)
+  return buildNextImageUrl(cleanSrc, optimalWidth, 80)
 }

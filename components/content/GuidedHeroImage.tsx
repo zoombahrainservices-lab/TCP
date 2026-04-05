@@ -15,6 +15,12 @@ interface GuidedHeroImageProps {
 /**
  * Shared hero image component for guided-book flow.
  * Uses next/image for optimization with fallback gradient.
+ * 
+ * Optimized for fast loading:
+ * - Correct sizes attribute (hero images are full-width)
+ * - loading="eager" for current page (priority=true)
+ * - Smooth fade-in transition
+ * - Gradient placeholder prevents layout shift
  */
 export default function GuidedHeroImage({
   src,
@@ -67,7 +73,12 @@ export default function GuidedHeroImage({
           isLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         priority={priority}
-        sizes="(max-width: 1024px) 100vw, 50vw"
+        loading={priority ? 'eager' : 'lazy'}
+        // FIXED: Hero images are full-width, not 50vw
+        // This ensures next/image selects correct width (1080-1200 on desktop, 640-750 on mobile)
+        sizes="100vw"
+        // Quality 80 matches next.config.ts (was implicit 75)
+        quality={80}
         onLoad={handleLoad}
         onError={handleError}
       />
