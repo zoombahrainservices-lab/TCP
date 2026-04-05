@@ -149,7 +149,7 @@ export function useGuidedFlowPreload(config: GuidedFlowPrefetchConfig) {
 
   // Prefetch next page hero image (for n+1 preloading within step)
   usePrefetchImage(nextPageHeroImage || null, {
-    priority: 'medium',
+    priority: 'low',
     defer: true,
   })
 
@@ -229,7 +229,7 @@ export function usePrefetchGuidedStep(
   }, [chapterNumber, stepSlug, router])
 
   usePrefetchImage(heroImage || null, {
-    priority: 'medium',
+    priority: 'low',
     defer: true,
   })
 }
