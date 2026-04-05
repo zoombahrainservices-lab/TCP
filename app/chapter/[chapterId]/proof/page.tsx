@@ -11,8 +11,9 @@ import { saveIdentityResolutionForChapter1, type IdentityResolutionData } from '
 import { useClickSound } from '@/lib/hooks/useClickSound'
 import LoadingButton from '@/components/ui/LoadingButton'
 import AdminEditButton from '@/components/admin/AdminEditButton'
-import { getFollowThroughUrl } from '@/lib/guided-book/navigation'
-import { usePrefetchGuidedStep } from '@/lib/hooks/useGuidedFlowPreload'
+import { getFollowThroughUrl, getChapterSlug } from '@/lib/guided-book/navigation'
+import { useNextSectionPrefetch } from '@/lib/hooks/usePredictivePreload'
+import { getSectionImageUrlPrimary } from '@/lib/chapterImages'
 
 type ResolutionType = 'text' | 'image' | 'audio' | 'video'
 
@@ -99,8 +100,17 @@ export default function ResolutionPage({
     }
   }, [])
 
-  // Prefetch follow-through step
-  usePrefetchGuidedStep(chapterId, 'follow_through', null)
+  // Prefetch follow-through step with predictive preload
+  const followThroughUrl = getFollowThroughUrl(chapterId)
+  const followThroughHeroImage = getSectionImageUrlPrimary(chapterId, 'follow_through' as any)
+  
+  useNextSectionPrefetch({
+    currentSection: 'resolution',
+    nextSectionUrl: followThroughUrl,
+    chapterNumber: chapterId,
+    chapterSlug: getChapterSlug(chapterId),
+    nextSectionHeroImage: followThroughHeroImage,
+  })
 
   // ---------------------------------------------------------------------------
   // Dynamic Resolution Copy (chapter-specific)

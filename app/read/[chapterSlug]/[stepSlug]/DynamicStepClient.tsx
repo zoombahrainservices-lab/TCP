@@ -20,6 +20,8 @@ import { useClickSound } from '@/lib/hooks/useClickSound';
 import { playClickSound } from '@/lib/celebration/sounds';
 import { getSectionImageUrlPrimary, type SectionStepType } from '@/lib/chapterImages';
 import { useGuidedFlowPreload } from '@/lib/hooks/useGuidedFlowPreload';
+import { useNextSectionPrefetch } from '@/lib/hooks/usePredictivePreload';
+import { useOptimizedImagePreload } from '@/lib/hooks/useOptimizedImagePreload';
 
 // Helper to check if a string is a valid SectionStepType
 function isValidSectionStepType(slug: string): boolean {
@@ -129,7 +131,7 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     ? pages[nextPageIndex]?.hero_image_url || null
     : null;
 
-  // Use unified guided-flow preload
+  // Use unified guided-flow preload (for routes only, not images)
   useGuidedFlowPreload({
     chapterNumber: chapter.chapter_number,
     chapterSlug: chapter.slug,
@@ -140,6 +142,34 @@ export default function DynamicStepClient({ chapter, step, pages, nextStepSlug, 
     totalPages: pages.length,
     nextPageHeroImage: nextPageHeroImage,
     prefetchDashboard: true,
+  });
+
+  // ========================================================================
+  // OPTIMIZED IMAGE PRELOAD: Only for image-heavy sections
+  // (framework, techniques)
+  // ========================================================================
+  const isImageHeavy = step.step_type === 'framework' || step.step_type === 'techniques'
+  
+  useOptimizedImagePreload({
+    currentPage,
+    pages,
+    sectionType: step.step_type,
+    enabled: isImageHeavy,
+  });
+
+  // Prefetch next section route and hero image
+  // Get second image candidate for next section (if available)
+  const nextSectionSecondImage = nextPageIndex >= 0 && nextPageIndex < pages.length
+    ? pages[nextPageIndex]?.hero_image_url || null
+    : null;
+
+  useNextSectionPrefetch({
+    currentSection: step.step_type,
+    nextSectionUrl: nextUrl,
+    chapterNumber: chapter.chapter_number,
+    chapterSlug: chapter.slug,
+    nextSectionHeroImage: nextStepHeroImage,
+    nextSectionSecondImage: nextSectionSecondImage,
   });
 
   // Chapter reading PDF download URL

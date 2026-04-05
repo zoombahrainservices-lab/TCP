@@ -4,6 +4,7 @@ import { getCachedChapterReportsData, getCachedGamificationData, getDashboardCha
 import { getLevelThreshold } from '@/lib/gamification/math'
 import CurrentChapterSync from '@/components/dashboard/CurrentChapterSync'
 import SectionImagePrefetch from '@/components/dashboard/SectionImagePrefetch'
+import DashboardWarmupClient from '@/components/dashboard/DashboardWarmupClient'
 import TopHero from '@/components/dashboard/TopHero'
 import PageTransition from '@/components/ui/PageTransition'
 
@@ -60,6 +61,7 @@ export default async function DashboardPage() {
         <div className="mx-auto max-w-[1400px] gap-6 px-6 py-6">
           <CurrentChapterSync currentChapter={currentChapter} />
           <SectionImagePrefetch currentChapter={currentChapter} continueHref={continueHref} />
+          <DashboardWarmupClient currentChapter={currentChapter} />
           
           {/* Gamification Hero - Now renders immediately with prefetched data */}
           {gamificationResult.error && (

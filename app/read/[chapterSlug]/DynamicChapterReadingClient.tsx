@@ -14,6 +14,10 @@ import { celebrateSectionCompletion } from '@/lib/celebration/celebrate';
 import { writeQueue } from '@/lib/queue/WriteQueue';
 import { useClickSound } from '@/lib/hooks/useClickSound';
 import { useGuidedFlowPreload } from '@/lib/hooks/useGuidedFlowPreload';
+import { useNextSectionPrefetch } from '@/lib/hooks/usePredictivePreload';
+import { useNextSectionStarter } from '@/lib/hooks/useNextSectionStarter';
+import { useFastNavigation } from '@/lib/hooks/useFastNavigation';
+import { useOptimizedImagePreload } from '@/lib/hooks/useOptimizedImagePreload';
 import { getSectionImageUrlPrimary, type SectionStepType } from '@/lib/chapterImages';
 
 // Helper to check if a string is a valid SectionStepType
@@ -34,6 +38,7 @@ interface Props {
 
 export default function DynamicChapterReadingClient({ chapter, readingStep, pages, nextStepSlug, initialAnswers = {}, resumePageIndex, isAdmin = false }: Props) {
   const router = useRouter();
+  const { navigateWithTransition, isPending: isNavigating } = useFastNavigation();
   // Start at -1 to show cover page first (or resume if progress exists and no URL param)
   const [currentPage, setCurrentPage] = useState(-1);
   const [userResponses, setUserResponses] = useState<Record<string, any>>(initialAnswers);
@@ -53,7 +58,7 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     ? pages[nextPageIndex]?.hero_image_url || null
     : null;
 
-  // Use unified guided-flow preload
+  // Use unified guided-flow preload (for routes only, not images)
   useGuidedFlowPreload({
     chapterNumber: chapter.chapter_number,
     chapterSlug: chapter.slug,
@@ -64,6 +69,42 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
     totalPages: pages.length,
     nextPageHeroImage: nextPageHeroImage,
     prefetchDashboard: true,
+  });
+
+  // ========================================================================
+  // OPTIMIZED IMAGE PRELOAD: Single source of truth for page image preload
+  // Replaces: usePageImagePreload(), useActiveSectionWindow()
+  // ========================================================================
+  useOptimizedImagePreload({
+    currentPage,
+    pages,
+    sectionType: 'read',
+    enabled: true,
+  });
+
+  // Prefetch next section route and hero image
+  const nextUrl = nextStepSlug
+    ? nextStepSlug === 'resolution'
+      ? `/chapter/${chapter.chapter_number}/proof`
+      : `/read/${chapter.slug}/${nextStepSlug}`
+    : null;
+
+  useNextSectionPrefetch({
+    currentSection: 'read',
+    nextSectionUrl: nextUrl,
+    chapterNumber: chapter.chapter_number,
+    chapterSlug: chapter.slug,
+    nextSectionHeroImage: nextStepHeroImage,
+  });
+
+  // ENHANCED: Use next section starter for comprehensive warmup
+  useNextSectionStarter({
+    currentSection: 'read',
+    nextSectionUrl: nextUrl,
+    chapterNumber: chapter.chapter_number,
+    chapterSlug: chapter.slug,
+    nextSectionHeroImage: nextStepHeroImage,
+    enabled: true,
   });
 
   // Initial page from ?page= or one-time resume (do not re-apply resume when URL is cleared after navigation)
@@ -104,7 +145,7 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
   };
 
   const handleNextCore = async () => {
-    if (isProcessing) return;
+    if (isProcessing || isNavigating) return;
 
     // If on cover page (-1), just move to first actual page (0)
     if (currentPage === -1) {
@@ -154,23 +195,23 @@ export default function DynamicChapterReadingClient({ chapter, readingStep, page
             title: 'Reading Complete!',
           });
 
-          // Navigate immediately - celebration will overlay during transition
-          router.push(nextUrl);
+          // Use fast navigation for instant UI response
+          navigateWithTransition(nextUrl);
           setIsProcessing(false);
         } else {
-          // If completion failed, still navigate
-          router.push(nextUrl);
+          // If completion failed, still navigate with fast transition
+          navigateWithTransition(nextUrl);
           setIsProcessing(false);
         }
       } catch (error) {
         console.error('Error completing section:', error);
-        // Still navigate on error
+        // Still navigate on error with fast transition
         const nextUrl = nextStepSlug
           ? nextStepSlug === 'resolution'
             ? `/chapter/${chapter.chapter_number}/proof`
             : `/read/${chapter.slug}/${nextStepSlug}`
           : '/dashboard';
-        router.push(nextUrl);
+        navigateWithTransition(nextUrl);
         setIsProcessing(false);
       }
     } else {
