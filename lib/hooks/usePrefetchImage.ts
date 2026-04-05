@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
+import { tryPrefetch } from '@/lib/prefetch/clientPrefetchCache';
 
 type PrefetchPriority = 'high' | 'low' | 'auto';
 
@@ -86,23 +87,24 @@ export function usePrefetchImage(src?: string | null, options?: PrefetchOptions)
 
     let preload: HTMLLinkElement | null = null;
 
-    const scheduled = scheduleTask(() => {
-      if (usePreload) {
-        preload = document.createElement('link');
-        preload.rel = 'preload';
-        preload.as = 'image';
-        preload.href = src;
-        document.head.appendChild(preload);
-      }
+    // Use global dedup cache to avoid redundant prefetch across component instances
+    tryPrefetch(src, () => {
+      const scheduled = scheduleTask(() => {
+        if (usePreload) {
+          preload = document.createElement('link');
+          preload.rel = 'preload';
+          preload.as = 'image';
+          preload.href = src;
+          document.head.appendChild(preload);
+        }
 
-      createImageRequest(src, priority);
-    }, defer);
+        createImageRequest(src, priority);
+      }, defer);
 
-    scheduled.run();
+      scheduled.run();
+    });
 
     return () => {
-      scheduled.cancel();
-
       // Clean up preload link when component unmounts or src changes
       if (preload && document.head.contains(preload)) {
         document.head.removeChild(preload);
@@ -128,25 +130,28 @@ export function usePrefetchImages(srcs: (string | null | undefined)[], options?:
     if (validSrcs.length === 0) return;
 
     const preloadLinks: HTMLLinkElement[] = [];
-    const scheduled = scheduleTask(() => {
-      validSrcs.forEach((src) => {
-        if (usePreload) {
-          const preload = document.createElement('link');
-          preload.rel = 'preload';
-          preload.as = 'image';
-          preload.href = src;
-          document.head.appendChild(preload);
-          preloadLinks.push(preload);
-        }
+    
+    // Use global dedup cache for each image to avoid redundant prefetch
+    validSrcs.forEach((src) => {
+      tryPrefetch(src, () => {
+        const scheduled = scheduleTask(() => {
+          if (usePreload) {
+            const preload = document.createElement('link');
+            preload.rel = 'preload';
+            preload.as = 'image';
+            preload.href = src;
+            document.head.appendChild(preload);
+            preloadLinks.push(preload);
+          }
 
-        createImageRequest(src, priority);
+          createImageRequest(src, priority);
+        }, defer);
+
+        scheduled.run();
       });
-    }, defer);
-
-    scheduled.run();
+    });
 
     return () => {
-      scheduled.cancel();
       preloadLinks.forEach((preload) => {
         if (document.head.contains(preload)) {
           document.head.removeChild(preload);

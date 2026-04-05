@@ -56,6 +56,8 @@ export default function LoginForm() {
       }
 
       router.push(data.redirectTo || '/dashboard')
+      // Prefetch reading hub route bundle for faster navigation
+      router.prefetch('/read')
     } catch {
       setError(SIGN_IN_ERROR)
       setLoading(false)

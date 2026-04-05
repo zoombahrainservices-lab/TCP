@@ -162,7 +162,10 @@ export function HeroSection({ buttonsRef }: HeroSectionProps) {
             </p>
 
             <p className="text-base sm:text-lg text-[#0073ba] dark:text-[#4bc4dc] leading-relaxed max-w-xl mx-auto lg:mx-0">
-              TCP is a system that helps you communicate clearly  so people understand you, respect you, and take you seriously.
+              TCP is a system that helps you communicate clearly so people{' '}
+              <span className="font-semibold text-[#ff6a38] dark:text-[#ff8a5c]">
+                understand you, respect you, and take you seriously.
+              </span>
             </p>
 
             <div ref={buttonsRef} className="flex flex-col gap-4 items-center lg:items-start pt-2 sm:pt-4">

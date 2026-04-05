@@ -1,6 +1,7 @@
 'use client'
 
 import { motion, useInView } from 'framer-motion'
+import Image from 'next/image'
 import { useRef } from 'react'
 
 const features = [
@@ -56,53 +57,23 @@ const previews = [
     label: 'Learn',
     title: 'Lesson View',
     description: 'Where you learn from a real scenario.',
-    mock: (
-      <div className="flex flex-col gap-2 p-4 h-full justify-center">
-        <div className="h-2 w-3/4 rounded-full bg-[#0770C4]/25 dark:bg-[#51BFE3]/30" />
-        <div className="h-2 w-full rounded-full bg-gray-200/80 dark:bg-white/15" />
-        <div className="h-2 w-5/6 rounded-full bg-gray-200/80 dark:bg-white/15" />
-        <div className="mt-3 self-end max-w-[85%] rounded-2xl rounded-tr-sm bg-[#0770C4]/15 dark:bg-[#51BFE3]/20 px-3 py-2">
-          <div className="h-1.5 w-24 rounded-full bg-[#0770C4]/40 dark:bg-[#51BFE3]/50" />
-        </div>
-        <div className="self-start max-w-[80%] rounded-2xl rounded-tl-sm bg-gray-200/60 dark:bg-white/10 px-3 py-2">
-          <div className="h-1.5 w-28 rounded-full bg-gray-400/50 dark:bg-white/25" />
-        </div>
-      </div>
-    ),
+    imageSrc: '/image.png',
+    imageAlt: 'TCP lesson view with reading content, illustration, and chapter progress',
   },
   {
     label: 'Save',
     title: 'Tool Card',
     description: 'Where you save a framework or script.',
-    mock: (
-      <div className="p-4 h-full flex items-center justify-center">
-        <div className="w-full rounded-xl border-2 border-dashed border-[#0770C4]/35 dark:border-[#51BFE3]/40 bg-white/60 dark:bg-[#0d2138]/80 p-4 shadow-sm">
-          <div className="h-2 w-1/3 rounded-full bg-[#ff6a38]/40 mb-3" />
-          <div className="space-y-2">
-            <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-white/15" />
-            <div className="h-1.5 w-11/12 rounded-full bg-gray-200 dark:bg-white/15" />
-            <div className="h-1.5 w-4/5 rounded-full bg-gray-200 dark:bg-white/15" />
-          </div>
-        </div>
-      </div>
-    ),
+    imageSrc: '/chapter/image.png',
+    imageAlt: 'TCP framework tool card with SIGNAL steps and lesson navigation',
   },
   {
     label: 'Use',
     title: 'Progress View',
     description: 'Where you see what you’re improving.',
-    mock: (
-      <div className="flex flex-col gap-3 p-5 h-full justify-center">
-        <div className="flex items-end gap-2 h-24">
-          <div className="flex-1 rounded-t-md bg-[#0770C4]/30 dark:bg-[#51BFE3]/35 h-[45%]" />
-          <div className="flex-1 rounded-t-md bg-[#0770C4]/45 dark:bg-[#51BFE3]/50 h-[70%]" />
-          <div className="flex-1 rounded-t-md bg-[#ff6a38]/40 h-[55%]" />
-          <div className="flex-1 rounded-t-md bg-[#0770C4]/55 dark:bg-[#51BFE3]/60 h-[90%]" />
-        </div>
-        <div className="h-1.5 w-full rounded-full bg-gray-200/80 dark:bg-white/10" />
-        <div className="h-1.5 w-4/5 rounded-full bg-gray-200/80 dark:bg-white/10" />
-      </div>
-    ),
+    /** Filename has a space — encode for the URL */
+    imageSrc: '/image%20copy.png',
+    imageAlt: 'TCP dashboard progress view with Today’s Focus, streak, and quick stats',
   },
 ] as const
 
@@ -171,7 +142,15 @@ export function FeaturesSection() {
                   <span className="absolute top-3 left-3 z-10 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#0770C4] text-white dark:bg-[#51BFE3] dark:text-[#0d2138]">
                     {item.label}
                   </span>
-                  <div className="absolute inset-0 pt-10">{item.mock}</div>
+                  <div className="absolute inset-0 top-10">
+                    <Image
+                      src={item.imageSrc}
+                      alt={item.imageAlt}
+                      fill
+                      className="object-cover object-top"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
+                  </div>
                 </div>
                 <h4 className="mt-4 text-lg font-bold text-[#142A4A] dark:text-white">{item.title}</h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{item.description}</p>

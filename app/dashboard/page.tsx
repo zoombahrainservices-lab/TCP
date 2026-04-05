@@ -41,6 +41,11 @@ export default async function DashboardPage() {
   const currentChapter = getCurrentChapterFromReports(publishedChapters, progressList)
   const currentChapterMeta = publishedChapters.find(c => c.chapter_number === currentChapter) ?? publishedChapters[0]
 
+  // Compute continue href for preloading
+  const continueHref = currentChapterMeta?.slug
+    ? `/read/${currentChapterMeta.slug}`
+    : '/read'
+
   // Extract gamification data
   const totalXP = gamificationResult.data?.total_xp ?? 0
   const level = gamificationResult.data?.level ?? 1
@@ -54,7 +59,7 @@ export default async function DashboardPage() {
       <div className="min-h-full">
         <div className="mx-auto max-w-[1400px] gap-6 px-6 py-6">
           <CurrentChapterSync currentChapter={currentChapter} />
-          <SectionImagePrefetch currentChapter={currentChapter} />
+          <SectionImagePrefetch currentChapter={currentChapter} continueHref={continueHref} />
           
           {/* Gamification Hero - Now renders immediately with prefetched data */}
           {gamificationResult.error && (

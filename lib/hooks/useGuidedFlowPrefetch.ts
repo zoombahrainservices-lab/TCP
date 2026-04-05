@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePrefetchImage } from './usePrefetchImage';
+import { tryPrefetch } from '@/lib/prefetch/clientPrefetchCache';
 
 interface GuidedFlowPrefetchOptions {
   /** Current chapter number */
@@ -30,17 +31,21 @@ export function useGuidedFlowPrefetch({
 }: GuidedFlowPrefetchOptions) {
   const router = useRouter();
 
-  // Prefetch next section route
+  // Prefetch next section route with global dedup
   useEffect(() => {
     if (nextUrl) {
-      router.prefetch(nextUrl);
+      tryPrefetch(nextUrl, () => {
+        router.prefetch(nextUrl);
+      });
     }
   }, [router, nextUrl]);
 
-  // Prefetch dashboard when near end
+  // Prefetch dashboard when near end with global dedup
   useEffect(() => {
     if (prefetchDashboard && isNearEnd) {
-      router.prefetch('/dashboard');
+      tryPrefetch('/dashboard', () => {
+        router.prefetch('/dashboard');
+      });
     }
   }, [router, prefetchDashboard, isNearEnd]);
 
